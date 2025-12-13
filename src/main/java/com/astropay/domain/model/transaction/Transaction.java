@@ -12,6 +12,11 @@ import java.util.UUID;
 
 @Entity
 @Table(name = "tb_transaction",
+       indexes = {
+           @Index(name = "idx_transaction_sender", columnList = "sender_account_id"),
+           @Index(name = "idx_transaction_receiver", columnList = "receiver_account_id"),
+           @Index(name = "idx_transaction_created_at", columnList = "createdAt")
+       },
        uniqueConstraints = @UniqueConstraint(columnNames = "idempotencyKey", name = "uk_transaction_idempotency"))
 @EntityListeners(AuditingEntityListener.class)
 public class Transaction {
