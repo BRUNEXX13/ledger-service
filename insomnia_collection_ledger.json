@@ -1,0 +1,450 @@
+{
+  "_type": "export",
+  "__export_format": 4,
+  "__export_date": "2024-05-22T14:00:00.000Z",
+  "__export_source": "insomnia.desktop.app:v2023.5.8",
+  "resources": [
+    {
+      "_id": "wrk_ledger_complete",
+      "parentId": null,
+      "modified": 1716390000000,
+      "created": 1716390000000,
+      "name": "Ledger Service - Complete Suite",
+      "description": "Full API coverage: Users, Accounts, Transfers, Transactions + Observability",
+      "scope": "collection",
+      "_type": "workspace"
+    },
+    {
+      "_id": "env_ledger_local",
+      "parentId": "wrk_ledger_complete",
+      "modified": 1716390000000,
+      "created": 1716390000000,
+      "name": "Localhost (8082)",
+      "data": {
+        "base_url": "http://localhost:8082/api/v1"
+      },
+      "dataPropertyOrder": {
+        "&": [
+          "base_url"
+        ]
+      },
+      "color": "#5e6ad2",
+      "isPrivate": false,
+      "metaSortKey": 1716390000000,
+      "_type": "environment"
+    },
+    {
+      "_id": "fld_users",
+      "parentId": "wrk_ledger_complete",
+      "modified": 1716390000000,
+      "created": 1716390000000,
+      "name": "1. Users Management",
+      "description": "CRUD operations for Users",
+      "_type": "request_group"
+    },
+    {
+      "_id": "req_create_admin",
+      "parentId": "fld_users",
+      "modified": 1716390000000,
+      "created": 1716390000000,
+      "url": "{{ _.base_url }}/users",
+      "name": "Create User (ADMIN)",
+      "description": "Creates the first user as ADMIN.",
+      "method": "POST",
+      "body": {
+        "mimeType": "application/json",
+        "text": "{\n\t\"name\": \"Admin User\",\n\t\"document\": \"00011122233\",\n\t\"email\": \"admin@astropay.com\",\n\t\"role\": \"ROLE_ADMIN\"\n}"
+      },
+      "parameters": [],
+      "headers": [
+        {
+          "name": "Content-Type",
+          "value": "application/json"
+        }
+      ],
+      "authentication": {},
+      "metaSortKey": 100,
+      "_type": "request"
+    },
+    {
+      "_id": "req_create_user1",
+      "parentId": "fld_users",
+      "modified": 1716390000000,
+      "created": 1716390000000,
+      "url": "{{ _.base_url }}/users",
+      "name": "Create User 1 (Sender)",
+      "description": "Creates a standard user.",
+      "method": "POST",
+      "body": {
+        "mimeType": "application/json",
+        "text": "{\n\t\"name\": \"John Doe\",\n\t\"document\": \"11122233344\",\n\t\"email\": \"john.doe@example.com\",\n\t\"role\": \"ROLE_EMPLOYEE\"\n}"
+      },
+      "parameters": [],
+      "headers": [
+        {
+          "name": "Content-Type",
+          "value": "application/json"
+        }
+      ],
+      "authentication": {},
+      "metaSortKey": 200,
+      "_type": "request"
+    },
+    {
+      "_id": "req_create_user2",
+      "parentId": "fld_users",
+      "modified": 1716390000000,
+      "created": 1716390000000,
+      "url": "{{ _.base_url }}/users",
+      "name": "Create User 2 (Receiver)",
+      "description": "Creates another standard user.",
+      "method": "POST",
+      "body": {
+        "mimeType": "application/json",
+        "text": "{\n\t\"name\": \"Jane Smith\",\n\t\"document\": \"55566677788\",\n\t\"email\": \"jane.smith@example.com\",\n\t\"role\": \"ROLE_EMPLOYEE\"\n}"
+      },
+      "parameters": [],
+      "headers": [
+        {
+          "name": "Content-Type",
+          "value": "application/json"
+        }
+      ],
+      "authentication": {},
+      "metaSortKey": 300,
+      "_type": "request"
+    },
+    {
+      "_id": "req_list_users",
+      "parentId": "fld_users",
+      "modified": 1716390000000,
+      "created": 1716390000000,
+      "url": "{{ _.base_url }}/users",
+      "name": "List All Users",
+      "method": "GET",
+      "body": {},
+      "parameters": [],
+      "headers": [],
+      "authentication": {},
+      "metaSortKey": 400,
+      "_type": "request"
+    },
+    {
+      "_id": "req_get_user",
+      "parentId": "fld_users",
+      "modified": 1716390000000,
+      "created": 1716390000000,
+      "url": "{{ _.base_url }}/users/1",
+      "name": "Get User by ID",
+      "method": "GET",
+      "body": {},
+      "parameters": [],
+      "headers": [],
+      "authentication": {},
+      "metaSortKey": 500,
+      "_type": "request"
+    },
+    {
+      "_id": "req_update_user",
+      "parentId": "fld_users",
+      "modified": 1716390000000,
+      "created": 1716390000000,
+      "url": "{{ _.base_url }}/users/2",
+      "name": "Update User (PUT)",
+      "description": "Requires X-User-Id header (Simulating Admin ID 1).",
+      "method": "PUT",
+      "body": {
+        "mimeType": "application/json",
+        "text": "{\n\t\"name\": \"John Updated\",\n\t\"email\": \"john.new@example.com\",\n\t\"role\": \"ROLE_MANAGER\"\n}"
+      },
+      "parameters": [],
+      "headers": [
+        {
+          "name": "Content-Type",
+          "value": "application/json"
+        },
+        {
+          "name": "X-User-Id",
+          "value": "1",
+          "description": "ID of the user performing the action"
+        }
+      ],
+      "authentication": {},
+      "metaSortKey": 600,
+      "_type": "request"
+    },
+    {
+      "_id": "req_patch_user",
+      "parentId": "fld_users",
+      "modified": 1716390000000,
+      "created": 1716390000000,
+      "url": "{{ _.base_url }}/users/2",
+      "name": "Patch User (Block/Activate)",
+      "description": "Partially updates user status.",
+      "method": "PATCH",
+      "body": {
+        "mimeType": "application/json",
+        "text": "{\n\t\"status\": \"BLOCKED\"\n}"
+      },
+      "parameters": [],
+      "headers": [
+        {
+          "name": "Content-Type",
+          "value": "application/json"
+        },
+        {
+          "name": "X-User-Id",
+          "value": "1",
+          "description": "ID of the user performing the action"
+        }
+      ],
+      "authentication": {},
+      "metaSortKey": 700,
+      "_type": "request"
+    },
+    {
+      "_id": "req_delete_user",
+      "parentId": "fld_users",
+      "modified": 1716390000000,
+      "created": 1716390000000,
+      "url": "{{ _.base_url }}/users/3",
+      "name": "Delete User",
+      "method": "DELETE",
+      "body": {},
+      "parameters": [],
+      "headers": [],
+      "authentication": {},
+      "metaSortKey": 800,
+      "_type": "request"
+    },
+    {
+      "_id": "fld_accounts",
+      "parentId": "wrk_ledger_complete",
+      "modified": 1716390000000,
+      "created": 1716390000000,
+      "name": "2. Accounts Management",
+      "description": "CRUD operations for Accounts",
+      "_type": "request_group"
+    },
+    {
+      "_id": "req_create_account1",
+      "parentId": "fld_accounts",
+      "modified": 1716390000000,
+      "created": 1716390000000,
+      "url": "{{ _.base_url }}/accounts",
+      "name": "Create Account (User 2)",
+      "description": "Creates account for User ID 2 with initial balance.",
+      "method": "POST",
+      "body": {
+        "mimeType": "application/json",
+        "text": "{\n\t\"userId\": 2,\n\t\"initialBalance\": 1000.00\n}"
+      },
+      "parameters": [],
+      "headers": [
+        {
+          "name": "Content-Type",
+          "value": "application/json"
+        }
+      ],
+      "authentication": {},
+      "metaSortKey": 100,
+      "_type": "request"
+    },
+    {
+      "_id": "req_create_account2",
+      "parentId": "fld_accounts",
+      "modified": 1716390000000,
+      "created": 1716390000000,
+      "url": "{{ _.base_url }}/accounts",
+      "name": "Create Account (User 3)",
+      "description": "Creates account for User ID 3 with initial balance.",
+      "method": "POST",
+      "body": {
+        "mimeType": "application/json",
+        "text": "{\n\t\"userId\": 3,\n\t\"initialBalance\": 500.00\n}"
+      },
+      "parameters": [],
+      "headers": [
+        {
+          "name": "Content-Type",
+          "value": "application/json"
+        }
+      ],
+      "authentication": {},
+      "metaSortKey": 200,
+      "_type": "request"
+    },
+    {
+      "_id": "req_list_accounts",
+      "parentId": "fld_accounts",
+      "modified": 1716390000000,
+      "created": 1716390000000,
+      "url": "{{ _.base_url }}/accounts",
+      "name": "List All Accounts",
+      "method": "GET",
+      "body": {},
+      "parameters": [],
+      "headers": [],
+      "authentication": {},
+      "metaSortKey": 300,
+      "_type": "request"
+    },
+    {
+      "_id": "req_get_account",
+      "parentId": "fld_accounts",
+      "modified": 1716390000000,
+      "created": 1716390000000,
+      "url": "{{ _.base_url }}/accounts/1",
+      "name": "Get Account by ID",
+      "method": "GET",
+      "body": {},
+      "parameters": [],
+      "headers": [],
+      "authentication": {},
+      "metaSortKey": 400,
+      "_type": "request"
+    },
+    {
+      "_id": "req_update_account",
+      "parentId": "fld_accounts",
+      "modified": 1716390000000,
+      "created": 1716390000000,
+      "url": "{{ _.base_url }}/accounts/1",
+      "name": "Update Account Balance",
+      "description": "Admin adjustment of balance.",
+      "method": "PUT",
+      "body": {
+        "mimeType": "application/json",
+        "text": "{\n\t\"balance\": 1500.00\n}"
+      },
+      "parameters": [],
+      "headers": [
+        {
+          "name": "Content-Type",
+          "value": "application/json"
+        }
+      ],
+      "authentication": {},
+      "metaSortKey": 500,
+      "_type": "request"
+    },
+    {
+      "_id": "req_inactivate_account",
+      "parentId": "fld_accounts",
+      "modified": 1716390000000,
+      "created": 1716390000000,
+      "url": "{{ _.base_url }}/accounts/1",
+      "name": "Inactivate Account (Soft Delete)",
+      "description": "Only works if balance is 0.",
+      "method": "DELETE",
+      "body": {},
+      "parameters": [],
+      "headers": [],
+      "authentication": {},
+      "metaSortKey": 600,
+      "_type": "request"
+    },
+    {
+      "_id": "fld_transfers",
+      "parentId": "wrk_ledger_complete",
+      "modified": 1716390000000,
+      "created": 1716390000000,
+      "name": "3. Transfers & Transactions",
+      "description": "Money movement and history",
+      "_type": "request_group"
+    },
+    {
+      "_id": "req_transfer",
+      "parentId": "fld_transfers",
+      "modified": 1716390000000,
+      "created": 1716390000000,
+      "url": "{{ _.base_url }}/transfers",
+      "name": "Make Transfer",
+      "description": "Transfers money between Account 1 and Account 2.",
+      "method": "POST",
+      "body": {
+        "mimeType": "application/json",
+        "text": "{\n\t\"senderAccountId\": 1,\n\t\"receiverAccountId\": 2,\n\t\"amount\": 100.00,\n\t\"idempotencyKey\": \"{% uuid 'v4' %}\"\n}"
+      },
+      "parameters": [],
+      "headers": [
+        {
+          "name": "Content-Type",
+          "value": "application/json"
+        }
+      ],
+      "authentication": {},
+      "metaSortKey": 100,
+      "_type": "request"
+    },
+    {
+      "_id": "req_list_transactions",
+      "parentId": "fld_transfers",
+      "modified": 1716390000000,
+      "created": 1716390000000,
+      "url": "{{ _.base_url }}/transactions",
+      "name": "List All Transactions",
+      "method": "GET",
+      "body": {},
+      "parameters": [],
+      "headers": [],
+      "authentication": {},
+      "metaSortKey": 200,
+      "_type": "request"
+    },
+    {
+      "_id": "req_get_transaction",
+      "parentId": "fld_transfers",
+      "modified": 1716390000000,
+      "created": 1716390000000,
+      "url": "{{ _.base_url }}/transactions/1",
+      "name": "Get Transaction by ID",
+      "method": "GET",
+      "body": {},
+      "parameters": [],
+      "headers": [],
+      "authentication": {},
+      "metaSortKey": 300,
+      "_type": "request"
+    },
+    {
+      "_id": "fld_observability",
+      "parentId": "wrk_ledger_complete",
+      "modified": 1716390000000,
+      "created": 1716390000000,
+      "name": "4. Observability",
+      "description": "Actuator Endpoints",
+      "_type": "request_group"
+    },
+    {
+      "_id": "req_health",
+      "parentId": "fld_observability",
+      "modified": 1716390000000,
+      "created": 1716390000000,
+      "url": "{{ _.base_url }}/actuator/health",
+      "name": "Health Check",
+      "method": "GET",
+      "body": {},
+      "parameters": [],
+      "headers": [],
+      "authentication": {},
+      "metaSortKey": 100,
+      "_type": "request"
+    },
+    {
+      "_id": "req_metrics",
+      "parentId": "fld_observability",
+      "modified": 1716390000000,
+      "created": 1716390000000,
+      "url": "{{ _.base_url }}/actuator/prometheus",
+      "name": "Prometheus Metrics",
+      "method": "GET",
+      "body": {},
+      "parameters": [],
+      "headers": [],
+      "authentication": {},
+      "metaSortKey": 200,
+      "_type": "request"
+    }
+  ]
+}

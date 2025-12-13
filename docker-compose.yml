@@ -1,0 +1,69 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:15-alpine
+    container_name: ledger-postgres
+    environment:
+      - POSTGRES_DB=ledger-service
+      - POSTGRES_USER=ledger-service
+      - POSTGRES_PASSWORD=123456
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - ledger-network
+
+  ledger-service:
+    container_name: ledger-service-app
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "8082:8082" # Expondo a porta da aplicação
+    depends_on:
+      - postgres
+    environment:
+      # Conexão com o banco de dados dentro da rede Docker
+      - SPRING_DATASOURCE_URL=jdbc:postgresql://postgres:5432/ledger-service
+      - SPRING_DATASOURCE_USERNAME=ledger-service
+      - SPRING_DATASOURCE_PASSWORD=123456
+      - SPRING_JPA_HIBERNATE_DDL_AUTO=create-drop
+      # Chave da API do Datadog (Substitua ou use um arquivo .env)
+      # - DATADOG_API_KEY=<SUA_DATADOG_API_KEY_AQUI>
+    networks:
+      - ledger-network
+
+  prometheus:
+    image: prom/prometheus:v2.45.0
+    container_name: prometheus
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+    networks:
+      - ledger-network
+
+  grafana:
+    image: grafana/grafana:9.5.3
+    container_name: grafana
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./grafana.ini:/etc/grafana/grafana.ini
+      - ./grafana-datasources.yml:/etc/grafana/provisioning/datasources/datasources.yaml
+    depends_on:
+      - prometheus
+    networks:
+      - ledger-network
+
+networks:
+  ledger-network:
+    driver: bridge
+
+volumes:
+  postgres_data:
+    driver: local

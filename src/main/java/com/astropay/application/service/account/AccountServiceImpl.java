@@ -1,0 +1,84 @@
+package com.astropay.application.service.account;
+
+import com.astropay.application.controller.account.mapper.AccountMapper;
+import com.astropay.application.dto.request.account.CreateAccountRequest;
+import com.astropay.application.dto.request.account.UpdateAccountRequest;
+import com.astropay.application.dto.response.account.AccountResponse;
+import com.astropay.application.service.account.port.in.AccountService;
+import com.astropay.domain.model.account.Account;
+import com.astropay.domain.model.account.AccountRepository;
+import com.astropay.domain.model.user.User;
+import com.astropay.domain.model.user.UserRepository;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.math.BigDecimal;
+
+@Service
+@Transactional
+public class AccountServiceImpl implements AccountService {
+
+    private final AccountRepository accountRepository;
+    private final UserRepository userRepository;
+    private final AccountMapper accountMapper;
+
+    public AccountServiceImpl(AccountRepository accountRepository, UserRepository userRepository, AccountMapper accountMapper) {
+        this.accountRepository = accountRepository;
+        this.userRepository = userRepository;
+        this.accountMapper = accountMapper;
+    }
+
+    @Override
+    public AccountResponse createAccount(CreateAccountRequest request) {
+        User user = userRepository.findById(request.userId())
+            .orElseThrow(() -> new RuntimeException("User not found with id: " + request.userId()));
+
+        if (accountRepository.findByUser_Id(request.userId()).isPresent()) {
+            throw new IllegalArgumentException("User already has an account.");
+        }
+
+        BigDecimal initialBalance = request.initialBalance() != null ? request.initialBalance() : BigDecimal.ZERO;
+        Account newAccount = new Account(user, initialBalance);
+        
+        Account savedAccount = accountRepository.save(newAccount);
+        return accountMapper.toAccountResponse(savedAccount);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public AccountResponse findAccountById(Long id) {
+        return accountRepository.findById(id)
+            .map(accountMapper::toAccountResponse)
+            .orElseThrow(() -> new RuntimeException("Account not found with id: " + id));
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public Page<AccountResponse> findAllAccounts(Pageable pageable) {
+        return accountRepository.findAll(pageable)
+            .map(accountMapper::toAccountResponse);
+    }
+
+    @Override
+    public AccountResponse updateAccount(Long id, UpdateAccountRequest request) {
+        Account account = accountRepository.findByIdForUpdate(id)
+            .orElseThrow(() -> new RuntimeException("Account not found with id: " + id));
+        
+        account.adjustBalance(request.balance());
+
+        Account updatedAccount = accountRepository.save(account);
+        return accountMapper.toAccountResponse(updatedAccount);
+    }
+
+    @Override
+    public void inactivateAccount(Long id) {
+        Account account = accountRepository.findByIdForUpdate(id)
+            .orElseThrow(() -> new RuntimeException("Account not found with id: " + id));
+        
+        account.inactivate();
+        
+        accountRepository.save(account);
+    }
+}

@@ -1,0 +1,9 @@
+apiVersion: 1
+
+datasources:
+  - name: Prometheus
+    type: prometheus
+    access: proxy
+    url: http://prometheus:9090 # Nome do serviço Prometheus no Docker Compose
+    isDefault: true
+    editable: true
