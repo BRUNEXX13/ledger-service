@@ -1,0 +1,7 @@
+init_config:
+
+instances:
+  - prometheus_url: http://host.docker.internal:8082/api/v1/actuator/prometheus
+    namespace: ledgerservice_local
+    metrics:
+      - "*"

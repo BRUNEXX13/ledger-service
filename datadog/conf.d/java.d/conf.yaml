@@ -1,0 +1,6 @@
+logs:
+  - type: file
+    path: "/app/logs/ledger-service.json"
+    service: "ledger-service"
+    source: "java"
+    sourcecategory: "sourcecode"

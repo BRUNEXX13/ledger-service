@@ -4,6 +4,7 @@ import com.astropay.application.controller.transaction.mapper.TransactionMapper;
 import com.astropay.application.dto.response.transaction.TransactionResponse;
 import com.astropay.application.service.transaction.port.in.TransactionService;
 import com.astropay.domain.model.transaction.TransactionRepository;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
@@ -28,6 +29,7 @@ public class TransactionServiceImpl implements TransactionService {
     }
 
     @Override
+    @Cacheable(value = "transactions", key = "#id")
     public TransactionResponse findTransactionById(Long id) {
         return transactionRepository.findById(id)
             .map(transactionMapper::toTransactionResponse)

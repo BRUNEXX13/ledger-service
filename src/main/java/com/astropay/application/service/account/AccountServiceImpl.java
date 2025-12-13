@@ -9,6 +9,9 @@ import com.astropay.domain.model.account.Account;
 import com.astropay.domain.model.account.AccountRepository;
 import com.astropay.domain.model.user.User;
 import com.astropay.domain.model.user.UserRepository;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.CachePut;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
@@ -19,6 +22,8 @@ import java.math.BigDecimal;
 @Service
 @Transactional
 public class AccountServiceImpl implements AccountService {
+
+    private static final String ACCOUNT_NOT_FOUND_ID = "Account not found with id: ";
 
     private final AccountRepository accountRepository;
     private final UserRepository userRepository;
@@ -48,10 +53,11 @@ public class AccountServiceImpl implements AccountService {
 
     @Override
     @Transactional(readOnly = true)
+    @Cacheable(value = "accounts", key = "#id")
     public AccountResponse findAccountById(Long id) {
         return accountRepository.findById(id)
             .map(accountMapper::toAccountResponse)
-            .orElseThrow(() -> new RuntimeException("Account not found with id: " + id));
+            .orElseThrow(() -> new RuntimeException(ACCOUNT_NOT_FOUND_ID + id));
     }
 
     @Override
@@ -62,9 +68,10 @@ public class AccountServiceImpl implements AccountService {
     }
 
     @Override
+    @CachePut(value = "accounts", key = "#id")
     public AccountResponse updateAccount(Long id, UpdateAccountRequest request) {
         Account account = accountRepository.findByIdForUpdate(id)
-            .orElseThrow(() -> new RuntimeException("Account not found with id: " + id));
+            .orElseThrow(() -> new RuntimeException(ACCOUNT_NOT_FOUND_ID + id));
         
         account.adjustBalance(request.balance());
 
@@ -73,9 +80,10 @@ public class AccountServiceImpl implements AccountService {
     }
 
     @Override
+    @CacheEvict(value = "accounts", key = "#id")
     public void inactivateAccount(Long id) {
         Account account = accountRepository.findByIdForUpdate(id)
-            .orElseThrow(() -> new RuntimeException("Account not found with id: " + id));
+            .orElseThrow(() -> new RuntimeException(ACCOUNT_NOT_FOUND_ID + id));
         
         account.inactivate();
         

@@ -1,6 +1,35 @@
 version: '3.8'
 
 services:
+  zookeeper:
+    image: confluentinc/cp-zookeeper:7.0.1
+    container_name: zookeeper
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+    ports:
+      - "2181:2181"
+    networks:
+      - ledger-network
+
+  kafka:
+    image: confluentinc/cp-kafka:7.0.1
+    container_name: kafka
+    depends_on:
+      - zookeeper
+    ports:
+      - "9092:9092"
+      - "29092:29092"
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092,PLAINTEXT_HOST://localhost:29092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+    networks:
+      - ledger-network
+
   postgres:
     image: postgres:15-alpine
     container_name: ledger-postgres
@@ -15,25 +44,84 @@ services:
     networks:
       - ledger-network
 
+  redis:
+    image: redis:7-alpine
+    container_name: ledger-redis
+    ports:
+      - "6379:6379"
+    networks:
+      - ledger-network
+
+  loki:
+    image: grafana/loki:2.9.0
+    container_name: loki
+    ports:
+      - "3100:3100"
+    command: -config.file=/etc/loki/local-config.yaml
+    networks:
+      - ledger-network
+
   ledger-service:
     container_name: ledger-service-app
     build:
       context: .
       dockerfile: Dockerfile
     ports:
-      - "8082:8082" # Expondo a porta da aplicação
+      - "8082:8082"
     depends_on:
       - postgres
+      - redis
+      - kafka
     environment:
-      # Conexão com o banco de dados dentro da rede Docker
+      - SPRING_PROFILES_ACTIVE=docker
       - SPRING_DATASOURCE_URL=jdbc:postgresql://postgres:5432/ledger-service
       - SPRING_DATASOURCE_USERNAME=ledger-service
       - SPRING_DATASOURCE_PASSWORD=123456
-      - SPRING_JPA_HIBERNATE_DDL_AUTO=create-drop
-      # Chave da API do Datadog (Substitua ou use um arquivo .env)
-      # - DATADOG_API_KEY=<SUA_DATADOG_API_KEY_AQUI>
+      - SPRING_JPA_HIBERNATE_DDL_AUTO=update
+      - spring.data.redis.host=redis
+      - DD_AGENT_HOST=datadog-agent
+      - DD_TRACE_AGENT_PORT=8126
+      - DD_LOGS_INJECTION=true
+      - DD_SERVICE=ledger-service
+      - DD_ENV=development
+      - SPRING_KAFKA_BOOTSTRAP_SERVERS=kafka:9092
+    volumes:
+      - ./logs:/app/logs
     networks:
       - ledger-network
+    labels:
+      com.datadoghq.ad.logs: '[{"source": "java", "service": "ledger-service"}]'
+      com.datadoghq.ad.check_names: '["openmetrics"]'
+      com.datadoghq.ad.init_configs: '[{}]'
+      com.datadoghq.ad.instances: >-
+        [{
+          "openmetrics_endpoint": "http://%%host%%:8082/api/v1/actuator/prometheus",
+          "namespace": "ledgerservice",
+          "metrics": ["*"]
+        }]
+
+  datadog-agent:
+    image: datadog/agent:latest
+    container_name: datadog-agent
+    environment:
+      - DD_API_KEY=8eb7af8e-ba87-4e21-93fa-eb039546e351
+      - DD_SITE=datadoghq.com
+      - DD_LOGS_ENABLED=true
+      - DD_LOGS_CONFIG_CONTAINER_COLLECT_ALL=true
+      - DD_CONTAINER_EXCLUDE="image:datadog/agent"
+      - DD_DOGSTATSD_NON_LOCAL_TRAFFIC=true
+    ports:
+      - "8125:8125/udp"
+      - "8126:8126/tcp"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - /proc/:/host/proc/:ro
+      - /sys/fs/cgroup/:/host/sys/fs/cgroup:ro
+      - ./datadog/conf.d:/etc/datadog-agent/conf.d:ro
+    networks:
+      - ledger-network
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
 
   prometheus:
     image: prom/prometheus:v2.45.0
@@ -57,6 +145,7 @@ services:
       - ./grafana-datasources.yml:/etc/grafana/provisioning/datasources/datasources.yaml
     depends_on:
       - prometheus
+      - loki
     networks:
       - ledger-network
 

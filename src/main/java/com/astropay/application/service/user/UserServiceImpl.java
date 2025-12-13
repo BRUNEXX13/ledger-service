@@ -10,6 +10,9 @@ import com.astropay.domain.model.user.Role;
 import com.astropay.domain.model.user.User;
 import com.astropay.domain.model.user.UserRepository;
 import com.astropay.domain.model.user.UserStatus;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.CachePut;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
@@ -38,10 +41,7 @@ public class UserServiceImpl implements UserService {
             throw new IllegalArgumentException("Document already in use: " + request.document());
         }
 
-        // Mapeia os dados básicos
         User newUser = userMapper.toUser(request);
-        
-        // Atribui a role padrão do sistema. O cliente não pode escolher.
         newUser.changeRole(Role.ROLE_EMPLOYEE);
 
         User savedUser = userRepository.save(newUser);
@@ -50,6 +50,7 @@ public class UserServiceImpl implements UserService {
 
     @Override
     @Transactional(readOnly = true)
+    @Cacheable(value = "users", key = "#id")
     public UserResponse findUserById(Long id) {
         return userRepository.findById(id)
             .map(userMapper::toUserResponse)
@@ -58,12 +59,15 @@ public class UserServiceImpl implements UserService {
 
     @Override
     @Transactional(readOnly = true)
+    // Não cacheamos a busca paginada por padrão, pois ela pode mudar frequentemente.
+    // O cache é mais eficaz em buscas por ID.
     public Page<UserResponse> findAllUsers(Pageable pageable) {
         return userRepository.findAll(pageable)
             .map(userMapper::toUserResponse);
     }
 
     @Override
+    @CachePut(value = "users", key = "#id")
     public UserResponse updateUser(Long id, UpdateUserRequest request, Long executorId) {
         User userToUpdate = userRepository.findByIdForUpdate(id)
             .orElseThrow(() -> new RuntimeException("User not found with id: " + id));
@@ -85,6 +89,7 @@ public class UserServiceImpl implements UserService {
     }
 
     @Override
+    @CachePut(value = "users", key = "#id")
     public UserResponse patchUser(Long id, PatchUserRequest request, Long executorId) {
         User userToUpdate = userRepository.findByIdForUpdate(id)
             .orElseThrow(() -> new RuntimeException("User not found with id: " + id));
@@ -110,6 +115,7 @@ public class UserServiceImpl implements UserService {
     }
 
     @Override
+    @CacheEvict(value = "users", key = "#id")
     public void deleteUser(Long id) {
         if (!userRepository.existsById(id)) {
             throw new RuntimeException("User not found with id: " + id);
