@@ -1,6 +1,8 @@
 package com.astropay.application.service.transfer;
 
+
 import com.astropay.application.event.transactions.TransactionEvent;
+import com.astropay.application.exception.ResourceNotFoundException;
 import com.astropay.application.service.kafka.producer.KafkaProducerService;
 import com.astropay.domain.model.account.Account;
 import com.astropay.domain.model.account.AccountRepository;
@@ -26,26 +28,22 @@ public class TransferServiceImpl implements TransferService {
     @Override
     @Transactional
     public void transfer(Transfer transfer) {
-        // CORREÇÃO: Usando findByIdForUpdate para aplicar bloqueio pessimista
+        // CORREÇÃO: Usando ResourceNotFoundException para retornar 404 se a conta não existir
         Account senderAccount = accountRepository.findByIdForUpdate(transfer.getSenderAccountId())
-                .orElseThrow(() -> new RuntimeException("Sender account not found"));
+                .orElseThrow(() -> new ResourceNotFoundException("Sender account not found with id: " + transfer.getSenderAccountId()));
 
         Account receiverAccount = accountRepository.findByIdForUpdate(transfer.getReceiverAccountId())
-                .orElseThrow(() -> new RuntimeException("Receiver account not found"));
+                .orElseThrow(() -> new ResourceNotFoundException("Receiver account not found with id: " + transfer.getReceiverAccountId()));
 
-        // A lógica de negócio de saque (incluindo verificação de saldo) está na própria entidade.
         senderAccount.withdraw(transfer.getAmount());
         receiverAccount.deposit(transfer.getAmount());
 
-        // O save não é estritamente necessário se a transação estiver ativa,
-        // mas é uma boa prática para clareza.
         accountRepository.save(senderAccount);
         accountRepository.save(receiverAccount);
 
         Transaction transaction = new Transaction(senderAccount, receiverAccount, transfer.getAmount(), transfer.getIdempotencyKey());
         transactionRepository.save(transaction);
 
-        // Publica o evento para o Kafka
         TransactionEvent event = new TransactionEvent(
                 transaction.getId(),
                 senderAccount.getId(),
