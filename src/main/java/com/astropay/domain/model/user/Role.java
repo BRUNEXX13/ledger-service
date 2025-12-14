@@ -5,8 +5,8 @@ package com.astropay.domain.model.user;
  * Faz parte do core da aplicação.
  */
 public enum Role {
-    ROLE_EMPLOYEE,
-    ROLE_MANAGER,
-    ROLE_ADMIN,
-    ROLE_CLIENT
+    ROLE_EMPLOYEE, // 0
+    ROLE_MANAGER,  // 1
+    ROLE_ADMIN,    // 2
+    ROLE_CLIENT    // 3
 }
