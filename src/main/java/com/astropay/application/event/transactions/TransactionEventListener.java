@@ -1,9 +1,8 @@
 package com.astropay.application.event.transactions;
 
-import com.astropay.application.event.account.AccountCreatedEvent;
 import com.astropay.application.service.notification.EmailService;
-import com.astropay.domain.model.account.AccountRepository;
 import com.astropay.domain.model.user.User;
+import com.astropay.domain.model.user.UserRepository;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.slf4j.Logger;
@@ -18,12 +17,12 @@ public class TransactionEventListener {
     private static final Logger log = LoggerFactory.getLogger(TransactionEventListener.class);
 
     private final EmailService emailService;
-    private final AccountRepository accountRepository;
+    private final UserRepository userRepository; // Alterado de AccountRepository para UserRepository
     private final ObjectMapper objectMapper;
 
-    public TransactionEventListener(EmailService emailService, AccountRepository accountRepository, ObjectMapper objectMapper) {
+    public TransactionEventListener(EmailService emailService, UserRepository userRepository, ObjectMapper objectMapper) {
         this.emailService = emailService;
-        this.accountRepository = accountRepository;
+        this.userRepository = userRepository;
         this.objectMapper = objectMapper;
     }
 
@@ -34,13 +33,12 @@ public class TransactionEventListener {
             TransactionEvent event = record.value();
             log.info("Evento de TRANSAÇÃO recebido para notificação. IdempotencyKey: {}", event.getIdempotencyKey());
 
-            User sender = accountRepository.findById(event.getSenderAccountId())
-                    .orElseThrow(() -> new RuntimeException("Conta do remetente não encontrada"))
-                    .getUser();
+            // Busca o usuário diretamente pelo ID (assumindo que accountId == userId)
+            User sender = userRepository.findById(event.getSenderAccountId())
+                    .orElseThrow(() -> new RuntimeException("Usuário remetente não encontrado"));
 
-            User receiver = accountRepository.findById(event.getReceiverAccountId())
-                    .orElseThrow(() -> new RuntimeException("Conta do destinatário não encontrada"))
-                    .getUser();
+            User receiver = userRepository.findById(event.getReceiverAccountId())
+                    .orElseThrow(() -> new RuntimeException("Usuário destinatário não encontrado"));
 
             String senderSubject = "Comprovante de Transferência Enviada";
             String senderBody = String.format(

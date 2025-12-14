@@ -5,19 +5,18 @@ import com.astropay.application.dto.request.user.CreateUserRequest;
 import com.astropay.application.dto.request.user.PatchUserRequest;
 import com.astropay.application.dto.request.user.UpdateUserRequest;
 import com.astropay.application.dto.response.user.UserResponse;
+import com.astropay.application.service.account.port.in.AccountService;
 import com.astropay.application.service.user.port.in.UserService;
 import com.astropay.domain.model.user.Role;
 import com.astropay.domain.model.user.User;
 import com.astropay.domain.model.user.UserRepository;
 import com.astropay.domain.model.user.UserStatus;
-import org.springframework.cache.annotation.CacheEvict;
-import org.springframework.cache.annotation.CachePut;
-import org.springframework.cache.annotation.Cacheable;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.math.BigDecimal;
 import java.util.Objects;
 
 @Service
@@ -25,10 +24,12 @@ import java.util.Objects;
 public class UserServiceImpl implements UserService {
 
     private final UserRepository userRepository;
+    private final AccountService accountService;
     private final UserMapper userMapper;
 
-    public UserServiceImpl(UserRepository userRepository, UserMapper userMapper) {
+    public UserServiceImpl(UserRepository userRepository, AccountService accountService, UserMapper userMapper) {
         this.userRepository = userRepository;
+        this.accountService = accountService;
         this.userMapper = userMapper;
     }
 
@@ -45,12 +46,14 @@ public class UserServiceImpl implements UserService {
         newUser.changeRole(Role.ROLE_EMPLOYEE);
 
         User savedUser = userRepository.save(newUser);
+
+        accountService.createAccountForUser(savedUser, new BigDecimal("1000.00"));
+
         return userMapper.toUserResponse(savedUser);
     }
 
     @Override
     @Transactional(readOnly = true)
-    @Cacheable(value = "users", key = "#id")
     public UserResponse findUserById(Long id) {
         return userRepository.findById(id)
             .map(userMapper::toUserResponse)
@@ -59,15 +62,12 @@ public class UserServiceImpl implements UserService {
 
     @Override
     @Transactional(readOnly = true)
-    // Não cacheamos a busca paginada por padrão, pois ela pode mudar frequentemente.
-    // O cache é mais eficaz em buscas por ID.
     public Page<UserResponse> findAllUsers(Pageable pageable) {
         return userRepository.findAll(pageable)
             .map(userMapper::toUserResponse);
     }
 
     @Override
-    @CachePut(value = "users", key = "#id")
     public UserResponse updateUser(Long id, UpdateUserRequest request, Long executorId) {
         User userToUpdate = userRepository.findByIdForUpdate(id)
             .orElseThrow(() -> new RuntimeException("User not found with id: " + id));
@@ -89,7 +89,6 @@ public class UserServiceImpl implements UserService {
     }
 
     @Override
-    @CachePut(value = "users", key = "#id")
     public UserResponse patchUser(Long id, PatchUserRequest request, Long executorId) {
         User userToUpdate = userRepository.findByIdForUpdate(id)
             .orElseThrow(() -> new RuntimeException("User not found with id: " + id));
@@ -115,7 +114,6 @@ public class UserServiceImpl implements UserService {
     }
 
     @Override
-    @CacheEvict(value = "users", key = "#id")
     public void deleteUser(Long id) {
         if (!userRepository.existsById(id)) {
             throw new RuntimeException("User not found with id: " + id);

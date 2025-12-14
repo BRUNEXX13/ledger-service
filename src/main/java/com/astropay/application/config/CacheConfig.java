@@ -39,7 +39,7 @@ public class CacheConfig {
     private RedisCacheConfiguration createCacheConfiguration(Duration ttl) {
         return RedisCacheConfiguration.defaultCacheConfig()
                 .entryTtl(ttl)
-                .disableCachingNullValues()
+                // .disableCachingNullValues()  <-- REMOVIDO: Permitir cache de valores nulos
                 .serializeValuesWith(SerializationPair.fromSerializer(new GenericJackson2JsonRedisSerializer(createObjectMapper())));
     }
 
@@ -47,7 +47,6 @@ public class CacheConfig {
         ObjectMapper objectMapper = new ObjectMapper();
         
         // 1. Suporte a tipos do Hibernate (Lazy Loading, Proxies)
-        // Evita o erro: No serializer found for class org.hibernate.proxy.pojo.bytebuddy.ByteBuddyInterceptor
         objectMapper.registerModule(new Hibernate6Module());
         
         // 2. Suporte a datas do Java 8 (LocalDateTime, etc.)
@@ -60,7 +59,6 @@ public class CacheConfig {
         objectMapper.configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
         
         // 5. Ativar tipagem polimórfica para que o Redis saiba qual classe instanciar na volta
-        // Isso é crucial para HATEOAS e listas genéricas
         objectMapper.activateDefaultTyping(
             objectMapper.getPolymorphicTypeValidator(),
             ObjectMapper.DefaultTyping.NON_FINAL,

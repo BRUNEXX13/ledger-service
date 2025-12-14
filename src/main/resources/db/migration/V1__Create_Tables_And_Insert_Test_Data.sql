@@ -8,8 +8,8 @@ CREATE TABLE tb_user (
     name VARCHAR(255) NOT NULL,
     document VARCHAR(255) NOT NULL,
     email VARCHAR(255) NOT NULL,
-    status VARCHAR(50) NOT NULL,
-    role VARCHAR(50) NOT NULL,
+    status SMALLINT NOT NULL,
+    role SMALLINT NOT NULL,
     created_at TIMESTAMP WITHOUT TIME ZONE NOT NULL,
     updated_at TIMESTAMP WITHOUT TIME ZONE NOT NULL
 );
@@ -21,7 +21,7 @@ CREATE TABLE tb_account (
     id BIGSERIAL PRIMARY KEY,
     user_id BIGINT NOT NULL UNIQUE,
     balance NUMERIC(19, 2) NOT NULL,
-    status VARCHAR(50) NOT NULL,
+    status SMALLINT NOT NULL,
     version BIGINT,
     created_at TIMESTAMP WITHOUT TIME ZONE NOT NULL,
     updated_at TIMESTAMP WITHOUT TIME ZONE NOT NULL,
@@ -35,6 +35,8 @@ CREATE TABLE tb_transaction (
     sender_account_id BIGINT NOT NULL,
     receiver_account_id BIGINT NOT NULL,
     amount NUMERIC(19, 2) NOT NULL,
+    status SMALLINT NOT NULL,
+    failure_reason VARCHAR(255),
     idempotency_key UUID NOT NULL,
     created_at TIMESTAMP WITHOUT TIME ZONE NOT NULL,
     CONSTRAINT fk_transaction_sender FOREIGN KEY (sender_account_id) REFERENCES tb_account(id),
@@ -44,6 +46,7 @@ CREATE UNIQUE INDEX uk_transaction_idempotency ON tb_transaction(idempotency_key
 CREATE INDEX idx_transaction_sender ON tb_transaction(sender_account_id);
 CREATE INDEX idx_transaction_receiver ON tb_transaction(receiver_account_id);
 CREATE INDEX idx_transaction_created_at ON tb_transaction(created_at);
+CREATE INDEX idx_transaction_status ON tb_transaction(status);
 
 -- Tabela do Outbox
 CREATE TABLE tb_outbox_event (
@@ -61,23 +64,25 @@ CREATE TABLE tb_outbox_event (
 -- =================================================================
 
 -- Inserir 100.000 usuários
+-- UserStatus.ACTIVE = 0, Role.ROLE_EMPLOYEE = 0
 INSERT INTO tb_user (name, document, email, status, role, created_at, updated_at)
 SELECT
     'Test User ' || i,
-    '999999' || LPAD(i::text, 6, '0'), -- Documento único
-    'testuser' || i || '@astropay.com', -- Email único
-    'ACTIVE',
-    'ROLE_EMPLOYEE',
+    '999999' || LPAD(i::text, 6, '0'),
+    'testuser' || i || '@astropay.com',
+    0, -- ACTIVE
+    0, -- ROLE_EMPLOYEE
     CURRENT_TIMESTAMP,
     CURRENT_TIMESTAMP
 FROM generate_series(1, 100000) as i;
 
 -- Inserir 100.000 contas, uma para cada usuário criado
+-- AccountStatus.ACTIVE = 0
 INSERT INTO tb_account (user_id, balance, status, version, created_at, updated_at)
 SELECT
     i,
-    10000.00, -- Saldo inicial para todas as contas
-    'ACTIVE',
+    10000.00,
+    0, -- ACTIVE
     0,
     CURRENT_TIMESTAMP,
     CURRENT_TIMESTAMP

@@ -39,7 +39,7 @@ public class Account implements Serializable {
     @Column(nullable = false)
     private BigDecimal balance;
 
-    @Enumerated(EnumType.STRING)
+    @Enumerated(EnumType.ORDINAL)
     @Column(nullable = false)
     private AccountStatus status;
 

@@ -42,18 +42,30 @@ public class AccountServiceImpl implements AccountService {
     }
 
     @Override
+    public void createAccountForUser(User user, BigDecimal initialBalance) {
+        if (user == null) {
+            throw new IllegalArgumentException("User cannot be null.");
+        }
+        if (accountRepository.findByUser_Id(user.getId()).isPresent()) {
+            throw new IllegalStateException("User already has an account.");
+        }
+        Account newAccount = new Account(user, initialBalance);
+        accountRepository.save(newAccount);
+    }
+
+    @Override
     public AccountResponse createAccount(CreateAccountRequest request) {
         User user = userRepository.findById(request.userId())
             .orElseThrow(() -> new ResourceNotFoundException(USER_NOT_FOUND_ID + request.userId()));
 
-        if (accountRepository.findByUser_Id(request.userId()).isPresent()) {
-            throw new IllegalArgumentException("User already has an account.");
-        }
-
         BigDecimal initialBalance = request.initialBalance() != null ? request.initialBalance() : BigDecimal.ZERO;
-        Account newAccount = new Account(user, initialBalance);
         
-        Account savedAccount = accountRepository.save(newAccount);
+        // Reutiliza a lógica do método principal
+        createAccountForUser(user, initialBalance);
+
+        // Busca a conta recém-criada para retornar a resposta
+        Account savedAccount = accountRepository.findByUser_Id(user.getId())
+            .orElseThrow(() -> new IllegalStateException("Could not find created account for user: " + user.getId()));
 
         AccountCreatedEvent event = new AccountCreatedEvent(
             savedAccount.getId(),
@@ -102,7 +114,7 @@ public class AccountServiceImpl implements AccountService {
             .orElseThrow(() -> new ResourceNotFoundException(ACCOUNT_NOT_FOUND_ID + id));
         
         account.inactivate();
-        
+
         accountRepository.save(account);
     }
 }

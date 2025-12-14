@@ -1,6 +1,7 @@
 package com.astropay.domain.model.transaction;
 
 import com.astropay.domain.model.account.Account;
+import com.astropay.domain.model.transaction.TransactionStatus;
 import jakarta.persistence.*;
 import org.springframework.data.annotation.CreatedDate;
 import org.springframework.data.jpa.domain.support.AuditingEntityListener;
@@ -15,7 +16,8 @@ import java.util.UUID;
        indexes = {
            @Index(name = "idx_transaction_sender", columnList = "sender_account_id"),
            @Index(name = "idx_transaction_receiver", columnList = "receiver_account_id"),
-           @Index(name = "idx_transaction_created_at", columnList = "createdAt")
+           @Index(name = "idx_transaction_created_at", columnList = "createdAt"),
+           @Index(name = "idx_transaction_status", columnList = "status")
        },
        uniqueConstraints = @UniqueConstraint(columnNames = "idempotencyKey", name = "uk_transaction_idempotency"))
 @EntityListeners(AuditingEntityListener.class)
@@ -36,6 +38,12 @@ public class Transaction {
     @Column(nullable = false)
     private BigDecimal amount;
 
+    @Column(nullable = false)
+    private TransactionStatus status;
+
+    @Column
+    private String failureReason;
+
     @CreatedDate
     @Column(nullable = false, updatable = false)
     private LocalDateTime createdAt;
@@ -51,6 +59,17 @@ public class Transaction {
         this.receiver = receiver;
         this.amount = amount;
         this.idempotencyKey = idempotencyKey;
+        this.status = TransactionStatus.PENDING; // Inicializa como PENDENTE
+    }
+
+    public void complete() {
+        this.status = TransactionStatus.SUCCESS;
+        this.failureReason = null;
+    }
+
+    public void fail(String reason) {
+        this.status = TransactionStatus.FAILED;
+        this.failureReason = reason;
     }
 
     // Getters...
@@ -58,6 +77,8 @@ public class Transaction {
     public Account getSender() { return sender; }
     public Account getReceiver() { return receiver; }
     public BigDecimal getAmount() { return amount; }
+    public TransactionStatus getStatus() { return status; }
+    public String getFailureReason() { return failureReason; }
     public LocalDateTime getCreatedAt() { return createdAt; }
     public UUID getIdempotencyKey() { return idempotencyKey; }
 

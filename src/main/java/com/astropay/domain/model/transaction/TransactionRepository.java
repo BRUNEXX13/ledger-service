@@ -1,20 +1,28 @@
 package com.astropay.domain.model.transaction;
 
+import org.springframework.cache.annotation.CachePut;
+import org.springframework.cache.annotation.Cacheable;
+import org.springframework.cache.annotation.Caching;
 import org.springframework.data.jpa.repository.JpaRepository;
-import org.springframework.data.jpa.repository.Query;
-import org.springframework.data.repository.query.Param;
 
 import java.util.Optional;
+import java.util.UUID;
 
 public interface TransactionRepository extends JpaRepository<Transaction, Long> {
 
-    /**
-     * Busca uma transação pelo seu ID, já trazendo (FETCH) a conta remetente
-     * e o usuário remetente em uma única consulta para otimizar a performance.
-     *
-     * @param id O ID da transação.
-     * @return Um Optional contendo a transação com os dados carregados.
-     */
-    @Query("SELECT t FROM Transaction t JOIN FETCH t.sender s JOIN FETCH s.user WHERE t.id = :id")
-    Optional<Transaction> findByIdWithSenderAndUser(@Param("id") Long id);
+    @Override
+    @Cacheable(value = "transactions", key = "#id")
+    Optional<Transaction> findById(Long id);
+
+    @Cacheable(value = "transactions", key = "#idempotencyKey")
+    Optional<Transaction> findByIdempotencyKey(UUID idempotencyKey);
+
+    @Override
+    @Caching(
+        put = {
+            @CachePut(value = "transactions", key = "#entity.id"),
+            @CachePut(value = "transactions", key = "#entity.idempotencyKey")
+        }
+    )
+    <S extends Transaction> S save(S entity);
 }

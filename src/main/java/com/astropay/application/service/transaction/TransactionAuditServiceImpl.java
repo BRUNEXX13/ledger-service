@@ -20,7 +20,7 @@ public class TransactionAuditServiceImpl implements TransactionAuditService {
     @Override
     public TransactionUserResponse findUserByTransactionId(Long transactionId) {
         // O fetch EAGER para sender e user garante que o JPA traga tudo em uma única query otimizada.
-        Transaction transaction = transactionRepository.findByIdWithSenderAndUser(transactionId)
+        Transaction transaction = transactionRepository.findById(transactionId)
                 .orElseThrow(() -> new RuntimeException("Transaction not found with id: " + transactionId));
 
         User sender = transaction.getSender().getUser();
