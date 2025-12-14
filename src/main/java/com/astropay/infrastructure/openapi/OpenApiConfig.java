@@ -1,4 +1,4 @@
-package com.astropay.infrastructure.openApi;
+package com.astropay.infrastructure.openapi;
 
 import io.swagger.v3.oas.models.OpenAPI;
 import io.swagger.v3.oas.models.info.Info;

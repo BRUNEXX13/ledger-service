@@ -2,7 +2,6 @@ package com.astropay.application.event.account;
 
 import com.astropay.application.service.notification.EmailService;
 import com.astropay.domain.model.account.AccountRepository;
-import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.kafka.annotation.KafkaListener;
@@ -21,9 +20,8 @@ public class AccountCreatedEventListener {
     }
     @Transactional
     @KafkaListener(topics = "accounts", groupId = "ledger-notification-group")
-    public void handleAccountCreatedEvent(ConsumerRecord<String, AccountCreatedEvent> record) {
+    public void handleAccountCreatedEvent(AccountCreatedEvent event) {
         try {
-            AccountCreatedEvent event = record.value();
             log.info("Evento de CONTA CRIADA recebido para notificação. AccountId: {}", event.getAccountId());
 
             String subject = "Bem-vindo ao Nosso Banco!";

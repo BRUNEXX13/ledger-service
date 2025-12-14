@@ -5,15 +5,16 @@ import com.astropay.domain.model.user.UserStatus;
 import com.fasterxml.jackson.annotation.JsonFormat;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonRootName;
-import org.springframework.hateoas.RepresentationModel;
+import org.springframework.hateoas.Link;
 import org.springframework.hateoas.server.core.Relation;
 
 import java.time.LocalDateTime;
+import java.util.List;
 
 @JsonRootName(value = "user")
 @Relation(collectionRelation = "users")
 @JsonInclude(JsonInclude.Include.NON_NULL)
-public class UserResponse extends RepresentationModel<UserResponse> {
+public class UserResponse {
 
     private Long id;
     private String name;
@@ -27,6 +28,8 @@ public class UserResponse extends RepresentationModel<UserResponse> {
 
     @JsonFormat(pattern = "MM/dd/yyyy HH:mm:ss.SSS")
     private LocalDateTime updatedAt;
+
+    private List<Link> links;
 
     public UserResponse() {
     }
@@ -60,4 +63,6 @@ public class UserResponse extends RepresentationModel<UserResponse> {
     public void setCreatedAt(LocalDateTime createdAt) { this.createdAt = createdAt; }
     public LocalDateTime getUpdatedAt() { return updatedAt; }
     public void setUpdatedAt(LocalDateTime updatedAt) { this.updatedAt = updatedAt; }
+    public List<Link> getLinks() { return links; }
+    public void setLinks(List<Link> links) { this.links = links; }
 }

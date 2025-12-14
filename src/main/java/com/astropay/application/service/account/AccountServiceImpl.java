@@ -86,7 +86,7 @@ public class AccountServiceImpl implements AccountService {
     @Override
     @CachePut(value = "accounts", key = "#id")
     public AccountResponse updateAccount(Long id, UpdateAccountRequest request) {
-        Account account = accountRepository.findByIdForUpdate(id)
+        Account account = accountRepository.findById(id)
             .orElseThrow(() -> new ResourceNotFoundException(ACCOUNT_NOT_FOUND_ID + id));
         
         account.adjustBalance(request.balance());
@@ -98,7 +98,7 @@ public class AccountServiceImpl implements AccountService {
     @Override
     @CacheEvict(value = "accounts", key = "#id")
     public void inactivateAccount(Long id) {
-        Account account = accountRepository.findByIdForUpdate(id)
+        Account account = accountRepository.findById(id)
             .orElseThrow(() -> new ResourceNotFoundException(ACCOUNT_NOT_FOUND_ID + id));
         
         account.inactivate();

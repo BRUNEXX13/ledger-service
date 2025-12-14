@@ -13,6 +13,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.web.PagedResourcesAssembler;
 import org.springframework.hateoas.EntityModel;
+import org.springframework.hateoas.Link;
 import org.springframework.hateoas.PagedModel;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -26,6 +27,8 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
+
+import java.util.List;
 
 import static org.springframework.hateoas.server.mvc.WebMvcLinkBuilder.linkTo;
 import static org.springframework.hateoas.server.mvc.WebMvcLinkBuilder.methodOn;
@@ -48,7 +51,7 @@ public class UserController {
     @Operation(summary = "Create a new user")
     public ResponseEntity<UserResponse> createUser(@Valid @RequestBody CreateUserRequest request) {
         UserResponse createdUser = userService.createUser(request);
-        createdUser.add(linkTo(methodOn(UserController.class).getUserById(createdUser.getId())).withSelfRel());
+        createdUser.setLinks(List.of(linkTo(methodOn(UserController.class).getUserById(createdUser.getId())).withSelfRel()));
         return ResponseEntity.status(HttpStatus.CREATED).body(createdUser);
     }
 
@@ -56,8 +59,10 @@ public class UserController {
     @Operation(summary = "Get a user by ID")
     public ResponseEntity<UserResponse> getUserById(@PathVariable Long id) {
         UserResponse user = userService.findUserById(id);
-        user.add(linkTo(methodOn(UserController.class).getUserById(id)).withSelfRel());
-        user.add(linkTo(methodOn(UserController.class).getAllUsers(Pageable.unpaged())).withRel("all-users"));
+        user.setLinks(List.of(
+                linkTo(methodOn(UserController.class).getUserById(id)).withSelfRel(),
+                linkTo(methodOn(UserController.class).getAllUsers(Pageable.unpaged())).withRel("all-users")
+        ));
         return ResponseEntity.ok(user);
     }
 
@@ -65,8 +70,9 @@ public class UserController {
     @Operation(summary = "List all users")
     public ResponseEntity<PagedModel<EntityModel<UserResponse>>> getAllUsers(Pageable pageable) {
         Page<UserResponse> userPage = userService.findAllUsers(pageable);
-        userPage.forEach(user -> user.add(linkTo(methodOn(UserController.class).getUserById(user.getId())).withSelfRel()));
-        PagedModel<EntityModel<UserResponse>> pagedModel = pagedResourcesAssembler.toModel(userPage);
+        userPage.forEach(user -> user.setLinks(List.of(linkTo(methodOn(UserController.class).getUserById(user.getId())).withSelfRel())));
+        PagedModel<EntityModel<UserResponse>> pagedModel = pagedResourcesAssembler.toModel(userPage, user -> EntityModel.of(user,
+                linkTo(methodOn(UserController.class).getUserById(user.getId())).withSelfRel()));
         return ResponseEntity.ok(pagedModel);
     }
 
@@ -78,7 +84,7 @@ public class UserController {
         @RequestHeader("X-User-Id") Long executorId) {
         
         UserResponse updatedUser = userService.updateUser(id, request, executorId);
-        updatedUser.add(linkTo(methodOn(UserController.class).getUserById(id)).withSelfRel());
+        updatedUser.setLinks(List.of(linkTo(methodOn(UserController.class).getUserById(id)).withSelfRel()));
         return ResponseEntity.ok(updatedUser);
     }
 
@@ -90,7 +96,7 @@ public class UserController {
         @RequestHeader("X-User-Id") Long executorId) {
             
         UserResponse patchedUser = userService.patchUser(id, request, executorId);
-        patchedUser.add(linkTo(methodOn(UserController.class).getUserById(id)).withSelfRel());
+        patchedUser.setLinks(List.of(linkTo(methodOn(UserController.class).getUserById(id)).withSelfRel()));
         return ResponseEntity.ok(patchedUser);
     }
 

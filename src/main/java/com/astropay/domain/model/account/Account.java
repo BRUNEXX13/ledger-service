@@ -3,11 +3,14 @@ package com.astropay.domain.model.account;
 import com.astropay.domain.model.user.User;
 import com.fasterxml.jackson.annotation.JsonFormat;
 import jakarta.persistence.*;
+import org.hibernate.annotations.Cache;
+import org.hibernate.annotations.CacheConcurrencyStrategy;
 import org.hibernate.annotations.Check;
 import org.springframework.data.annotation.CreatedDate;
 import org.springframework.data.annotation.LastModifiedDate;
 import org.springframework.data.jpa.domain.support.AuditingEntityListener;
 
+import java.io.Serializable;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.Objects;
@@ -16,11 +19,18 @@ import java.util.Objects;
 @Table(name = "tb_account")
 @EntityListeners(AuditingEntityListener.class)
 @Check(constraints = "balance >= 0")
-public class Account {
+@Cacheable
+@Cache(usage = CacheConcurrencyStrategy.READ_WRITE)
+public class Account implements Serializable {
+
+    private static final long serialVersionUID = 1L;
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
+
+    @Version
+    private Long version; // Campo para o bloqueio otimista
 
     @OneToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "user_id", nullable = false, unique = true)
@@ -54,6 +64,7 @@ public class Account {
 
     // Getters...
     public Long getId() { return id; }
+    public Long getVersion() { return version; }
     public User getUser() { return user; }
     public BigDecimal getBalance() { return balance; }
     public AccountStatus getStatus() { return status; }

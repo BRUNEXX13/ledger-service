@@ -22,17 +22,17 @@ public class RedisConfig {
     @Bean
     public RedisCacheManager cacheManager(RedisConnectionFactory connectionFactory) {
         ObjectMapper objectMapper = new ObjectMapper();
-        
+
         // Módulos essenciais
         objectMapper.registerModule(new JavaTimeModule());
-        
+
         // REMOVIDO: Jackson2HalModule
         // Este módulo causa conflitos de serialização com o Redis (HalLinkListSerializer has no default constructor).
         // Sem ele, os objetos serão cacheados como JSON puro, o que é suficiente para leitura e evita o erro.
-        
+
         objectMapper.disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);
         objectMapper.configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
-        
+
         // Ativa a tipagem padrão do GenericJackson2JsonRedisSerializer de forma segura
         // Isso permite que o Redis saiba qual classe instanciar na volta
         GenericJackson2JsonRedisSerializer serializer = new GenericJackson2JsonRedisSerializer(objectMapper);
@@ -46,7 +46,7 @@ public class RedisConfig {
         return RedisCacheManager.builder(connectionFactory)
             .cacheDefaults(defaultConfig)
             .withCacheConfiguration("transactions",
-                defaultConfig.entryTtl(Duration.ofHours(1)))
+                defaultConfig.entryTtl(Duration.ofMinutes(10)))
             .withCacheConfiguration("users",
                 defaultConfig.entryTtl(Duration.ofMinutes(10)))
             .withCacheConfiguration("accounts",
