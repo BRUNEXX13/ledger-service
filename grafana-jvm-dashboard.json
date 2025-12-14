@@ -100,7 +100,7 @@
       "pluginVersion": "8.0.0",
       "targets": [
         {
-          "expr": "sum(rate(http_server_requests_seconds_count{application=\"$application\", instance=\"$instance\"}[1m]))",
+          "expr": "sum(rate(http_server_requests_seconds_count{application=\"$application\", instance=~\"$instance\"}[1m]))",
           "legendFormat": "Global RPS"
         }
       ],
@@ -156,7 +156,7 @@
       "pluginVersion": "8.0.0",
       "targets": [
         {
-          "expr": "sum(rate(http_server_requests_seconds_count{application=\"$application\", instance=\"$instance\", status=~\"5..\"}[1m])) / sum(rate(http_server_requests_seconds_count{application=\"$application\", instance=\"$instance\"}[1m]))",
+          "expr": "sum(rate(http_server_requests_seconds_count{application=\"$application\", instance=~\"$instance\", status=~\"5..\"}[1m])) / sum(rate(http_server_requests_seconds_count{application=\"$application\", instance=~\"$instance\"}[1m]))",
           "legendFormat": "Error Rate"
         }
       ],
@@ -216,7 +216,7 @@
       "pluginVersion": "8.0.0",
       "targets": [
         {
-          "expr": "histogram_quantile(0.95, sum(rate(http_server_requests_seconds_bucket{application=\"$application\", instance=\"$instance\"}[1m])) by (le))",
+          "expr": "histogram_quantile(0.95, sum(rate(http_server_requests_seconds_bucket{application=\"$application\", instance=~\"$instance\"}[1m])) by (le))",
           "legendFormat": "P95 Latency"
         }
       ],
@@ -268,7 +268,7 @@
       "pluginVersion": "8.0.0",
       "targets": [
         {
-          "expr": "process_uptime_seconds{application=\"$application\", instance=\"$instance\"}",
+          "expr": "process_uptime_seconds{application=\"$application\", instance=~\"$instance\"}",
           "legendFormat": "Uptime"
         }
       ],
@@ -318,7 +318,7 @@
       },
       "targets": [
         {
-          "expr": "sum(rate(http_server_requests_seconds_count{application=\"$application\", instance=\"$instance\"}[1m])) by (uri)",
+          "expr": "sum(rate(http_server_requests_seconds_count{application=\"$application\", instance=~\"$instance\"}[1m])) by (uri)",
           "legendFormat": "{{uri}}",
           "refId": "A"
         }
@@ -356,7 +356,7 @@
       },
       "targets": [
         {
-          "expr": "histogram_quantile(0.95, sum(rate(http_server_requests_seconds_bucket{application=\"$application\", instance=\"$instance\"}[1m])) by (le, uri))",
+          "expr": "histogram_quantile(0.95, sum(rate(http_server_requests_seconds_bucket{application=\"$application\", instance=~\"$instance\"}[1m])) by (le, uri))",
           "legendFormat": "p95 {{uri}}",
           "refId": "A"
         }
@@ -407,17 +407,17 @@
       },
       "targets": [
         {
-          "expr": "hikaricp_connections_active{application=\"$application\", instance=\"$instance\"}",
+          "expr": "hikaricp_connections_active{application=\"$application\", instance=~\"$instance\"}",
           "legendFormat": "Ativas",
           "refId": "A"
         },
         {
-          "expr": "hikaricp_connections_idle{application=\"$application\", instance=\"$instance\"}",
+          "expr": "hikaricp_connections_idle{application=\"$application\", instance=~\"$instance\"}",
           "legendFormat": "Inativas (Idle)",
           "refId": "B"
         },
         {
-          "expr": "hikaricp_connections_pending{application=\"$application\", instance=\"$instance\"}",
+          "expr": "hikaricp_connections_pending{application=\"$application\", instance=~\"$instance\"}",
           "legendFormat": "Pendentes",
           "refId": "C"
         }
@@ -455,7 +455,7 @@
       },
       "targets": [
         {
-          "expr": "hikaricp_connections_acquire_seconds_max{application=\"$application\", instance=\"$instance\"}",
+          "expr": "hikaricp_connections_acquire_seconds_max{application=\"$application\", instance=~\"$instance\"}",
           "legendFormat": "Max Acquire Time",
           "refId": "A"
         }
@@ -493,7 +493,7 @@
       },
       "targets": [
         {
-          "expr": "hikaricp_connections_timeout_total{application=\"$application\", instance=\"$instance\"}",
+          "expr": "hikaricp_connections_timeout_total{application=\"$application\", instance=~\"$instance\"}",
           "legendFormat": "Timeouts",
           "refId": "A"
         }
@@ -737,12 +737,12 @@
       },
       "targets": [
         {
-          "expr": "jvm_memory_used_bytes{application=\"$application\", instance=\"$instance\", area=\"heap\"}",
+          "expr": "jvm_memory_used_bytes{application=\"$application\", instance=~\"$instance\", area=\"heap\"}",
           "legendFormat": "Heap Used",
           "refId": "A"
         },
         {
-          "expr": "jvm_memory_committed_bytes{application=\"$application\", instance=\"$instance\", area=\"heap\"}",
+          "expr": "jvm_memory_committed_bytes{application=\"$application\", instance=~\"$instance\", area=\"heap\"}",
           "legendFormat": "Heap Committed",
           "refId": "B"
         }
@@ -780,7 +780,7 @@
       },
       "targets": [
         {
-          "expr": "rate(jvm_gc_pause_seconds_sum{application=\"$application\", instance=\"$instance\"}[1m]) * 1000",
+          "expr": "rate(jvm_gc_pause_seconds_sum{application=\"$application\", instance=~\"$instance\"}[1m]) * 1000",
           "legendFormat": "GC Pause ({{action}})",
           "refId": "A"
         }
@@ -818,17 +818,17 @@
       },
       "targets": [
         {
-          "expr": "jvm_threads_live_threads{application=\"$application\", instance=\"$instance\"}",
+          "expr": "jvm_threads_live_threads{application=\"$application\", instance=~\"$instance\"}",
           "legendFormat": "Live",
           "refId": "A"
         },
         {
-          "expr": "jvm_threads_daemon_threads{application=\"$application\", instance=\"$instance\"}",
+          "expr": "jvm_threads_daemon_threads{application=\"$application\", instance=~\"$instance\"}",
           "legendFormat": "Daemon",
           "refId": "B"
         },
         {
-          "expr": "jvm_threads_virtual_threads{application=\"$application\", instance=\"$instance\"}",
+          "expr": "jvm_threads_virtual_threads{application=\"$application\", instance=~\"$instance\"}",
           "legendFormat": "Virtual",
           "refId": "C"
         }
@@ -866,7 +866,7 @@
       },
       "targets": [
         {
-          "expr": "process_cpu_usage{application=\"$application\", instance=\"$instance\"}",
+          "expr": "process_cpu_usage{application=\"$application\", instance=~\"$instance\"}",
           "legendFormat": "Uso de CPU do Processo",
           "refId": "A"
         }
@@ -963,5 +963,5 @@
   "timezone": "browser",
   "title": "Ledger Service - Observabilidade Completa",
   "uid": "ledger-service-full",
-  "version": 1
+  "version": 2
 }
