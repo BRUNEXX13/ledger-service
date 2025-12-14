@@ -30,7 +30,7 @@ public class Account implements Serializable {
     private Long id;
 
     @Version
-    private Long version; // Campo para o bloqueio otimista
+    private Long version; // Field for optimistic locking
 
     @OneToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "user_id", nullable = false, unique = true)
@@ -59,7 +59,7 @@ public class Account implements Serializable {
     public Account(User user, BigDecimal balance) {
         this.user = user;
         this.balance = balance;
-        this.status = AccountStatus.ACTIVE; // Nova conta sempre começa como ativa
+        this.status = AccountStatus.ACTIVE; // New account always starts as active
     }
 
     // Getters...
@@ -71,7 +71,7 @@ public class Account implements Serializable {
     public LocalDateTime getCreatedAt() { return createdAt; }
     public LocalDateTime getUpdatedAt() { return updatedAt; }
 
-    // Métodos de negócio
+    // Business methods
     public void deposit(BigDecimal amount) {
         if (this.status != AccountStatus.ACTIVE) {
             throw new IllegalStateException("Account is not active. Cannot deposit.");

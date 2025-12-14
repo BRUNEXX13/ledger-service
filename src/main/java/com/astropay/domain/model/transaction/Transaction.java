@@ -59,7 +59,7 @@ public class Transaction {
         this.receiver = receiver;
         this.amount = amount;
         this.idempotencyKey = idempotencyKey;
-        this.status = TransactionStatus.PENDING; // Inicializa como PENDENTE
+        this.status = TransactionStatus.PENDING; // Initializes as PENDING
     }
 
     public void complete() {

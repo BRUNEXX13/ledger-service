@@ -29,7 +29,7 @@ public class User {
 
     @NotBlank
     @Column(nullable = false, unique = true)
-    private String document; // CPF/CNPJ
+    private String document; // Brazilian individual taxpayer registry ID
 
     @Email
     @NotBlank
@@ -57,7 +57,7 @@ public class User {
     @Deprecated
     protected User() {}
 
-    // Construtor ajustado para ser usado pelo mapper
+    // Constructor adjusted for use by the mapper
     public User(String name, String document, String email, Role role) {
         if (name == null || name.isBlank()) throw new IllegalArgumentException("User name cannot be blank.");
         if (document == null || document.isBlank()) throw new IllegalArgumentException("User document cannot be blank.");
@@ -66,7 +66,7 @@ public class User {
         this.name = name;
         this.document = document;
         this.email = email;
-        this.role = role; // Pode ser null inicialmente, será definido pelo serviço
+        this.role = role; // Can be null initially, will be set by the service
         this.status = UserStatus.ACTIVE;
     }
 
@@ -80,7 +80,7 @@ public class User {
     public LocalDateTime getCreatedAt() { return createdAt; }
     public LocalDateTime getUpdatedAt() { return updatedAt; }
 
-    // Métodos de negócio
+    // Business methods
     public void block() { this.status = UserStatus.BLOCKED; }
     public void activate() { this.status = UserStatus.ACTIVE; }
     

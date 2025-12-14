@@ -1,8 +1,8 @@
 package com.astropay.domain.model.user;
 
 /**
- * Entidade de domínio que representa o perfil de um usuário.
- * Faz parte do core da aplicação.
+ * Domain entity representing a user's profile.
+ * It is part of the application's core.
  */
 public enum Role {
     ROLE_EMPLOYEE, // 0

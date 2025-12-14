@@ -1,8 +1,8 @@
 package com.astropay.domain.model.transaction;
 
 public enum  TransactionStatus {
-    SUCCESS,
-    PENDING,
-    BLOCKED,
-    FAILED
+    SUCCESS, // 0
+    PENDING, // 1
+    BLOCKED, // 2
+    FAILED   // 3
 }

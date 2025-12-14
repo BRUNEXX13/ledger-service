@@ -1,8 +1,8 @@
 -- =================================================================
--- CRIAÇÃO DAS TABELAS
+-- TABLE CREATION
 -- =================================================================
 
--- Tabela de Usuários
+-- Users Table
 CREATE TABLE tb_user (
     id BIGSERIAL PRIMARY KEY,
     name VARCHAR(255) NOT NULL,
@@ -16,7 +16,7 @@ CREATE TABLE tb_user (
 CREATE UNIQUE INDEX idx_user_document ON tb_user(document);
 CREATE UNIQUE INDEX idx_user_email ON tb_user(email);
 
--- Tabela de Contas
+-- Accounts Table
 CREATE TABLE tb_account (
     id BIGSERIAL PRIMARY KEY,
     user_id BIGINT NOT NULL UNIQUE,
@@ -29,7 +29,7 @@ CREATE TABLE tb_account (
 );
 ALTER TABLE tb_account ADD CONSTRAINT balance_check CHECK (balance >= 0);
 
--- Tabela de Transações
+-- Transactions Table
 CREATE TABLE tb_transaction (
     id BIGSERIAL PRIMARY KEY,
     sender_account_id BIGINT NOT NULL,
@@ -48,7 +48,7 @@ CREATE INDEX idx_transaction_receiver ON tb_transaction(receiver_account_id);
 CREATE INDEX idx_transaction_created_at ON tb_transaction(created_at);
 CREATE INDEX idx_transaction_status ON tb_transaction(status);
 
--- Tabela do Outbox
+-- Outbox Table
 CREATE TABLE tb_outbox_event (
     id UUID PRIMARY KEY,
     aggregate_type VARCHAR(255) NOT NULL,
@@ -60,10 +60,10 @@ CREATE TABLE tb_outbox_event (
 
 
 -- =================================================================
--- INSERÇÃO DE DADOS PARA TESTE DE CARGA
+-- DATA INSERTION FOR LOAD TESTING
 -- =================================================================
 
--- Inserir 100.000 usuários
+-- Insert 100,000 users
 -- UserStatus.ACTIVE = 0, Role.ROLE_EMPLOYEE = 0
 INSERT INTO tb_user (name, document, email, status, role, created_at, updated_at)
 SELECT
@@ -76,7 +76,7 @@ SELECT
     CURRENT_TIMESTAMP
 FROM generate_series(1, 100000) as i;
 
--- Inserir 100.000 contas, uma para cada usuário criado
+-- Insert 100,000 accounts, one for each created user
 -- AccountStatus.ACTIVE = 0
 INSERT INTO tb_account (user_id, balance, status, version, created_at, updated_at)
 SELECT
