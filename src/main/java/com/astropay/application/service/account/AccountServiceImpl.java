@@ -4,7 +4,9 @@ import com.astropay.application.controller.account.mapper.AccountMapper;
 import com.astropay.application.dto.request.account.CreateAccountRequest;
 import com.astropay.application.dto.request.account.UpdateAccountRequest;
 import com.astropay.application.dto.response.account.AccountResponse;
+import com.astropay.application.event.account.AccountCreatedEvent;
 import com.astropay.application.service.account.port.in.AccountService;
+import com.astropay.application.service.kafka.producer.KafkaProducerService;
 import com.astropay.domain.model.account.Account;
 import com.astropay.domain.model.account.AccountRepository;
 import com.astropay.domain.model.user.User;
@@ -28,11 +30,13 @@ public class AccountServiceImpl implements AccountService {
     private final AccountRepository accountRepository;
     private final UserRepository userRepository;
     private final AccountMapper accountMapper;
+    private final KafkaProducerService kafkaProducerService;
 
-    public AccountServiceImpl(AccountRepository accountRepository, UserRepository userRepository, AccountMapper accountMapper) {
+    public AccountServiceImpl(AccountRepository accountRepository, UserRepository userRepository, AccountMapper accountMapper, KafkaProducerService kafkaProducerService) {
         this.accountRepository = accountRepository;
         this.userRepository = userRepository;
         this.accountMapper = accountMapper;
+        this.kafkaProducerService = kafkaProducerService;
     }
 
     @Override
@@ -48,6 +52,17 @@ public class AccountServiceImpl implements AccountService {
         Account newAccount = new Account(user, initialBalance);
         
         Account savedAccount = accountRepository.save(newAccount);
+
+        // Publica o evento de conta criada
+        AccountCreatedEvent event = new AccountCreatedEvent(
+            savedAccount.getId(),
+            user.getId(),
+            user.getName(),
+            user.getEmail(),
+            savedAccount.getCreatedAt()
+        );
+        kafkaProducerService.sendAccountCreatedEvent(event); // Precisamos criar este método
+
         return accountMapper.toAccountResponse(savedAccount);
     }
 

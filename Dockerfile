@@ -13,6 +13,6 @@ WORKDIR /app
 RUN mkdir logs
 
 COPY --from=build /app/target/*.jar app.jar
-# A porta foi alterada para 8081 no application.properties
-EXPOSE 8081
+# A porta da aplicação é 8082, conforme application.properties
+EXPOSE 8082
 ENTRYPOINT ["java", "-jar", "app.jar"]

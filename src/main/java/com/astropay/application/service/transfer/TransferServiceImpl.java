@@ -1,7 +1,7 @@
 package com.astropay.application.service.transfer;
 
-import com.astropay.application.event.KafkaProducerService;
-import com.astropay.application.event.TransactionEvent;
+import com.astropay.application.event.transactions.TransactionEvent;
+import com.astropay.application.service.kafka.producer.KafkaProducerService;
 import com.astropay.domain.model.account.Account;
 import com.astropay.domain.model.account.AccountRepository;
 import com.astropay.domain.model.transaction.Transaction;
@@ -41,17 +41,15 @@ public class TransferServiceImpl implements TransferService {
         Transaction transaction = new Transaction(senderAccount, receiverAccount, transfer.getAmount(), transfer.getIdempotencyKey());
         transactionRepository.save(transaction);
 
-        if ((senderAccount.getUser().getId() == 1L && receiverAccount.getUser().getId() == 2L) ||
-            (senderAccount.getUser().getId() == 2L && receiverAccount.getUser().getId() == 1L)) {
-            TransactionEvent event = new TransactionEvent(
-                    transaction.getId(),
-                    senderAccount.getId(),
-                    receiverAccount.getId(),
-                    transfer.getAmount(),
-                    transaction.getCreatedAt(),
-                    transfer.getIdempotencyKey()
-            );
-            kafkaProducerService.sendTransactionEvent(event);
-        }
+        // Removida a restrição de IDs para garantir que o evento seja sempre enviado
+        TransactionEvent event = new TransactionEvent(
+                transaction.getId(),
+                senderAccount.getId(),
+                receiverAccount.getId(),
+                transfer.getAmount(),
+                transaction.getCreatedAt(),
+                transfer.getIdempotencyKey()
+        );
+        kafkaProducerService.sendTransactionEvent(event);
     }
 }

@@ -28,6 +28,9 @@ public class UserResponse extends RepresentationModel<UserResponse> {
     @JsonFormat(pattern = "MM/dd/yyyy HH:mm:ss.SSS")
     private LocalDateTime updatedAt;
 
+    public UserResponse() {
+    }
+
     // Construtor, Getters e Setters
     public UserResponse(Long id, String name, String document, String email, UserStatus status, Role role, LocalDateTime createdAt, LocalDateTime updatedAt) {
         this.id = id;

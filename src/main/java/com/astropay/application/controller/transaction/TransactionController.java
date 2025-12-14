@@ -1,6 +1,8 @@
 package com.astropay.application.controller.transaction;
 
 import com.astropay.application.dto.response.transaction.TransactionResponse;
+import com.astropay.application.dto.response.transaction.TransactionUserResponse;
+import com.astropay.application.service.transaction.TransactionAuditService;
 import com.astropay.application.service.transaction.port.in.TransactionService;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -21,10 +23,12 @@ import static org.springframework.hateoas.server.mvc.WebMvcLinkBuilder.methodOn;
 public class TransactionController {
 
     private final TransactionService transactionService;
+    private final TransactionAuditService transactionAuditService;
     private final PagedResourcesAssembler<TransactionResponse> pagedResourcesAssembler;
 
-    public TransactionController(TransactionService transactionService, PagedResourcesAssembler<TransactionResponse> pagedResourcesAssembler) {
+    public TransactionController(TransactionService transactionService, TransactionAuditService transactionAuditService, PagedResourcesAssembler<TransactionResponse> pagedResourcesAssembler) {
         this.transactionService = transactionService;
+        this.transactionAuditService = transactionAuditService;
         this.pagedResourcesAssembler = pagedResourcesAssembler;
     }
 
@@ -47,5 +51,11 @@ public class TransactionController {
         transaction.add(linkTo(methodOn(TransactionController.class).getAllTransactions(Pageable.unpaged())).withRel("all-transactions"));
 
         return ResponseEntity.ok(transaction);
+    }
+
+    @GetMapping("/{id}/sender")
+    public ResponseEntity<TransactionUserResponse> getTransactionSender(@PathVariable Long id) {
+        TransactionUserResponse response = transactionAuditService.findUserByTransactionId(id);
+        return ResponseEntity.ok(response);
     }
 }

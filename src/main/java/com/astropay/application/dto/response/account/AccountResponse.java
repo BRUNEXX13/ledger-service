@@ -26,6 +26,12 @@ public class AccountResponse extends RepresentationModel<AccountResponse> {
     @JsonFormat(pattern = "MM/dd/yyyy HH:mm:ss.SSS")
     private LocalDateTime updatedAt;
 
+    /**
+     * Construtor padrão exigido pelo Jackson para deserialização.
+     */
+    public AccountResponse() {
+    }
+
     public AccountResponse(Long id, Long userId, BigDecimal balance, AccountStatus status, LocalDateTime createdAt, LocalDateTime updatedAt) {
         this.id = id;
         this.userId = userId;

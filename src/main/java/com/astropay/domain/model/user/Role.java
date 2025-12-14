@@ -7,5 +7,6 @@ package com.astropay.domain.model.user;
 public enum Role {
     ROLE_EMPLOYEE,
     ROLE_MANAGER,
-    ROLE_ADMIN
+    ROLE_ADMIN,
+    ROLE_CLIENT
 }

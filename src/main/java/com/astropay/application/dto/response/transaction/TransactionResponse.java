@@ -24,6 +24,9 @@ public class TransactionResponse extends RepresentationModel<TransactionResponse
     @JsonFormat(pattern = "MM/dd/yyyy HH:mm:ss.SSS")
     private LocalDateTime createdAt;
 
+    public TransactionResponse() {
+    }
+
     // Construtor, Getters e Setters
     public TransactionResponse(Long id, Long senderAccountId, Long receiverAccountId, BigDecimal amount, UUID idempotencyKey, LocalDateTime createdAt) {
         this.id = id;

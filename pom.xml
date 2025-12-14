@@ -77,12 +77,6 @@
             <artifactId>micrometer-registry-prometheus</artifactId>
         </dependency>
 
-        <!-- Micrometer Datadog -->
-        <dependency>
-            <groupId>io.micrometer</groupId>
-            <artifactId>micrometer-registry-datadog</artifactId>
-        </dependency>
-
         <!-- JSON Logging for Datadog -->
         <dependency>
             <groupId>net.logstash.logback</groupId>

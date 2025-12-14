@@ -1,4 +1,4 @@
-package com.astropay.application.event;
+package com.astropay.application.event.transactions;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
@@ -12,6 +12,12 @@ public class TransactionEvent {
     private BigDecimal amount;
     private LocalDateTime timestamp;
     private UUID idempotencyKey;
+
+    /**
+     * Construtor padrão para deserialização pelo Jackson/Kafka.
+     */
+    public TransactionEvent() {
+    }
 
     public TransactionEvent(Long transactionId, Long senderAccountId, Long receiverAccountId, BigDecimal amount, LocalDateTime timestamp, UUID idempotencyKey) {
         this.transactionId = transactionId;
