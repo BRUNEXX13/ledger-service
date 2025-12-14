@@ -26,22 +26,26 @@ public class TransferServiceImpl implements TransferService {
     @Override
     @Transactional
     public void transfer(Transfer transfer) {
-        Account senderAccount = accountRepository.findById(transfer.getSenderAccountId())
+        // CORREÇÃO: Usando findByIdForUpdate para aplicar bloqueio pessimista
+        Account senderAccount = accountRepository.findByIdForUpdate(transfer.getSenderAccountId())
                 .orElseThrow(() -> new RuntimeException("Sender account not found"));
 
-        Account receiverAccount = accountRepository.findById(transfer.getReceiverAccountId())
+        Account receiverAccount = accountRepository.findByIdForUpdate(transfer.getReceiverAccountId())
                 .orElseThrow(() -> new RuntimeException("Receiver account not found"));
 
+        // A lógica de negócio de saque (incluindo verificação de saldo) está na própria entidade.
         senderAccount.withdraw(transfer.getAmount());
         receiverAccount.deposit(transfer.getAmount());
 
+        // O save não é estritamente necessário se a transação estiver ativa,
+        // mas é uma boa prática para clareza.
         accountRepository.save(senderAccount);
         accountRepository.save(receiverAccount);
 
         Transaction transaction = new Transaction(senderAccount, receiverAccount, transfer.getAmount(), transfer.getIdempotencyKey());
         transactionRepository.save(transaction);
 
-        // Removida a restrição de IDs para garantir que o evento seja sempre enviado
+        // Publica o evento para o Kafka
         TransactionEvent event = new TransactionEvent(
                 transaction.getId(),
                 senderAccount.getId(),

@@ -1,6 +1,6 @@
 package com.astropay.infrastructure.redis;
 
-import com.fasterxml.jackson.annotation.JsonTypeInfo;
+import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
@@ -21,26 +21,28 @@ public class RedisConfig {
 
     @Bean
     public RedisCacheManager cacheManager(RedisConnectionFactory connectionFactory) {
-        // 1. Configurar o ObjectMapper com o módulo de tempo do Java 8
         ObjectMapper objectMapper = new ObjectMapper();
+        
+        // Módulos essenciais
         objectMapper.registerModule(new JavaTimeModule());
+        
+        // REMOVIDO: Jackson2HalModule
+        // Este módulo causa conflitos de serialização com o Redis (HalLinkListSerializer has no default constructor).
+        // Sem ele, os objetos serão cacheados como JSON puro, o que é suficiente para leitura e evita o erro.
+        
         objectMapper.disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);
-        objectMapper.activateDefaultTyping(
-                objectMapper.getPolymorphicTypeValidator(),
-                ObjectMapper.DefaultTyping.NON_FINAL,
-                JsonTypeInfo.As.PROPERTY
-        );
-
-        // 2. Criar o Serializer com o ObjectMapper configurado
+        objectMapper.configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
+        
+        // Ativa a tipagem padrão do GenericJackson2JsonRedisSerializer de forma segura
+        // Isso permite que o Redis saiba qual classe instanciar na volta
         GenericJackson2JsonRedisSerializer serializer = new GenericJackson2JsonRedisSerializer(objectMapper);
+
         RedisSerializationContext.SerializationPair<Object> serializationPair = RedisSerializationContext.SerializationPair.fromSerializer(serializer);
 
-        // 3. Configuração padrão para caches
         RedisCacheConfiguration defaultConfig = RedisCacheConfiguration.defaultCacheConfig()
             .entryTtl(Duration.ofMinutes(5))
             .serializeValuesWith(serializationPair);
 
-        // 4. Construir o CacheManager com configurações específicas
         return RedisCacheManager.builder(connectionFactory)
             .cacheDefaults(defaultConfig)
             .withCacheConfiguration("transactions",

@@ -1,5 +1,6 @@
 package com.astropay.application.exception.handler;
 
+import com.astropay.application.exception.ResourceNotFoundException;
 import com.astropay.domain.model.account.InsufficientBalanceException;
 import io.github.resilience4j.ratelimiter.RequestNotPermitted;
 import org.slf4j.Logger;
@@ -22,9 +23,14 @@ public class RestExceptionHandler extends ResponseEntityExceptionHandler {
 
     private static final Logger log = LoggerFactory.getLogger(RestExceptionHandler.class);
 
-    /**
-     * Captura exceções de Rate Limiting do Resilience4j.
-     */
+    @ExceptionHandler(ResourceNotFoundException.class)
+    public ResponseEntity<Object> handleResourceNotFound(ResourceNotFoundException ex, WebRequest request) {
+        log.warn("Resource not found: {}", ex.getMessage());
+        return ResponseEntity
+            .status(HttpStatus.NOT_FOUND)
+            .body(Map.of("error", ex.getMessage()));
+    }
+
     @ExceptionHandler(RequestNotPermitted.class)
     public ResponseEntity<Object> handleRequestNotPermitted(RequestNotPermitted ex, WebRequest request) {
         log.warn("Rate limit exceeded for {}: {}", request.getDescription(false), ex.getMessage());

@@ -11,8 +11,16 @@ public class KafkaTopicConfig {
     @Bean
     public NewTopic transactionsTopic() {
         return TopicBuilder.name("transactions")
-                .partitions(3) // Permite até 3 consumidores paralelos no futuro
-                .replicas(1)   // 1 réplica pois temos apenas 1 broker local
+                .partitions(3)
+                .replicas(1)
+                .build();
+    }
+
+    @Bean
+    public NewTopic accountsTopic() {
+        return TopicBuilder.name("accounts")
+                .partitions(1) // Apenas 1 partição é suficiente para este tipo de evento
+                .replicas(1)
                 .build();
     }
 }

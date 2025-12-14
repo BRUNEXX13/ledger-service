@@ -5,6 +5,7 @@ import com.astropay.application.dto.request.account.CreateAccountRequest;
 import com.astropay.application.dto.request.account.UpdateAccountRequest;
 import com.astropay.application.dto.response.account.AccountResponse;
 import com.astropay.application.event.account.AccountCreatedEvent;
+import com.astropay.application.exception.ResourceNotFoundException;
 import com.astropay.application.service.account.port.in.AccountService;
 import com.astropay.application.service.kafka.producer.KafkaProducerService;
 import com.astropay.domain.model.account.Account;
@@ -26,6 +27,7 @@ import java.math.BigDecimal;
 public class AccountServiceImpl implements AccountService {
 
     private static final String ACCOUNT_NOT_FOUND_ID = "Account not found with id: ";
+    private static final String USER_NOT_FOUND_ID = "User not found with id: ";
 
     private final AccountRepository accountRepository;
     private final UserRepository userRepository;
@@ -42,7 +44,7 @@ public class AccountServiceImpl implements AccountService {
     @Override
     public AccountResponse createAccount(CreateAccountRequest request) {
         User user = userRepository.findById(request.userId())
-            .orElseThrow(() -> new RuntimeException("User not found with id: " + request.userId()));
+            .orElseThrow(() -> new ResourceNotFoundException(USER_NOT_FOUND_ID + request.userId()));
 
         if (accountRepository.findByUser_Id(request.userId()).isPresent()) {
             throw new IllegalArgumentException("User already has an account.");
@@ -53,7 +55,6 @@ public class AccountServiceImpl implements AccountService {
         
         Account savedAccount = accountRepository.save(newAccount);
 
-        // Publica o evento de conta criada
         AccountCreatedEvent event = new AccountCreatedEvent(
             savedAccount.getId(),
             user.getId(),
@@ -61,7 +62,7 @@ public class AccountServiceImpl implements AccountService {
             user.getEmail(),
             savedAccount.getCreatedAt()
         );
-        kafkaProducerService.sendAccountCreatedEvent(event); // Precisamos criar este método
+        kafkaProducerService.sendAccountCreatedEvent(event);
 
         return accountMapper.toAccountResponse(savedAccount);
     }
@@ -72,7 +73,7 @@ public class AccountServiceImpl implements AccountService {
     public AccountResponse findAccountById(Long id) {
         return accountRepository.findById(id)
             .map(accountMapper::toAccountResponse)
-            .orElseThrow(() -> new RuntimeException(ACCOUNT_NOT_FOUND_ID + id));
+            .orElseThrow(() -> new ResourceNotFoundException(ACCOUNT_NOT_FOUND_ID + id));
     }
 
     @Override
@@ -86,7 +87,7 @@ public class AccountServiceImpl implements AccountService {
     @CachePut(value = "accounts", key = "#id")
     public AccountResponse updateAccount(Long id, UpdateAccountRequest request) {
         Account account = accountRepository.findByIdForUpdate(id)
-            .orElseThrow(() -> new RuntimeException(ACCOUNT_NOT_FOUND_ID + id));
+            .orElseThrow(() -> new ResourceNotFoundException(ACCOUNT_NOT_FOUND_ID + id));
         
         account.adjustBalance(request.balance());
 
@@ -98,7 +99,7 @@ public class AccountServiceImpl implements AccountService {
     @CacheEvict(value = "accounts", key = "#id")
     public void inactivateAccount(Long id) {
         Account account = accountRepository.findByIdForUpdate(id)
-            .orElseThrow(() -> new RuntimeException(ACCOUNT_NOT_FOUND_ID + id));
+            .orElseThrow(() -> new ResourceNotFoundException(ACCOUNT_NOT_FOUND_ID + id));
         
         account.inactivate();
         

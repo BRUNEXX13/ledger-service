@@ -2,6 +2,7 @@ package com.astropay.application.service.transaction;
 
 import com.astropay.application.controller.transaction.mapper.TransactionMapper;
 import com.astropay.application.dto.response.transaction.TransactionResponse;
+import com.astropay.application.exception.ResourceNotFoundException;
 import com.astropay.application.service.transaction.port.in.TransactionService;
 import com.astropay.domain.model.transaction.TransactionRepository;
 import org.springframework.cache.annotation.Cacheable;
@@ -33,6 +34,6 @@ public class TransactionServiceImpl implements TransactionService {
     public TransactionResponse findTransactionById(Long id) {
         return transactionRepository.findById(id)
             .map(transactionMapper::toTransactionResponse)
-            .orElseThrow(() -> new RuntimeException("Transaction not found with id: " + id));
+            .orElseThrow(() -> new ResourceNotFoundException("Transaction not found with id: " + id));
     }
 }
