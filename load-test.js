@@ -6,17 +6,12 @@ import { uuidv4 } from 'https://jslib.k6.io/k6-utils/1.4.0/index.js';
 export const options = {
   scenarios: {
     transfer_stress_test: {
-      executor: 'ramping-arrival-rate',
-      startRate: 100,
+      executor: 'constant-arrival-rate',
+      rate: 3000,
       timeUnit: '1s',
-      preAllocatedVUs: 1000, 
-      maxVUs: 3000, 
-      stages: [
-        { target: 1000, duration: '1m' },  // Aquece para 1k TPS
-        { target: 2000, duration: '1m' },  // Sobe para 2k TPS
-        { target: 3000, duration: '3m' },  // Mantém 3k TPS por 3 minutos
-        { target: 0, duration: '1m' },     // Resfria
-      ],
+      duration: '1m',
+      preAllocatedVUs: 1000,
+      maxVUs: 3000,
     },
   },
   thresholds: {
