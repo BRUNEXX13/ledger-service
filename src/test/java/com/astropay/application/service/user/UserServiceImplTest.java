@@ -4,6 +4,8 @@ import com.astropay.application.controller.user.mapper.UserMapper;
 import com.astropay.application.dto.request.user.CreateUserRequest;
 import com.astropay.application.dto.request.user.PatchUserRequest;
 import com.astropay.application.dto.request.user.UpdateUserRequest;
+import com.astropay.application.dto.response.user.UserResponse;
+import com.astropay.application.exception.UserNotFoundException;
 import com.astropay.application.service.account.port.in.AccountService;
 import com.astropay.domain.model.user.Role;
 import com.astropay.domain.model.user.User;
@@ -22,9 +24,11 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import java.math.BigDecimal;
+import java.time.LocalDateTime;
 import java.util.Collections;
 import java.util.Optional;
 
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
@@ -85,6 +89,38 @@ class UserServiceImplTest {
 
         assertThrows(IllegalArgumentException.class, () -> userService.createUser(createUserRequest));
         verify(userRepository, never()).save(any());
+    }
+
+    // Tests for findUserById
+    @Test
+    @DisplayName("findUserById should return UserResponse when found")
+    void findUserById_shouldReturnUserResponseWhenFound() {
+        // Arrange
+        Long userId = 1L;
+        UserResponse expectedResponse = new UserResponse(userId, "John Doe", "12345678900", "john.doe@example.com", UserStatus.ACTIVE, Role.ROLE_EMPLOYEE, LocalDateTime.now(), LocalDateTime.now());
+        
+        when(userRepository.findById(userId)).thenReturn(Optional.of(user));
+        when(userMapper.toUserResponse(user)).thenReturn(expectedResponse);
+
+        // Act
+        UserResponse actualResponse = userService.findUserById(userId);
+
+        // Assert
+        assertNotNull(actualResponse);
+        verify(userRepository).findById(userId);
+        verify(userMapper).toUserResponse(user);
+    }
+
+    @Test
+    @DisplayName("findUserById should throw UserNotFoundException when not found")
+    void findUserById_shouldThrowUserNotFoundExceptionWhenNotFound() {
+        // Arrange
+        Long userId = 99L;
+        when(userRepository.findById(userId)).thenReturn(Optional.empty());
+
+        // Act & Assert
+        assertThrows(UserNotFoundException.class, () -> userService.findUserById(userId));
+        verify(userMapper, never()).toUserResponse(any());
     }
 
     // Tests for updateUser

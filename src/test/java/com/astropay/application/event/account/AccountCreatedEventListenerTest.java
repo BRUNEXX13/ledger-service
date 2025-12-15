@@ -1,7 +1,7 @@
 package com.astropay.application.event.account;
 
+import com.astropay.application.exception.AccountCreatedFailedException;
 import com.astropay.application.service.notification.EmailService;
-import com.astropay.domain.model.account.AccountRepository;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -12,7 +12,10 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.time.LocalDateTime;
 
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.verify;
 
 @ExtendWith(MockitoExtension.class)
@@ -20,9 +23,6 @@ class AccountCreatedEventListenerTest {
 
     @Mock
     private EmailService emailService;
-
-    @Mock
-    private AccountRepository accountRepository;
 
     @InjectMocks
     private AccountCreatedEventListener eventListener;
@@ -52,5 +52,31 @@ class AccountCreatedEventListenerTest {
         assertTrue(subjectCaptor.getValue().contains("Welcome"));
         assertTrue(bodyCaptor.getValue().contains("John Doe"));
         assertTrue(bodyCaptor.getValue().contains("100"));
+    }
+
+    @Test
+    @DisplayName("Should throw AccountCreatedFailedException when email service fails")
+    void shouldThrowExceptionWhenEmailServiceFails() {
+        // Arrange
+        AccountCreatedEvent event = new AccountCreatedEvent(
+                100L,
+                1L,
+                "John Doe",
+                "john.doe@example.com",
+                LocalDateTime.now()
+        );
+
+        // Mock the email service to throw an exception
+        doThrow(new RuntimeException("Email server is down")).when(emailService)
+                .sendTransactionNotification(anyString(), anyString(), anyString());
+
+        // Act & Assert
+        AccountCreatedFailedException exception = assertThrows(
+                AccountCreatedFailedException.class,
+                () -> eventListener.handleAccountCreatedEvent(event)
+        );
+
+        // Verify the exception message contains contextual information
+        assertTrue(exception.getMessage().contains("Failed to process account creation event for accountId: 100"));
     }
 }

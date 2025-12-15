@@ -18,7 +18,6 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
-import java.nio.file.attribute.UserPrincipalNotFoundException;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.function.Consumer;

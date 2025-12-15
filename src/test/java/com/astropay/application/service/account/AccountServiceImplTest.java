@@ -2,6 +2,7 @@ package com.astropay.application.service.account;
 
 import com.astropay.application.controller.account.mapper.AccountMapper;
 import com.astropay.application.dto.request.account.CreateAccountRequest;
+import com.astropay.application.dto.request.account.UpdateAccountRequest;
 import com.astropay.application.dto.response.account.AccountResponse;
 import com.astropay.application.exception.ResourceNotFoundException;
 import com.astropay.application.service.kafka.producer.KafkaProducerService;
@@ -18,10 +19,15 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.Collections;
 import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -69,9 +75,9 @@ class AccountServiceImplTest {
     @DisplayName("createAccountForUser should throw exception if user is null")
     void createAccountForUser_shouldThrowExceptionIfUserIsNull() {
         // Act & Assert
-        IllegalArgumentException exception = assertThrows(IllegalArgumentException.class, () -> {
-            accountService.createAccountForUser(null, BigDecimal.TEN);
-        });
+        IllegalArgumentException exception = assertThrows(IllegalArgumentException.class, () -> 
+            accountService.createAccountForUser(null, BigDecimal.TEN)
+        );
         assertEquals("User cannot be null.", exception.getMessage());
     }
 
@@ -82,9 +88,9 @@ class AccountServiceImplTest {
         when(accountRepository.findByUser_Id(user.getId())).thenReturn(Optional.of(new Account(user, BigDecimal.ZERO)));
 
         // Act & Assert
-        IllegalStateException exception = assertThrows(IllegalStateException.class, () -> {
-            accountService.createAccountForUser(user, BigDecimal.TEN);
-        });
+        IllegalStateException exception = assertThrows(IllegalStateException.class, () -> 
+            accountService.createAccountForUser(user, BigDecimal.TEN)
+        );
         assertEquals("User already has an account.", exception.getMessage());
     }
 
@@ -120,9 +126,32 @@ class AccountServiceImplTest {
         when(userRepository.findById(99L)).thenReturn(Optional.empty());
 
         // Act & Assert
-        assertThrows(ResourceNotFoundException.class, () -> {
-            accountService.createAccount(request);
-        });
+        assertThrows(ResourceNotFoundException.class, () -> 
+            accountService.createAccount(request)
+        );
+    }
+
+    @Test
+    @DisplayName("createAccount should throw IllegalStateException if account is not found after creation")
+    void createAccount_shouldThrowExceptionIfAccountNotFoundAfterCreation() {
+        // Arrange
+        CreateAccountRequest request = new CreateAccountRequest(user.getId(), BigDecimal.TEN);
+
+        when(userRepository.findById(user.getId())).thenReturn(Optional.of(user));
+        
+        // 1st call (in createAccountForUser) -> returns empty to allow creation
+        // 2nd call (the line to be tested) -> returns empty again to trigger the exception
+        when(accountRepository.findByUser_Id(user.getId()))
+            .thenReturn(Optional.empty())
+            .thenReturn(Optional.empty());
+        
+        // Act & Assert
+        IllegalStateException exception = assertThrows(IllegalStateException.class, () -> 
+            accountService.createAccount(request)
+        );
+
+        assertEquals("Could not find created account for user: " + user.getId(), exception.getMessage());
+        verify(kafkaProducerService, never()).sendAccountCreatedEvent(any());
     }
     
     // Tests for findAccountById
@@ -151,8 +180,106 @@ class AccountServiceImplTest {
         when(accountRepository.findById(1L)).thenReturn(Optional.empty());
 
         // Act & Assert
-        assertThrows(ResourceNotFoundException.class, () -> {
-            accountService.findAccountById(1L);
-        });
+        assertThrows(ResourceNotFoundException.class, () -> 
+            accountService.findAccountById(1L)
+        );
+    }
+
+    // Test for findAllAccounts
+    @Test
+    @DisplayName("findAllAccounts should return a page of account responses")
+    void findAllAccounts_shouldReturnPageOfAccountResponses() {
+        // Arrange
+        Pageable pageable = PageRequest.of(0, 10);
+        Account account = new Account(user, BigDecimal.TEN);
+        Page<Account> accountPage = new PageImpl<>(Collections.singletonList(account), pageable, 1);
+        AccountResponse response = new AccountResponse(1L, user.getId(), BigDecimal.TEN, AccountStatus.ACTIVE, LocalDateTime.now(), LocalDateTime.now());
+
+        when(accountRepository.findAll(pageable)).thenReturn(accountPage);
+        when(accountMapper.toAccountResponse(any(Account.class))).thenReturn(response);
+
+        // Act
+        Page<AccountResponse> result = accountService.findAllAccounts(pageable);
+
+        // Assert
+        assertFalse(result.isEmpty());
+        assertEquals(1, result.getTotalElements());
+        verify(accountRepository).findAll(pageable);
+        verify(accountMapper).toAccountResponse(account);
+    }
+
+    // Tests for updateAccount
+    @Test
+    @DisplayName("updateAccount should update balance and return response")
+    void updateAccount_shouldUpdateBalanceAndReturnResponse() {
+        // Arrange
+        Long accountId = 1L;
+        BigDecimal newBalance = new BigDecimal("500.00");
+        UpdateAccountRequest request = new UpdateAccountRequest(newBalance);
+        
+        Account originalAccount = new Account(user, new BigDecimal("100.00"));
+        Account spyAccount = spy(originalAccount); // Spy to verify method calls on the object
+
+        AccountResponse response = new AccountResponse(accountId, user.getId(), newBalance, AccountStatus.ACTIVE, LocalDateTime.now(), LocalDateTime.now());
+
+        when(accountRepository.findById(accountId)).thenReturn(Optional.of(spyAccount));
+        when(accountRepository.save(any(Account.class))).thenReturn(spyAccount);
+        when(accountMapper.toAccountResponse(spyAccount)).thenReturn(response);
+
+        // Act
+        AccountResponse result = accountService.updateAccount(accountId, request);
+
+        // Assert
+        assertNotNull(result);
+        verify(spyAccount).adjustBalance(newBalance); // Verify the business method was called
+        verify(accountRepository).save(spyAccount);
+        assertEquals(newBalance, result.getBalance());
+    }
+
+    @Test
+    @DisplayName("updateAccount should throw exception when account not found")
+    void updateAccount_shouldThrowExceptionWhenNotFound() {
+        // Arrange
+        Long accountId = 99L;
+        UpdateAccountRequest request = new UpdateAccountRequest(BigDecimal.TEN);
+        when(accountRepository.findById(accountId)).thenReturn(Optional.empty());
+
+        // Act & Assert
+        assertThrows(ResourceNotFoundException.class, () -> 
+            accountService.updateAccount(accountId, request)
+        );
+    }
+
+    // Tests for inactivateAccount
+    @Test
+    @DisplayName("inactivateAccount should set status to INACTIVE")
+    void inactivateAccount_shouldSetStatusToInactive() {
+        // Arrange
+        Long accountId = 1L;
+        // Balance must be zero to inactivate
+        Account account = new Account(user, BigDecimal.ZERO);
+        Account spyAccount = spy(account);
+
+        when(accountRepository.findById(accountId)).thenReturn(Optional.of(spyAccount));
+
+        // Act
+        accountService.inactivateAccount(accountId);
+
+        // Assert
+        verify(spyAccount).inactivate(); // Verify the business method was called
+        verify(accountRepository).save(spyAccount);
+    }
+
+    @Test
+    @DisplayName("inactivateAccount should throw exception when account not found")
+    void inactivateAccount_shouldThrowExceptionWhenNotFound() {
+        // Arrange
+        Long accountId = 99L;
+        when(accountRepository.findById(accountId)).thenReturn(Optional.empty());
+
+        // Act & Assert
+        assertThrows(ResourceNotFoundException.class, () -> 
+            accountService.inactivateAccount(accountId)
+        );
     }
 }
