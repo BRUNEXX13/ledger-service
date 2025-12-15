@@ -27,14 +27,12 @@ public class KafkaProducerConfig {
         Map<String, Object> configProps = new HashMap<>();
         configProps.put(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, bootstrapServers);
         configProps.put(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG, StringSerializer.class);
-        
-        ObjectMapper objectMapper = new ObjectMapper();
-        objectMapper.registerModule(new JavaTimeModule());
-        objectMapper.disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);
+        configProps.put(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG, JsonSerializer.class);
 
-        JsonSerializer<Object> jsonSerializer = new JsonSerializer<>(objectMapper);
-        
-        return new DefaultKafkaProducerFactory<>(configProps, new StringSerializer(), jsonSerializer);
+        // Add type information to the headers
+        configProps.put(JsonSerializer.ADD_TYPE_INFO_HEADERS, "true");
+
+        return new DefaultKafkaProducerFactory<>(configProps);
     }
 
     @Bean

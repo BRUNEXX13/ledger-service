@@ -21,9 +21,11 @@ import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.UUID;
 
 @Component
 public class TransferEventScheduler {
@@ -50,7 +52,7 @@ public class TransferEventScheduler {
         this.objectMapper = objectMapper;
     }
 
-    @Scheduled(fixedDelay = 2000) // Aumentado para 2 segundos para dar tempo de processar
+    @Scheduled(fixedDelay = 2000)
     @Transactional
     public void processTransferEvents() {
         LocalDateTime lockTimeout = LocalDateTime.now().minusMinutes(1);
@@ -83,7 +85,7 @@ public class TransferEventScheduler {
                     event.setStatus(OutboxEventStatus.FAILED);
                     failedEvents.add(event);
                 } else {
-                    event.setStatus(OutboxEventStatus.UNPROCESSED); // Volta para a fila
+                    event.setStatus(OutboxEventStatus.UNPROCESSED);
                 }
             }
         }
@@ -103,21 +105,26 @@ public class TransferEventScheduler {
             maxAttempts = 3,
             backoff = @Backoff(delay = 150)
     )
+    @Transactional
     public void processTransfer(OutboxEvent event) throws Exception {
         JsonNode payload = objectMapper.readTree(event.getPayload());
-        Long transactionId = payload.get("transactionId").asLong();
+        
+        // Correctly read data from the event payload
+        Long senderAccountId = payload.get("senderAccountId").asLong();
+        Long receiverAccountId = payload.get("receiverAccountId").asLong();
+        BigDecimal amount = new BigDecimal(payload.get("amount").asText());
+        UUID idempotencyKey = UUID.fromString(payload.get("idempotencyKey").asText());
 
-        Transaction transaction = transactionRepository.findById(transactionId)
-                .orElseThrow(() -> new IllegalStateException("Transaction not found for id: " + transactionId));
+        // --- Create the Transaction ---
+        Account senderAccount = accountRepository.findById(senderAccountId)
+                .orElseThrow(() -> new IllegalStateException("Sender account not found for id: " + senderAccountId));
+        Account receiverAccount = accountRepository.findById(receiverAccountId)
+                .orElseThrow(() -> new IllegalStateException("Receiver account not found for id: " + receiverAccountId));
 
-        if (!transaction.getStatus().equals(com.astropay.domain.model.transaction.TransactionStatus.PENDING)) {
-            log.warn("Transaction {} already processed with status {}. Skipping.", transaction.getId(), transaction.getStatus());
-            return;
-        }
-
-        Account senderAccount = transaction.getSender();
-        Account receiverAccount = transaction.getReceiver();
-
+        Transaction transaction = new Transaction(senderAccount, receiverAccount, amount, idempotencyKey);
+        transactionRepository.save(transaction); // Save initial PENDING transaction
+        
+        // --- Process the Transfer ---
         try {
             senderAccount.withdraw(transaction.getAmount());
             receiverAccount.deposit(transaction.getAmount());
@@ -133,7 +140,7 @@ public class TransferEventScheduler {
             transaction.fail(e.getMessage());
             transactionAuditService.createAuditEvent(transaction, "TransactionFailed");
         } finally {
-            transactionRepository.save(transaction);
+            transactionRepository.save(transaction); // Save final state (COMPLETED or FAILED)
         }
     }
 }
