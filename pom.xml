@@ -194,6 +194,10 @@
                         <configuration>
                             <excludes>
                                 <exclude>jdk.internal.*</exclude>
+                                <!-- Exclui classes geradas dinamicamente pelo Mockito/CGLIB -->
+                                <exclude>*MockitoMock*</exclude>
+                                <!-- Exclui classes internas do ByteBuddy -->
+                                <exclude>net.bytebuddy.*</exclude>
                             </excludes>
                         </configuration>
                     </execution>

@@ -1,6 +1,7 @@
 package com.astropay.application.controller.user;
 
 import com.astropay.application.dto.request.user.CreateUserRequest;
+import com.astropay.application.dto.request.user.PatchUserRequest;
 import com.astropay.application.dto.request.user.UpdateUserRequest;
 import com.astropay.application.dto.response.user.UserResponse;
 import com.astropay.application.exception.handler.RestExceptionHandler;
@@ -118,5 +119,22 @@ class UserControllerTest {
 
         mockMvc.perform(delete("/users/{id}", userId))
                 .andExpect(status().isNoContent());
+    }
+
+    @Test
+    @DisplayName("PATCH /users/{id} - Should return 200 OK for successful partial update")
+    void shouldPatchUser() throws Exception {
+        Long userId = 1L;
+        Long executorId = 99L;
+        PatchUserRequest request = new PatchUserRequest("John Doe Patched", null, null, null);
+        UserResponse response = new UserResponse(userId, "John Doe Patched", "12345678900", "john.doe@example.com", UserStatus.ACTIVE, Role.ROLE_EMPLOYEE, LocalDateTime.now(), LocalDateTime.now());
+        when(userService.patchUser(eq(userId), any(PatchUserRequest.class), eq(executorId))).thenReturn(response);
+
+        mockMvc.perform(patch("/users/{id}", userId)
+                        .header("Executor-ID", executorId)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.name").value("John Doe Patched"));
     }
 }

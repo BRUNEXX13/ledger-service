@@ -102,6 +102,7 @@ class TransferEventSchedulerTest {
         verify(transactionRepository).save(transaction);
         verify(transactionAuditService).createAuditEvent(transaction, "TransactionCompleted");
         
+        // Robust verification using ArgumentCaptor
         ArgumentCaptor<List<OutboxEvent>> captor = ArgumentCaptor.forClass(List.class);
         verify(outboxEventRepository).deleteAllInBatch(captor.capture());
         List<OutboxEvent> deletedEvents = captor.getValue();
@@ -127,6 +128,7 @@ class TransferEventSchedulerTest {
         verify(transactionAuditService).createAuditEvent(transaction, "TransactionFailed");
         verify(accountRepository, never()).save(any(Account.class));
         
+        // Robust verification using ArgumentCaptor
         ArgumentCaptor<List<OutboxEvent>> captor = ArgumentCaptor.forClass(List.class);
         verify(outboxEventRepository).deleteAllInBatch(captor.capture());
         List<OutboxEvent> deletedEvents = captor.getValue();
@@ -190,6 +192,7 @@ class TransferEventSchedulerTest {
         verify(senderAccount, never()).withdraw(any());
         verify(receiverAccount, never()).deposit(any());
         
+        // Robust verification using ArgumentCaptor
         ArgumentCaptor<List<OutboxEvent>> captor = ArgumentCaptor.forClass(List.class);
         verify(outboxEventRepository).deleteAllInBatch(captor.capture());
         List<OutboxEvent> deletedEvents = captor.getValue();

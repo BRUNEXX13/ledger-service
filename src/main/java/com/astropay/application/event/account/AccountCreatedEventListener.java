@@ -1,5 +1,6 @@
 package com.astropay.application.event.account;
 
+import com.astropay.application.exception.AccountCreatedFailedException;
 import com.astropay.application.service.notification.EmailService;
 import com.astropay.domain.model.account.AccountRepository;
 import org.slf4j.Logger;
@@ -15,7 +16,7 @@ public class AccountCreatedEventListener {
 
     private final EmailService emailService;
 
-    public AccountCreatedEventListener(EmailService emailService, AccountRepository accountRepository) {
+    public AccountCreatedEventListener(EmailService emailService) {
         this.emailService = emailService;
     }
     @Transactional
@@ -32,8 +33,8 @@ public class AccountCreatedEventListener {
             emailService.sendTransactionNotification(event.getUserEmail(), subject, body);
 
         } catch (Exception e) {
-            log.error("Error processing ACCOUNT CREATION event: {}", e.getMessage(), e);
-            throw new RuntimeException("Failed to process account creation event", e);
+            log.error("Error processing ACCOUNT CREATION event for AccountId: {}. Error: {}", event.getAccountId(), e.getMessage(), e);
+            throw new AccountCreatedFailedException(String.format("Failed to process account creation event for accountId: %d", event.getAccountId()), e);
         }
     }
 }
