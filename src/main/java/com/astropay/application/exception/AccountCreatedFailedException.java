@@ -6,7 +6,7 @@ import org.springframework.web.bind.annotation.ResponseStatus;
 @ResponseStatus(HttpStatus.INTERNAL_SERVER_ERROR)
 public class AccountCreatedFailedException extends RuntimeException {
 
-    public AccountCreatedFailedException(String message, Exception e) {
-        super(message);
+    public AccountCreatedFailedException(String message, Throwable cause) {
+        super(message, cause);
     }
 }
