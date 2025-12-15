@@ -17,7 +17,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
@@ -36,7 +36,8 @@ class TransactionEventListenerTest {
     @DisplayName("Should handle transaction event and send emails to sender and receiver")
     void shouldHandleTransactionEvent() {
         // Arrange
-        TransactionEvent event = new TransactionEvent(1L, 10L, 20L, new BigDecimal("100.50"), null, UUID.randomUUID());
+        BigDecimal amount = new BigDecimal("100.50");
+        TransactionEvent event = new TransactionEvent(1L, 10L, 20L, amount, null, UUID.randomUUID());
         ConsumerRecord<String, TransactionEvent> record = new ConsumerRecord<>("transactions", 0, 0, "key", event);
 
         User sender = mock(User.class);
@@ -61,13 +62,59 @@ class TransactionEventListenerTest {
         List<String> emails = emailCaptor.getAllValues();
         List<String> bodies = bodyCaptor.getAllValues();
 
-        assertTrue(emails.contains("sender@example.com"));
-        assertTrue(emails.contains("receiver@example.com"));
+        assertTrue(emails.contains("sender@example.com"), "Should contain sender's email");
+        assertTrue(emails.contains("receiver@example.com"), "Should contain receiver's email");
         
-        String senderBody = bodies.stream().filter(b -> b.contains("You sent")).findFirst().orElse("");
-        String receiverBody = bodies.stream().filter(b -> b.contains("You received")).findFirst().orElse("");
+        // Formata o valor esperado usando o mesmo Locale do sistema, garantindo consistência
+        String expectedAmountString = String.format("%.2f", amount);
 
-        assertTrue(senderBody.contains("100.50") && senderBody.contains("Receiver Name"));
-        assertTrue(receiverBody.contains("100.50") && receiverBody.contains("Sender Name"));
+        String senderBody = bodies.stream().filter(b -> b.contains("Você enviou")).findFirst().orElse("");
+        String receiverBody = bodies.stream().filter(b -> b.contains("Você recebeu")).findFirst().orElse("");
+
+        assertTrue(!senderBody.isEmpty(), "Sender email body should not be empty");
+        assertTrue(senderBody.contains(expectedAmountString) && senderBody.contains("Receiver Name"), 
+            "Sender email body content is incorrect. Expected amount: " + expectedAmountString);
+
+        assertTrue(!receiverBody.isEmpty(), "Receiver email body should not be empty");
+        assertTrue(receiverBody.contains(expectedAmountString) && receiverBody.contains("Sender Name"), 
+            "Receiver email body content is incorrect. Expected amount: " + expectedAmountString);
+    }
+
+    @Test
+    @DisplayName("Should throw exception when sender is not found")
+    void shouldThrowExceptionWhenSenderNotFound() {
+        // Arrange
+        TransactionEvent event = new TransactionEvent(1L, 10L, 20L, new BigDecimal("100.50"), null, UUID.randomUUID());
+        ConsumerRecord<String, TransactionEvent> record = new ConsumerRecord<>("transactions", 0, 0, "key", event);
+
+        when(userRepository.findById(10L)).thenReturn(Optional.empty());
+
+        // Act & Assert
+        RuntimeException exception = assertThrows(RuntimeException.class, () -> {
+            eventListener.handleTransactionEvent(record);
+        });
+
+        assertEquals("Usuário remetente não encontrado para o ID: 10", exception.getMessage());
+        verify(emailService, never()).sendTransactionNotification(any(), any(), any());
+    }
+
+    @Test
+    @DisplayName("Should throw exception when receiver is not found")
+    void shouldThrowExceptionWhenReceiverNotFound() {
+        // Arrange
+        TransactionEvent event = new TransactionEvent(1L, 10L, 20L, new BigDecimal("100.50"), null, UUID.randomUUID());
+        ConsumerRecord<String, TransactionEvent> record = new ConsumerRecord<>("transactions", 0, 0, "key", event);
+
+        User sender = mock(User.class);
+        when(userRepository.findById(10L)).thenReturn(Optional.of(sender));
+        when(userRepository.findById(20L)).thenReturn(Optional.empty());
+
+        // Act & Assert
+        RuntimeException exception = assertThrows(RuntimeException.class, () -> {
+            eventListener.handleTransactionEvent(record);
+        });
+
+        assertEquals("Usuário destinatário não encontrado para o ID: 20", exception.getMessage());
+        verify(emailService, never()).sendTransactionNotification(any(), any(), any());
     }
 }

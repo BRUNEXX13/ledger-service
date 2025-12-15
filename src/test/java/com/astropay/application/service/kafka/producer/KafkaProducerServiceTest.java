@@ -6,27 +6,23 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.mockito.junit.jupiter.MockitoSettings;
-import org.mockito.quality.Strictness;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.kafka.support.SendResult;
 
+import java.math.BigDecimal;
+import java.time.LocalDateTime;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyString;
-import static org.mockito.Mockito.mock;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
-@MockitoSettings(strictness = Strictness.LENIENT)
 class KafkaProducerServiceTest {
 
     @Mock
@@ -35,49 +31,43 @@ class KafkaProducerServiceTest {
     @InjectMocks
     private KafkaProducerService kafkaProducerService;
 
+    private CompletableFuture<SendResult<String, Object>> future;
+
     @BeforeEach
     void setUp() {
-        CompletableFuture<SendResult<String, Object>> future = mock(CompletableFuture.class);
-        when(kafkaTemplate.send(anyString(), any())).thenReturn(future);
+        // This setup is flexible for both success and failure scenarios
+        future = new CompletableFuture<>();
     }
 
+    // --- Tests for sendTransactionEvent ---
+
     @Test
-    @DisplayName("Should send transaction event to 'transactions' topic")
-    void shouldSendTransactionEvent() {
+    @DisplayName("sendTransactionEvent should call kafkaTemplate with correct topic and event")
+    void sendTransactionEvent_shouldCallKafkaTemplateCorrectly() {
         // Arrange
-        TransactionEvent event = mock(TransactionEvent.class);
-        when(event.getIdempotencyKey()).thenReturn(UUID.randomUUID());
+        TransactionEvent event = new TransactionEvent(1L, 10L, 20L, BigDecimal.TEN, LocalDateTime.now(), UUID.randomUUID());
+        when(kafkaTemplate.send(eq("transactions"), any(TransactionEvent.class))).thenReturn(future);
 
         // Act
         kafkaProducerService.sendTransactionEvent(event);
 
         // Assert
-        ArgumentCaptor<String> topicCaptor = ArgumentCaptor.forClass(String.class);
-        ArgumentCaptor<TransactionEvent> eventCaptor = ArgumentCaptor.forClass(TransactionEvent.class);
-
-        verify(kafkaTemplate).send(topicCaptor.capture(), eventCaptor.capture());
-
-        assertEquals("transactions", topicCaptor.getValue());
-        assertEquals(event, eventCaptor.getValue());
+        verify(kafkaTemplate).send("transactions", event);
     }
 
+    // --- Tests for sendAccountCreatedEvent ---
+
     @Test
-    @DisplayName("Should send account created event to 'accounts' topic")
-    void shouldSendAccountCreatedEvent() {
+    @DisplayName("sendAccountCreatedEvent should call kafkaTemplate with correct topic and event")
+    void sendAccountCreatedEvent_shouldCallKafkaTemplateCorrectly() {
         // Arrange
-        AccountCreatedEvent event = mock(AccountCreatedEvent.class);
-        when(event.getAccountId()).thenReturn(1L);
+        AccountCreatedEvent event = new AccountCreatedEvent(1L, 10L, "John Doe", "john.doe@example.com", LocalDateTime.now());
+        when(kafkaTemplate.send(eq("accounts"), any(AccountCreatedEvent.class))).thenReturn(future);
 
         // Act
         kafkaProducerService.sendAccountCreatedEvent(event);
 
         // Assert
-        ArgumentCaptor<String> topicCaptor = ArgumentCaptor.forClass(String.class);
-        ArgumentCaptor<AccountCreatedEvent> eventCaptor = ArgumentCaptor.forClass(AccountCreatedEvent.class);
-
-        verify(kafkaTemplate).send(topicCaptor.capture(), eventCaptor.capture());
-
-        assertEquals("accounts", topicCaptor.getValue());
-        assertEquals(event, eventCaptor.getValue());
+        verify(kafkaTemplate).send("accounts", event);
     }
 }

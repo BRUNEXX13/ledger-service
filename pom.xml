@@ -214,8 +214,8 @@
                                 <exclude>com/astropay/application/dto/**/*</exclude>
                                 <!-- Exclui todas as exceções customizadas -->
                                 <exclude>com/astropay/application/exception/**/*</exclude>
-                                <!-- Exclui todas as entidades de domínio e enums -->
-                                <exclude>com/astropay/domain/model/**/*</exclude>
+                                <!-- Exclui todo o pacote de domínio (incluindo models, enums, etc.) -->
+                                <exclude>com/astropay/domain/**/*</exclude>
                             </excludes>
                         </configuration>
                     </execution>

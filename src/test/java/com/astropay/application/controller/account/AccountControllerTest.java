@@ -3,18 +3,23 @@ package com.astropay.application.controller.account;
 import com.astropay.application.dto.request.account.CreateAccountRequest;
 import com.astropay.application.dto.request.account.UpdateAccountRequest;
 import com.astropay.application.dto.response.account.AccountResponse;
+import com.astropay.application.exception.handler.RestExceptionHandler;
 import com.astropay.application.service.account.port.in.AccountService;
 import com.astropay.domain.model.account.AccountStatus;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.autoconfigure.EnableAutoConfiguration;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
+import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.Import;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.web.PagedResourcesAssembler;
 import org.springframework.http.MediaType;
+import org.springframework.test.context.ContextConfiguration;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
@@ -30,7 +35,14 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 @WebMvcTest(AccountController.class)
+@ContextConfiguration(classes = AccountControllerTest.TestConfig.class)
 class AccountControllerTest {
+
+    @Configuration
+    @EnableAutoConfiguration
+    @Import({AccountController.class, RestExceptionHandler.class})
+    static class TestConfig {
+    }
 
     @Autowired
     private MockMvc mockMvc;

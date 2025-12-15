@@ -5,6 +5,7 @@ import com.astropay.application.dto.request.user.CreateUserRequest;
 import com.astropay.application.dto.request.user.PatchUserRequest;
 import com.astropay.application.dto.request.user.UpdateUserRequest;
 import com.astropay.application.dto.response.user.UserResponse;
+import com.astropay.application.exception.UserNotFoundException;
 import com.astropay.application.service.account.port.in.AccountService;
 import com.astropay.application.service.user.port.in.UserService;
 import com.astropay.domain.model.user.Role;
@@ -17,7 +18,10 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.nio.file.attribute.UserPrincipalNotFoundException;
 import java.util.Objects;
+import java.util.Optional;
+import java.util.function.Consumer;
 
 @Service
 @Transactional
@@ -69,16 +73,10 @@ public class UserServiceImpl implements UserService {
 
     @Override
     public UserResponse updateUser(Long id, UpdateUserRequest request, Long executorId) {
-        User userToUpdate = userRepository.findByIdForUpdate(id)
-            .orElseThrow(() -> new RuntimeException("User not found with id: " + id));
+        User userToUpdate = findUserForUpdate(id);
         
-        if (!Objects.equals(userToUpdate.getRole(), request.role())) {
-            validateAdminRole(executorId);
-        }
-
-        if (!userToUpdate.getEmail().equals(request.email()) && userRepository.existsByEmail(request.email())) {
-            throw new IllegalArgumentException("Email already in use: " + request.email());
-        }
+        validateRoleChangePermission(userToUpdate.getRole(), request.role(), executorId);
+        validateEmailUniqueness(userToUpdate.getEmail(), request.email());
 
         userToUpdate.changeName(request.name());
         userToUpdate.changeEmail(request.email());
@@ -90,24 +88,12 @@ public class UserServiceImpl implements UserService {
 
     @Override
     public UserResponse patchUser(Long id, PatchUserRequest request, Long executorId) {
-        User userToUpdate = userRepository.findByIdForUpdate(id)
-            .orElseThrow(() -> new RuntimeException("User not found with id: " + id));
+        User userToUpdate = findUserForUpdate(id);
 
-        if (request.role() != null && !Objects.equals(userToUpdate.getRole(), request.role())) {
-            validateAdminRole(executorId);
-        }
-
-        if (request.email() != null && !userToUpdate.getEmail().equals(request.email()) && userRepository.existsByEmail(request.email())) {
-            throw new IllegalArgumentException("Email already in use: " + request.email());
-        }
-
-        if (request.name() != null) userToUpdate.changeName(request.name());
-        if (request.email() != null) userToUpdate.changeEmail(request.email());
-        if (request.role() != null) userToUpdate.changeRole(request.role());
-        if (request.status() != null) {
-            if (request.status() == UserStatus.ACTIVE) userToUpdate.activate();
-            else userToUpdate.block();
-        }
+        validateRoleChangePermission(userToUpdate.getRole(), request.role(), executorId);
+        validateEmailUniqueness(userToUpdate.getEmail(), request.email());
+        
+        applyPatchChanges(userToUpdate, request);
 
         User patchedUser = userRepository.save(userToUpdate);
         return userMapper.toUserResponse(patchedUser);
@@ -116,9 +102,47 @@ public class UserServiceImpl implements UserService {
     @Override
     public void deleteUser(Long id) {
         if (!userRepository.existsById(id)) {
-            throw new RuntimeException("User not found with id: " + id);
+            throw new UserNotFoundException("User not found with id: " + id);
         }
         userRepository.deleteById(id);
+    }
+
+    // --- Helper Methods ---
+
+    private User findUserForUpdate(Long id) {
+        return userRepository.findByIdForUpdate(id)
+                .orElseThrow(() -> new RuntimeException("User not found with id: " + id));
+    }
+
+    private void validateRoleChangePermission(Role currentRole, Role newRole, Long executorId) {
+        if (newRole != null && !Objects.equals(currentRole, newRole)) {
+            validateAdminRole(executorId);
+        }
+    }
+
+    private void validateEmailUniqueness(String currentEmail, String newEmail) {
+        if (newEmail != null && !currentEmail.equals(newEmail) && userRepository.existsByEmail(newEmail)) {
+            throw new IllegalArgumentException("Email already in use: " + newEmail);
+        }
+    }
+
+    private void applyPatchChanges(User user, PatchUserRequest request) {
+        applyIfNotNull(request.name(), user::changeName);
+        applyIfNotNull(request.email(), user::changeEmail);
+        applyIfNotNull(request.role(), user::changeRole);
+        applyIfNotNull(request.status(), status -> updateUserStatus(user, status));
+    }
+
+    private <T> void applyIfNotNull(T value, Consumer<T> consumer) {
+        Optional.ofNullable(value).ifPresent(consumer);
+    }
+
+    private void updateUserStatus(User user, UserStatus status) {
+        if (status == UserStatus.ACTIVE) {
+            user.activate();
+        } else {
+            user.block();
+        }
     }
 
     private void validateAdminRole(Long executorId) {

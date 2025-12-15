@@ -3,6 +3,7 @@ package com.astropay.application.controller.user;
 import com.astropay.application.dto.request.user.CreateUserRequest;
 import com.astropay.application.dto.request.user.UpdateUserRequest;
 import com.astropay.application.dto.response.user.UserResponse;
+import com.astropay.application.exception.handler.RestExceptionHandler;
 import com.astropay.application.service.user.port.in.UserService;
 import com.astropay.domain.model.user.Role;
 import com.astropay.domain.model.user.UserStatus;
@@ -10,12 +11,16 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.autoconfigure.EnableAutoConfiguration;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
+import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.Import;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.web.PagedResourcesAssembler;
 import org.springframework.http.MediaType;
+import org.springframework.test.context.ContextConfiguration;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
@@ -31,7 +36,14 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 @WebMvcTest(UserController.class)
+@ContextConfiguration(classes = UserControllerTest.TestConfig.class)
 class UserControllerTest {
+
+    @Configuration
+    @EnableAutoConfiguration
+    @Import({UserController.class, RestExceptionHandler.class})
+    static class TestConfig {
+    }
 
     @Autowired
     private MockMvc mockMvc;
