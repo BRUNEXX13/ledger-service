@@ -39,9 +39,11 @@ The project uses a modern and complete technology stack:
 
 ---
 
-## 🏗️ Architecture Overview
+## 🏗️ Architecture & Documentation
 
 The system follows a **Hexagonal Architecture (Ports and Adapters)**, ensuring that the business logic (Domain) remains isolated from infrastructure details and external frameworks.
+
+For a complete technical overview, including architecture, design patterns, and performance metrics, please see the **[Technical Architecture and Engineering Report](TECHNICAL_REPORT.md)**.
 
 ### Key Architectural Features:
 *   **Isolated Domain:** Business entities and rules reside at the core of the application, without dependencies on external frameworks.
@@ -136,8 +138,6 @@ To run all unit and integration tests, use the Maven command:
 
 ### Load Testing (k6)
 
-![](/home/bruno/ledger-service/Screenshot from 2025-12-15 04-37-10.png)
-
 The project includes a simple load test script using k6.
 
 1.  **Install k6:** Follow the instructions at `k6.io`.
@@ -146,10 +146,8 @@ The project includes a simple load test script using k6.
     ```sh
     k6 run load-test.js
     ```
-    
-    
 
-This will simulate multiple users creating accounts and making transfers, helping to validate the system's performance and resilience under load.
+This will simulate multiple users creating accounts and making transfers, helping to validate the performance and resilience of the system under load.
 
 ---
 
