@@ -49,7 +49,7 @@ CREATE INDEX idx_transaction_created_at ON tb_transaction(created_at);
 CREATE INDEX idx_transaction_status ON tb_transaction(status);
 
 -- Outbox Table
-CREATE TABLE tb_outbox_event (
+CREATE TABLE tb_outbox (
                                  id UUID PRIMARY KEY,
                                  aggregate_type VARCHAR(255) NOT NULL,
                                  aggregate_id VARCHAR(255) NOT NULL,
@@ -60,7 +60,7 @@ CREATE TABLE tb_outbox_event (
                                  retry_count INT NOT NULL DEFAULT 0,
                                  created_at TIMESTAMP WITHOUT TIME ZONE NOT NULL
 );
-CREATE INDEX idx_outbox_event_status_type ON tb_outbox_event(status, event_type);
+CREATE INDEX idx_outbox_status_type ON tb_outbox(status, event_type);
 
 
 -- =================================================================
