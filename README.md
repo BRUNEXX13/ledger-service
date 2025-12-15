@@ -10,7 +10,7 @@ O projeto utiliza uma stack tecnológica moderna e completa:
 *   **Java 21:** Linguagem base, aproveitando as últimas features de performance e sintaxe.
 *   **Spring Boot 3:** Framework principal para injeção de dependência, configuração e execução.
 *   **Spring Data JPA / Hibernate:** Camada de persistência e ORM.
-*   **Spring Web:** Construção da API RESTful.
+*   **Spring Web:** Construção da API RESTful. 5 Niveis de Maturidade Richardson.
 *   **Spring HATEOAS:** Implementação de hipermídia na API.
 *   **Flyway:** Gerenciamento e versionamento de migrações de banco de dados.
 
@@ -26,6 +26,11 @@ O projeto utiliza uma stack tecnológica moderna e completa:
 *   **Datadog:** Integração configurada para monitoramento avançado (APM, logs, métricas).
 *   **Micrometer:** Fachada de métricas para instrumentação da aplicação.
 
+### Segurança & Qualidade de Código
+*   **Veracode:** Análise estática de segurança (SAST) para identificar vulnerabilidades no código.
+*   **SonarQube:** Inspeção contínua da qualidade do código, detectando bugs, code smells e vulnerabilidades de segurança.
+*   **Snyk:** Monitoramento de vulnerabilidades em dependências open source (SCA) e contêineres.
+
 ### Testes & Qualidade
 *   **JUnit 5:** Framework de testes unitários.
 *   **Mockito:** Framework de mocking para testes isolados.
@@ -38,12 +43,7 @@ O projeto utiliza uma stack tecnológica moderna e completa:
 
 O sistema segue uma **Arquitetura Hexagonal (Ports and Adapters)**, garantindo que a lógica de negócio (Domínio) permaneça isolada de detalhes de infraestrutura e frameworks externos.
 
--   **API REST:** Interface principal para interação com o sistema, permitindo a criação de usuários, gerenciamento de contas e início de transferências.
--   **Processamento Assíncrono (Outbox Pattern):** As transferências não são processadas em tempo real. Elas são salvas em uma tabela `tb_outbox_event` e processadas de forma assíncrona por um scheduler, garantindo que nenhuma requisição seja perdida e que o sistema seja resiliente a falhas.
--   **Cache (Redis):** Utilizado para otimizar consultas frequentes a contas, reduzindo a carga no banco de dados.
--   **Mensageria (Kafka):** Usado para notificar os usuários sobre eventos importantes, como a criação de contas e a conclusão de transações.
-
-## Principais Características da Arquitetura:
+### Principais Características da Arquitetura:
 *   **Domínio Isolado:** As entidades e regras de negócio residem no núcleo da aplicação, sem dependências de frameworks externos.
 *   **Portas (Ports):** Interfaces que definem os contratos de entrada (casos de uso) e saída (persistência, mensageria).
 *   **Adaptadores (Adapters):** Implementações concretas das portas.
@@ -53,11 +53,12 @@ O sistema segue uma **Arquitetura Hexagonal (Ports and Adapters)**, garantindo q
 
 ### Componentes Chave:
 -   **API REST:** Interface principal para interação com o sistema.
--   **Processamento Assíncrono (Outbox Pattern):** As transferências são salvas em uma tabela `tb_outbox_event` e processadas de forma assíncrona, garantindo resiliência e consistência.
+-   **Processamento Assíncrono (Outbox Pattern):** As transferências são salvas em uma tabela `tb_outbox` e processadas de forma assíncrona, garantindo resiliência e consistência.
 -   **Cache (Redis):** Otimização de leituras frequentes.
 -   **Mensageria (Kafka):** Notificações e comunicação assíncrona entre domínios.
 
 ---
+
 ## ✨ Funcionalidades Principais
 
 -   **Gerenciamento de Usuários:** CRUD completo para usuários.
@@ -114,6 +115,13 @@ A API estará disponível em `http://localhost:8082/api/v1`.
     -   O dashboard "JVM (Micrometer)" já vem pré-configurado.
 -   **Prometheus:** `http://localhost:9090`
 
+### 4. Importando Requisições (Insomnia)
+
+Para facilitar os testes manuais da API, um arquivo de coleção do Insomnia está incluído na raiz do projeto.
+
+-   **Arquivo:** `insomnia_collection_ledger.json`
+-   **Como usar:** Abra o Insomnia, vá em `Application` -> `Preferences` -> `Data` -> `Import Data` -> `From File` e selecione o arquivo JSON. Todas as rotas configuradas estarão prontas para uso.
+
 ---
 
 ## ✅ Testes
@@ -156,6 +164,7 @@ Isso irá simular múltiplos usuários criando contas e realizando transferênci
 │   │       └── db/migration        # Scripts do Flyway
 │   └── test                      # Testes unitários e de integração
 ├── docker-compose.yml              # Orquestração da infraestrutura local
+├── insomnia_collection_ledger.json # Coleção de requisições para Insomnia
 ├── pom.xml                         # Dependências e build do projeto
 └── README.md                       # Este arquivo
 ```
