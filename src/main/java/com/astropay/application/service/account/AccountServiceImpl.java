@@ -15,6 +15,7 @@ import com.astropay.domain.model.user.UserRepository;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.CachePut;
 import org.springframework.cache.annotation.Cacheable;
+import org.springframework.cache.annotation.Caching;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
@@ -42,31 +43,18 @@ public class AccountServiceImpl implements AccountService {
     }
 
     @Override
-    public void createAccountForUser(User user, BigDecimal initialBalance) {
+    public Account createAccountForUser(User user, BigDecimal initialBalance) {
         if (user == null) {
             throw new IllegalArgumentException("User cannot be null.");
         }
         if (accountRepository.findByUser_Id(user.getId()).isPresent()) {
             throw new IllegalStateException("User already has an account.");
         }
-        Account newAccount = new Account(user, initialBalance);
-        accountRepository.save(newAccount);
-    }
-
-    @Override
-    public AccountResponse createAccount(CreateAccountRequest request) {
-        User user = userRepository.findById(request.userId())
-            .orElseThrow(() -> new ResourceNotFoundException(USER_NOT_FOUND_ID + request.userId()));
-
-        BigDecimal initialBalance = request.initialBalance() != null ? request.initialBalance() : BigDecimal.ZERO;
         
-        // Reuses the logic of the main method
-        createAccountForUser(user, initialBalance);
+        Account newAccount = new Account(user, initialBalance);
+        Account savedAccount = accountRepository.save(newAccount);
 
-        // Fetches the newly created account to return the response
-        Account savedAccount = accountRepository.findByUser_Id(user.getId())
-            .orElseThrow(() -> new IllegalStateException("Could not find created account for user: " + user.getId()));
-
+        // Centralized event dispatching
         AccountCreatedEvent event = new AccountCreatedEvent(
             savedAccount.getId(),
             user.getId(),
@@ -76,6 +64,20 @@ public class AccountServiceImpl implements AccountService {
         );
         kafkaProducerService.sendAccountCreatedEvent(event);
 
+        return savedAccount;
+    }
+
+    @Override
+    public AccountResponse createAccount(CreateAccountRequest request) {
+        User user = userRepository.findById(request.userId())
+            .orElseThrow(() -> new ResourceNotFoundException(USER_NOT_FOUND_ID + request.userId()));
+
+        BigDecimal initialBalance = request.initialBalance() != null ? request.initialBalance() : BigDecimal.ZERO;
+        
+        // Reuses the main logic and gets the saved account directly
+        Account savedAccount = createAccountForUser(user, initialBalance);
+
+        // No more redundant database calls or event dispatching here
         return accountMapper.toAccountResponse(savedAccount);
     }
 
@@ -108,7 +110,12 @@ public class AccountServiceImpl implements AccountService {
     }
 
     @Override
-    @CacheEvict(value = "accounts", key = "#id")
+    @Caching(
+        evict = {
+            @CacheEvict(value = "accounts", key = "#id"),
+            @CacheEvict(value = "accounts", key = "'user:' + #result.user.id", condition = "#result.user != null")
+        }
+    )
     public void inactivateAccount(Long id) {
         Account account = accountRepository.findById(id)
             .orElseThrow(() -> new ResourceNotFoundException(ACCOUNT_NOT_FOUND_ID + id));
@@ -116,5 +123,13 @@ public class AccountServiceImpl implements AccountService {
         account.inactivate();
 
         accountRepository.save(account);
+    }
+
+    @Override
+    public void deleteAccount(Long id) {
+        Account account = accountRepository.findById(id)
+            .orElseThrow(() -> new ResourceNotFoundException(ACCOUNT_NOT_FOUND_ID + id));
+        
+        accountRepository.delete(account);
     }
 }

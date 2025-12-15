@@ -59,16 +59,20 @@ class AccountServiceImplTest {
 
     // Tests for createAccountForUser
     @Test
-    @DisplayName("createAccountForUser should create and save a new account")
+    @DisplayName("createAccountForUser should create account, send event, and return account")
     void createAccountForUser_shouldCreateAndSaveAccount() {
         // Arrange
+        Account savedAccount = new Account(user, BigDecimal.TEN);
         when(accountRepository.findByUser_Id(user.getId())).thenReturn(Optional.empty());
+        when(accountRepository.save(any(Account.class))).thenReturn(savedAccount);
 
         // Act
-        accountService.createAccountForUser(user, BigDecimal.TEN);
+        Account result = accountService.createAccountForUser(user, BigDecimal.TEN);
 
         // Assert
+        assertNotNull(result);
         verify(accountRepository).save(any(Account.class));
+        verify(kafkaProducerService).sendAccountCreatedEvent(any());
     }
 
     @Test
@@ -96,26 +100,27 @@ class AccountServiceImplTest {
 
     // Tests for createAccount
     @Test
-    @DisplayName("createAccount should create account, send event, and return response")
+    @DisplayName("createAccount should call createAccountForUser and return response")
     void createAccount_shouldWorkSuccessfully() {
         // Arrange
         CreateAccountRequest request = new CreateAccountRequest(user.getId(), BigDecimal.TEN);
-        Account newAccount = new Account(user, BigDecimal.TEN);
-        AccountResponse response = new AccountResponse(1L, user.getId(), BigDecimal.TEN, AccountStatus.ACTIVE, LocalDateTime.now(), LocalDateTime.now());
+        Account savedAccount = new Account(user, BigDecimal.TEN);
+        ReflectionTestUtils.setField(savedAccount, "id", 1L); // Set ID for the saved object
+        AccountResponse expectedResponse = new AccountResponse(1L, user.getId(), BigDecimal.TEN, AccountStatus.ACTIVE, LocalDateTime.now(), LocalDateTime.now());
 
         when(userRepository.findById(user.getId())).thenReturn(Optional.of(user));
-        when(accountRepository.findByUser_Id(user.getId()))
-            .thenReturn(Optional.empty()) // First call inside createAccountForUser
-            .thenReturn(Optional.of(newAccount)); // Second call to get the saved account
-        when(accountMapper.toAccountResponse(newAccount)).thenReturn(response);
+        when(accountRepository.findByUser_Id(user.getId())).thenReturn(Optional.empty());
+        when(accountRepository.save(any(Account.class))).thenReturn(savedAccount);
+        when(accountMapper.toAccountResponse(savedAccount)).thenReturn(expectedResponse);
 
         // Act
-        accountService.createAccount(request);
+        AccountResponse actualResponse = accountService.createAccount(request);
 
         // Assert
+        assertNotNull(actualResponse);
         verify(accountRepository).save(any(Account.class));
         verify(kafkaProducerService).sendAccountCreatedEvent(any());
-        verify(accountMapper).toAccountResponse(newAccount);
+        verify(accountMapper).toAccountResponse(savedAccount);
     }
 
     @Test
@@ -129,29 +134,6 @@ class AccountServiceImplTest {
         assertThrows(ResourceNotFoundException.class, () -> 
             accountService.createAccount(request)
         );
-    }
-
-    @Test
-    @DisplayName("createAccount should throw IllegalStateException if account is not found after creation")
-    void createAccount_shouldThrowExceptionIfAccountNotFoundAfterCreation() {
-        // Arrange
-        CreateAccountRequest request = new CreateAccountRequest(user.getId(), BigDecimal.TEN);
-
-        when(userRepository.findById(user.getId())).thenReturn(Optional.of(user));
-        
-        // 1st call (in createAccountForUser) -> returns empty to allow creation
-        // 2nd call (the line to be tested) -> returns empty again to trigger the exception
-        when(accountRepository.findByUser_Id(user.getId()))
-            .thenReturn(Optional.empty())
-            .thenReturn(Optional.empty());
-        
-        // Act & Assert
-        IllegalStateException exception = assertThrows(IllegalStateException.class, () -> 
-            accountService.createAccount(request)
-        );
-
-        assertEquals("Could not find created account for user: " + user.getId(), exception.getMessage());
-        verify(kafkaProducerService, never()).sendAccountCreatedEvent(any());
     }
     
     // Tests for findAccountById

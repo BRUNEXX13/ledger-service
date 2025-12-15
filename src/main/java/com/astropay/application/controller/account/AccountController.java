@@ -29,13 +29,6 @@ public class AccountController {
         this.pagedResourcesAssembler = pagedResourcesAssembler;
     }
 
-    @PostMapping
-    public ResponseEntity<AccountResponse> createAccount(@Valid @RequestBody CreateAccountRequest request) {
-        AccountResponse createdAccount = accountService.createAccount(request);
-        createdAccount.add(linkTo(methodOn(AccountController.class).getAccountById(createdAccount.getId())).withSelfRel());
-        return ResponseEntity.status(HttpStatus.CREATED).body(createdAccount);
-    }
-
     @GetMapping("/{id}")
     public ResponseEntity<AccountResponse> getAccountById(@PathVariable Long id) {
         AccountResponse account = accountService.findAccountById(id);

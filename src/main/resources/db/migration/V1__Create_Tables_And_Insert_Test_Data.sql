@@ -66,28 +66,28 @@ CREATE INDEX idx_outbox_event_status_type ON tb_outbox_event(status, event_type)
 -- =================================================================
 -- DATA INSERTION FOR LOAD TESTING
 -- =================================================================
-
--- Insert 100,000 users
--- UserStatus.ACTIVE = 0, Role.ROLE_EMPLOYEE = 0
-INSERT INTO tb_user (name, document, email, status, role, created_at, updated_at)
-SELECT
-    'Test User ' || i,
-    '999999' || LPAD(i::text, 6, '0'),
-    'testuser' || i || '@astropay.com',
-    0, -- ACTIVE
-    0, -- ROLE_EMPLOYEE
-    CURRENT_TIMESTAMP,
-    CURRENT_TIMESTAMP
-FROM generate_series(1, 100000) as i;
-
--- Insert 100,000 accounts, one for each created user
--- AccountStatus.ACTIVE = 0
-INSERT INTO tb_account (user_id, balance, status, version, created_at, updated_at)
-SELECT
-    i,
-    10000.00,
-    0, -- ACTIVE
-    0,
-    CURRENT_TIMESTAMP,
-    CURRENT_TIMESTAMP
-FROM generate_series(1, 100000) as i;
+--
+-- -- Insert 100,000 users
+-- -- UserStatus.ACTIVE = 0, Role.ROLE_EMPLOYEE = 0
+-- INSERT INTO tb_user (name, document, email, status, role, created_at, updated_at)
+-- SELECT
+--     'Test User ' || i,
+--     '999999' || LPAD(i::text, 6, '0'),
+--     'testuser' || i || '@astropay.com',
+--     0, -- ACTIVE
+--     0, -- ROLE_EMPLOYEE
+--     CURRENT_TIMESTAMP,
+--     CURRENT_TIMESTAMP
+-- FROM generate_series(1, 100000) as i;
+--
+-- -- Insert 100,000 accounts, one for each created user
+-- -- AccountStatus.ACTIVE = 0
+-- INSERT INTO tb_account (user_id, balance, status, version, created_at, updated_at)
+-- SELECT
+--     i,
+--     10000.00,
+--     0, -- ACTIVE
+--     0,
+--     CURRENT_TIMESTAMP,
+--     CURRENT_TIMESTAMP
+-- FROM generate_series(1, 100000) as i;

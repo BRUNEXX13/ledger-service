@@ -57,20 +57,6 @@ class AccountControllerTest {
     private PagedResourcesAssembler<AccountResponse> pagedResourcesAssembler;
 
     @Test
-    @DisplayName("POST /accounts - Should return 201 Created for valid request")
-    void shouldCreateAccount() throws Exception {
-        CreateAccountRequest request = new CreateAccountRequest(1L, new BigDecimal("100.00"));
-        AccountResponse response = new AccountResponse(1L, 1L, new BigDecimal("100.00"), AccountStatus.ACTIVE, LocalDateTime.now(), LocalDateTime.now());
-        when(accountService.createAccount(any(CreateAccountRequest.class))).thenReturn(response);
-
-        mockMvc.perform(post("/accounts")
-                .contentType(MediaType.APPLICATION_JSON)
-                .content(objectMapper.writeValueAsString(request)))
-                .andExpect(status().isCreated())
-                .andExpect(jsonPath("$.id").value(1L));
-    }
-
-    @Test
     @DisplayName("GET /accounts/{id} - Should return 200 OK for existing account")
     void shouldGetAccountById() throws Exception {
         Long accountId = 1L;
