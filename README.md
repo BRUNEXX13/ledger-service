@@ -136,8 +136,6 @@ To run all unit and integration tests, use the Maven command:
 
 ### Load Testing (k6)
 
-![](/home/bruno/ledger-service/Screenshot from 2025-12-15 04-37-10.png)
-
 The project includes a simple load test script using k6.
 
 1.  **Install k6:** Follow the instructions at `k6.io`.
@@ -146,10 +144,57 @@ The project includes a simple load test script using k6.
     ```sh
     k6 run load-test.js
     ```
-    
-    
 
-This will simulate multiple users creating accounts and making transfers, helping to validate the system's performance and resilience under load.
+bruno@bruno-ubuntu:~/ledger-service$ k6 run load-test.js
+
+         /\      Grafana   /‾‾/  
+    /\  /  \     |\  __   /  /   
+/  \/    \    | |/ /  /   ‾‾\
+/          \   |   (  |  (‾)  |
+/ __________ \  |_|\_\  \_____/
+
+     execution: local
+        script: load-test.js
+        output: -
+
+     scenarios: (100.00%) 1 scenario, 5000 max VUs, 1m30s max duration (incl. graceful stop):
+              * transfer_stress_test: 5000.00 iterations/s for 1m0s (maxVUs: 1000-5000, gracefulStop: 30s)
+
+
+
+█ THRESHOLDS
+
+    http_req_duration
+    ✓ 'p(95)<500' p(95)=66.83ms
+
+    http_req_failed
+    ✓ 'rate<0.01' rate=0.00%
+
+
+█ TOTAL RESULTS
+
+    checks_total.......: 297576  4959.363445/s
+    checks_succeeded...: 100.00% 297576 out of 297576
+    checks_failed......: 0.00%   0 out of 297576
+
+    ✓ status is 202
+
+    HTTP
+    http_req_duration..............: avg=13.99ms min=1.25ms med=1.74ms max=859.59ms p(90)=6.43ms p(95)=66.83ms
+      { expected_response:true }...: avg=13.99ms min=1.25ms med=1.74ms max=859.59ms p(90)=6.43ms p(95)=66.83ms
+    http_req_failed................: 0.00%  0 out of 297576
+    http_reqs......................: 297576 4959.363445/s
+
+    EXECUTION
+    dropped_iterations.............: 2426   40.431405/s
+    iteration_duration.............: avg=14.16ms min=1.37ms med=1.89ms max=859.91ms p(90)=6.76ms p(95)=67.09ms
+    iterations.....................: 297576 4959.363445/s
+    vus............................: 13     min=8           max=758 
+    vus_max........................: 1509   min=1111        max=1509
+
+    NETWORK
+    data_received..................: 22 MB  363 kB/s
+    data_sent......................: 77 MB  1.3 MB/s
 
 ---
 

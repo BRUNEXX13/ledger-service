@@ -1,0 +1,58 @@
+sequenceDiagram
+    autonumber
+    actor Client as Client (App)
+    participant API as Transfer Controller
+    participant Service as Transfer Service
+    participant DB as PostgreSQL (ACID)
+    participant Worker as Outbox Scheduler
+    participant Kafka as Apache Kafka
+    participant Notifier as Notification Listener
+
+    Note over Client, DB: PHASE 1: INGESTION (Synchronous)
+
+    Client->>API: POST /transfers ($ 100.00)
+    activate API
+
+    API->>Service: createTransaction()
+    activate Service
+
+    Service->>DB: BEGIN TRANSACTION
+    Service->>DB: INSERT INTO tb_transaction (Status: PENDING)
+    Service->>DB: INSERT INTO tb_outbox_event (Payload: JSON)
+    Note right of DB: Outbox Pattern ensures<br/>atomicity here.
+    Service->>DB: COMMIT
+
+    Service-->>API: void
+    deactivate Service
+
+    API-->>Client: HTTP 202 Accepted
+    deactivate API
+    Note right of Client: Client released in ~3ms
+
+    Note over DB, Notifier: PHASE 2: PROCESSING (Asynchronous)
+
+    loop Every X seconds
+        Worker->>DB: SELECT * FROM tb_outbox WHERE status=NEW
+        activate Worker
+
+        Worker->>DB: Lock Accounts (Pessimistic)
+        Worker->>DB: UPDATE tb_account (Debit Sender / Credit Receiver)
+
+        alt Success
+            Worker->>DB: UPDATE tb_transaction (Status: SUCCESS)
+            Worker->>Kafka: Publish "TransactionCompletedEvent"
+            Worker->>DB: UPDATE tb_outbox (Status: PROCESSED)
+        else Failure (Insufficient Funds)
+            Worker->>DB: UPDATE tb_transaction (Status: FAILED)
+            Worker->>DB: UPDATE tb_outbox (Status: FAILED)
+        end
+
+        deactivate Worker
+    end
+
+    Note over Kafka, Notifier: PHASE 3: NOTIFICATION
+
+    Kafka->>Notifier: Consume "TransactionCompletedEvent"
+    activate Notifier
+    Notifier->>Notifier: Send Email / Push
+    deactivate Notifier
