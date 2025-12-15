@@ -147,6 +147,63 @@ The project includes a simple load test script using k6.
     k6 run load-test.js
     ```
 
+
+         /\      Grafana   /‾‾/  
+    /\  /  \     |\  __   /  /   
+/  \/    \    | |/ /  /   ‾‾\
+/          \   |   (  |  (‾)  |
+/ __________ \  |_|\_\  \_____/
+
+     execution: local
+        script: load-test.js
+        output: -
+
+     scenarios: (100.00%) 1 scenario, 5000 max VUs, 5m30s max duration (incl. graceful stop):
+              * transfer_stress_test: 5000.00 iterations/s for 5m0s (maxVUs: 1000-5000, gracefulStop: 30s)
+
+
+
+█ THRESHOLDS
+
+    http_req_duration
+    ✓ 'p(95)<500' p(95)=66.82ms
+
+    http_req_failed
+    ✓ 'rate<0.01' rate=0.00%
+
+
+█ TOTAL RESULTS
+
+    checks_total.......: 1492391 4974.584246/s
+    checks_succeeded...: 100.00% 1492391 out of 1492391
+    checks_failed......: 0.00%   0 out of 1492391
+
+    ✓ status is 202
+
+    HTTP
+    http_req_duration..............: avg=14.21ms min=1.24ms med=1.76ms max=1.39s p(90)=6.03ms p(95)=66.82ms
+      { expected_response:true }...: avg=14.21ms min=1.24ms med=1.76ms max=1.39s p(90)=6.03ms p(95)=66.82ms
+    http_req_failed................: 0.00%   0 out of 1492391
+    http_reqs......................: 1492391 4974.584246/s
+
+    EXECUTION
+    dropped_iterations.............: 7610    25.366399/s
+    iteration_duration.............: avg=14.37ms min=1.35ms med=1.9ms  max=1.39s p(90)=6.28ms p(95)=67.14ms
+    iterations.....................: 1492391 4974.584246/s
+    vus............................: 10      min=7            max=1784
+    vus_max........................: 2576    min=1077         max=2576
+
+    NETWORK
+    data_received..................: 109 MB  364 kB/s
+    data_sent......................: 386 MB  1.3 MB/s
+
+
+
+
+running (5m00.0s), 0000/2576 VUs, 1492391 complete and 0 interrupted iterations
+transfer_stress_test ✓ [======================================] 0000/2576 VUs  5m0s  5000.00 iters/s
+
+
 This will simulate multiple users creating accounts and making transfers, helping to validate the performance and resilience of the system under load.
 
 ---
