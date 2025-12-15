@@ -136,6 +136,8 @@ To run all unit and integration tests, use the Maven command:
 
 ### Load Testing (k6)
 
+![](/home/bruno/ledger-service/Screenshot from 2025-12-15 04-37-10.png)
+
 The project includes a simple load test script using k6.
 
 1.  **Install k6:** Follow the instructions at `k6.io`.
@@ -144,6 +146,8 @@ The project includes a simple load test script using k6.
     ```sh
     k6 run load-test.js
     ```
+    
+    
 
 This will simulate multiple users creating accounts and making transfers, helping to validate the system's performance and resilience under load.
 
