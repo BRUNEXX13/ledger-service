@@ -7,11 +7,11 @@ export const options = {
   scenarios: {
     transfer_stress_test: {
       executor: 'constant-arrival-rate',
-      rate: 3000,
+      rate: 5000, // 5000 RPS
       timeUnit: '1s',
-      duration: '1m',
+      duration: '5m', // Duração aumentada para 5 minutos (Soak Test)
       preAllocatedVUs: 1000,
-      maxVUs: 3000,
+      maxVUs: 5000,
     },
   },
   thresholds: {

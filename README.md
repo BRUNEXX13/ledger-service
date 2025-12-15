@@ -1,101 +1,101 @@
-# Ledger Service - Sistema de Contabilidade Simplificado
+# Ledger Service - Simplified Accounting System
 
-Este projeto implementa um serviço de contabilidade (Ledger) robusto e escalável para gerenciar contas de usuários e transações financeiras. Ele foi projetado seguindo as melhores práticas de arquitetura de microsserviços, com foco em resiliência, performance e observabilidade.
+This project implements a robust and scalable Ledger service to manage user accounts and financial transactions. It is designed following the best practices of microservices architecture, with a focus on resilience, performance, and observability.
 
-## 🚀 Tecnologias e Ferramentas
+## 🚀 Technologies and Tools
 
-O projeto utiliza uma stack tecnológica moderna e completa:
+The project uses a modern and complete technology stack:
 
 ### Backend & Frameworks
-*   **Java 21:** Linguagem base, aproveitando as últimas features de performance e sintaxe.
-*   **Spring Boot 3:** Framework principal para injeção de dependência, configuração e execução.
-*   **Spring Data JPA / Hibernate:** Camada de persistência e ORM.
-*   **Spring Web:** Construção da API RESTful. 5 Niveis de Maturidade Richardson.
-*   **Spring HATEOAS:** Implementação de hipermídia na API.
-*   **Flyway:** Gerenciamento e versionamento de migrações de banco de dados.
+*   **Java 21:** Base language, leveraging the latest performance and syntax features.
+*   **Spring Boot 3:** Main framework for dependency injection, configuration, and execution.
+*   **Spring Data JPA / Hibernate:** Persistence layer and ORM.
+*   **Spring Web:** Building the RESTful API. 5 Levels of Richardson Maturity Model.
+*   **Spring HATEOAS:** Implementation of hypermedia in the API.
+*   **Flyway:** Database migration and versioning management.
 
-### Infraestrutura & Dados
-*   **PostgreSQL:** Banco de dados relacional principal.
-*   **Redis:** Cache distribuído para alta performance em leituras.
-*   **Apache Kafka:** Plataforma de streaming de eventos para comunicação assíncrona e notificações.
-*   **Docker & Docker Compose:** Containerização e orquestração do ambiente de desenvolvimento.
+### Infrastructure & Data
+*   **PostgreSQL:** Main relational database.
+*   **Redis:** Distributed cache for high performance in reads.
+*   **Apache Kafka:** Event streaming platform for asynchronous communication and notifications.
+*   **Docker & Docker Compose:** Containerization and orchestration of the development environment.
 
-### Observabilidade & Monitoramento
-*   **Grafana:** Visualização de métricas e dashboards em tempo real.
-*   **Prometheus:** Coleta e armazenamento de métricas da aplicação.
-*   **Datadog:** Integração configurada para monitoramento avançado (APM, logs, métricas).
-*   **Micrometer:** Fachada de métricas para instrumentação da aplicação.
+### Observability & Monitoring
+*   **Grafana:** Real-time visualization of metrics and dashboards.
+*   **Prometheus:** Collection and storage of application metrics.
+*   **Datadog:** Configured integration for advanced monitoring (APM, logs, metrics).
+*   **Micrometer:** Metrics facade for application instrumentation.
 
-### Segurança & Qualidade de Código
-*   **Veracode:** Análise estática de segurança (SAST) para identificar vulnerabilidades no código.
-*   **SonarQube:** Inspeção contínua da qualidade do código, detectando bugs, code smells e vulnerabilidades de segurança.
-*   **Snyk:** Monitoramento de vulnerabilidades em dependências open source (SCA) e contêineres.
+### Security & Code Quality
+*   **Veracode:** Static Application Security Testing (SAST) to identify vulnerabilities in the code.
+*   **SonarQube:** Continuous inspection of code quality, detecting bugs, code smells, and security vulnerabilities.
+*   **Snyk:** Monitoring of vulnerabilities in open source dependencies (SCA) and containers.
 
-### Testes & Qualidade
-*   **JUnit 5:** Framework de testes unitários.
-*   **Mockito:** Framework de mocking para testes isolados.
-*   **Testcontainers:** Testes de integração com containers reais (Postgres, Kafka).
-*   **k6:** Ferramenta para testes de carga e performance.
-
----
-
-## 🏗️ Visão Geral da Arquitetura
-
-O sistema segue uma **Arquitetura Hexagonal (Ports and Adapters)**, garantindo que a lógica de negócio (Domínio) permaneça isolada de detalhes de infraestrutura e frameworks externos.
-
-### Principais Características da Arquitetura:
-*   **Domínio Isolado:** As entidades e regras de negócio residem no núcleo da aplicação, sem dependências de frameworks externos.
-*   **Portas (Ports):** Interfaces que definem os contratos de entrada (casos de uso) e saída (persistência, mensageria).
-*   **Adaptadores (Adapters):** Implementações concretas das portas.
-    *   **Adaptadores de Entrada (Driving):** Controllers REST, Listeners Kafka.
-    *   **Adaptadores de Saída (Driven):** Repositórios JPA, Produtores Kafka, Clientes de E-mail.
-*   **Orientação a Eventos:** O sistema utiliza eventos de domínio para desacoplar processos complexos, como a transferência de fundos, garantindo consistência eventual e alta disponibilidade.
-
-### Componentes Chave:
--   **API REST:** Interface principal para interação com o sistema.
--   **Processamento Assíncrono (Outbox Pattern):** As transferências são salvas em uma tabela `tb_outbox` e processadas de forma assíncrona, garantindo resiliência e consistência.
--   **Cache (Redis):** Otimização de leituras frequentes.
--   **Mensageria (Kafka):** Notificações e comunicação assíncrona entre domínios.
+### Testing & Quality
+*   **JUnit 5:** Unit testing framework.
+*   **Mockito:** Mocking framework for isolated tests.
+*   **Testcontainers:** Integration tests with real containers (Postgres, Kafka).
+*   **k6:** Tool for load and performance testing.
 
 ---
 
-## ✨ Funcionalidades Principais
+## 🏗️ Architecture Overview
 
--   **Gerenciamento de Usuários:** CRUD completo para usuários.
--   **Gerenciamento de Contas:**
-    -   Criação automática de conta ao registrar um novo usuário.
-    -   Consulta de saldo e detalhes da conta.
-    -   Inativação de contas.
--   **Transferências Financeiras:**
-    -   Endpoint para solicitar transferências entre contas.
-    -   Processamento assíncrono e seguro das transferências.
-    -   Notificação por e-mail (simulada) para remetente e destinatário.
+The system follows a **Hexagonal Architecture (Ports and Adapters)**, ensuring that the business logic (Domain) remains isolated from infrastructure details and external frameworks.
+
+### Key Architectural Features:
+*   **Isolated Domain:** Business entities and rules reside at the core of the application, without dependencies on external frameworks.
+*   **Ports:** Interfaces that define the contracts for input (use cases) and output (persistence, messaging).
+*   **Adapters:** Concrete implementations of the ports.
+    *   **Driving Adapters:** REST Controllers, Kafka Listeners.
+    *   **Driven Adapters:** JPA Repositories, Kafka Producers, Email Clients.
+*   **Event-Driven:** The system uses domain events to decouple complex processes, such as fund transfers, ensuring eventual consistency and high availability.
+
+### Key Components:
+-   **REST API:** Main interface for interacting with the system.
+-   **Asynchronous Processing (Outbox Pattern):** Transfers are saved in a `tb_outbox` table and processed asynchronously, ensuring resilience and consistency.
+-   **Cache (Redis):** Optimization of frequent reads.
+-   **Messaging (Kafka):** Notifications and asynchronous communication between domains.
 
 ---
 
-## 🛠️ Como Executar o Projeto Localmente
+## ✨ Main Features
 
-### Pré-requisitos
+-   **User Management:** Complete CRUD for users.
+-   **Account Management:**
+    -   Automatic account creation when registering a new user.
+    -   Querying account balance and details.
+    -   Deactivation of accounts.
+-   **Financial Transfers:**
+    -   Endpoint to request transfers between accounts.
+    -   Asynchronous and secure processing of transfers.
+    -   Email notification (simulated) for sender and receiver.
+
+---
+
+## 🛠️ How to Run the Project Locally
+
+### Prerequisites
 
 -   Java 21+
 -   Maven 3.8+
--   Docker e Docker Compose
+-   Docker and Docker Compose
 
-### 1. Subindo a Infraestrutura
+### 1. Starting the Infrastructure
 
-O `docker-compose.yml` na raiz do projeto orquestra todos os serviços necessários (PostgreSQL, Redis, Kafka, Prometheus, Grafana).
+The `docker-compose.yml` at the root of the project orchestrates all necessary services (PostgreSQL, Redis, Kafka, Prometheus, Grafana).
 
-Para iniciar toda a infraestrutura, execute:
+To start the entire infrastructure, run:
 
 ```sh
 docker-compose up -d
 ```
 
-Isso irá iniciar todos os serviços em background.
+This will start all services in the background.
 
-### 2. Executando a Aplicação
+### 2. Running the Application
 
-Com a infraestrutura rodando, você pode iniciar a aplicação Spring Boot.
+With the infrastructure running, you can start the Spring Boot application.
 
 **Via Maven:**
 
@@ -104,90 +104,90 @@ Com a infraestrutura rodando, você pode iniciar a aplicação Spring Boot.
 ```
 
 **Via IDE:**
-Execute a classe principal `LedgerServiceApplication.java`.
+Run the main class `LedgerServiceApplication.java`.
 
-A API estará disponível em `http://localhost:8082/api/v1`.
+The API will be available at `http://localhost:8082/api/v1`.
 
-### 3. Acessando os Serviços Auxiliares
+### 3. Accessing Auxiliary Services
 
--   **Documentação da API (Swagger):** `http://localhost:8082/api/v1/swagger-ui.html`
+-   **API Documentation (Swagger):** `http://localhost:8082/api/v1/swagger-ui.html`
 -   **Grafana:** `http://localhost:3000` (login: `admin`/`admin`)
-    -   O dashboard "JVM (Micrometer)" já vem pré-configurado.
+    -   The "JVM (Micrometer)" dashboard is pre-configured.
 -   **Prometheus:** `http://localhost:9090`
 
-### 4. Importando Requisições (Insomnia)
+### 4. Importing Requests (Insomnia)
 
-Para facilitar os testes manuais da API, um arquivo de coleção do Insomnia está incluído na raiz do projeto.
+To facilitate manual API testing, an Insomnia collection file is included at the root of the project.
 
--   **Arquivo:** `insomnia_collection_ledger.json`
--   **Como usar:** Abra o Insomnia, vá em `Application` -> `Preferences` -> `Data` -> `Import Data` -> `From File` e selecione o arquivo JSON. Todas as rotas configuradas estarão prontas para uso.
+-   **File:** `insomnia_collection_ledger.json`
+-   **How to use:** Open Insomnia, go to `Application` -> `Preferences` -> `Data` -> `Import Data` -> `From File` and select the JSON file. All configured routes will be ready to use.
 
 ---
 
-## ✅ Testes
+## ✅ Tests
 
-### Testes Unitários e de Integração
+### Unit and Integration Tests
 
-Para rodar todos os testes unitários e de integração, utilize o comando Maven:
+To run all unit and integration tests, use the Maven command:
 
 ```sh
 ./mvnw test
 ```
 
-### Teste de Carga (k6)
+### Load Testing (k6)
 
-O projeto inclui um script de teste de carga simples usando k6.
+The project includes a simple load test script using k6.
 
-1.  **Instale o k6:** Siga as instruções em `k6.io`.
-2.  **Execute o teste:**
+1.  **Install k6:** Follow the instructions at `k6.io`.
+2.  **Run the test:**
 
     ```sh
     k6 run load-test.js
     ```
 
-Isso irá simular múltiplos usuários criando contas e realizando transferências, ajudando a validar a performance e a resiliência do sistema sob carga.
+This will simulate multiple users creating accounts and making transfers, helping to validate the system's performance and resilience under load.
 
 ---
 
-## 📂 Estrutura do Projeto
+## 📂 Project Structure
 
 ```
 .
 ├── src
 │   ├── main
 │   │   ├── java/com/astropay
-│   │   │   ├── application         # Casos de Uso, DTOs, Services (Application Layer)
-│   │   │   ├── domain              # Entidades, Regras de Negócio (Domain Layer)
-│   │   │   └── infrastructure      # Configurações, Adaptadores (Infrastructure Layer)
+│   │   │   ├── application         # Use Cases, DTOs, Services (Application Layer)
+│   │   │   ├── domain              # Entities, Business Rules (Domain Layer)
+│   │   │   └── infrastructure      # Configurations, Adapters (Infrastructure Layer)
 │   │   └── resources
 │   │       ├── application.properties
-│   │       └── db/migration        # Scripts do Flyway
-│   └── test                      # Testes unitários e de integração
-├── docker-compose.yml              # Orquestração da infraestrutura local
-├── insomnia_collection_ledger.json # Coleção de requisições para Insomnia
-├── pom.xml                         # Dependências e build do projeto
-└── README.md                       # Este arquivo
+│   │       └── db/migration        # Flyway scripts
+│   └── test                      # Unit and integration tests
+├── docker-compose.yml              # Local infrastructure orchestration
+├── insomnia_collection_ledger.json # Insomnia request collection
+├── pom.xml                         # Project dependencies and build
+└── README.md                       # This file
 ```
 
-## 🔄 Fluxos de Negócio Importantes
+## 🔄 Important Business Flows
 
-### 1. Criação de Usuário
+### 1. User Creation
 
-1.  `POST /users` é chamado.
-2.  `UserServiceImpl` valida os dados e salva um novo `User`.
-3.  Imediatamente, `UserServiceImpl` chama `AccountService.createAccountForUser` para criar uma conta associada, com um saldo inicial padrão.
-4.  `AccountService` dispara um evento `AccountCreatedEvent` para o Kafka.
-5.  `AccountCreatedEventListener` consome o evento e (simula) o envio de um e-mail de boas-vindas.
+1.  `POST /users` is called.
+2.  `UserServiceImpl` validates the data and saves a new `User`.
+3.  Immediately, `UserServiceImpl` calls `AccountService.createAccountForUser` to create an associated account with a default initial balance.
+4.  `AccountService` triggers an `AccountCreatedEvent` to Kafka.
+5.  `AccountCreatedEventListener` consumes the event and (simulates) sending a welcome email.
 
-### 2. Transferência de Dinheiro
+### 2. Money Transfer
 
-1.  `POST /transfers` é chamado.
-2.  `TransferController` retorna `202 Accepted` imediatamente.
-3.  `TransferServiceImpl` **não** executa a transferência. Ele cria um `OutboxEvent` e o salva na tabela `tb_outbox` na mesma transação.
-4.  `TransferEventScheduler` (rodando a cada 2 segundos) busca eventos da `tb_outbox`.
-5.  Para cada evento, o scheduler:
-    a. Cria uma `Transaction` com status `PENDING` e a salva.
-    b. Tenta executar o débito e o crédito nas contas.
-    c. Atualiza a `Transaction` para `SUCCESS` ou `FAILED`.
-    d. Dispara um evento `TransactionEvent` para o Kafka.
-6.  `TransactionEventListener` consome o evento e (simula) o envio de e-mails de notificação para o remetente e o destinatário.
+1.  `POST /transfers` is called.
+2.  `TransferController` returns `202 Accepted` immediately.
+3.  `TransferServiceImpl` **does not** execute the transfer. It creates an `OutboxEvent` and saves it to the `tb_outbox` table in the same transaction.
+4.  `TransferEventScheduler` (running every 2 seconds) fetches events from `tb_outbox`.
+5.  For each event, the scheduler:
+    a. Creates a `Transaction` with `PENDING` status and saves it.
+    b. Attempts to debit and credit the accounts.
+    c. Updates the `Transaction` to `SUCCESS` or `FAILED`.
+    d. Triggers a `TransactionEvent` to Kafka.
+6.  `TransactionEventListener` consumes the event and (simulates) sending notification emails to the sender and receiver.
