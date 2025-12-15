@@ -1,0 +1,192 @@
+services:
+  zookeeper:
+    image: confluentinc/cp-zookeeper:7.5.0
+    container_name: zookeeper
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+    ports:
+      - "2181:2181"
+    networks:
+      - ledger-network
+    healthcheck:
+      test: echo srvr | nc zookeeper 2181 || exit 1
+      interval: 10s
+      retries: 5
+      start_period: 5s
+
+  kafka:
+    image: confluentinc/cp-kafka:7.5.0
+    container_name: kafka
+    depends_on:
+      zookeeper:
+        condition: service_healthy
+    ports:
+      - "9092:9092"
+    labels:
+      "com.datadoghq.ad.check.skip_core": "true"
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: INTERNAL:PLAINTEXT,EXTERNAL:PLAINTEXT
+      KAFKA_ADVERTISED_LISTENERS: INTERNAL://kafka:29092,EXTERNAL://localhost:9092
+      KAFKA_LISTENERS: INTERNAL://0.0.0.0:29092,EXTERNAL://0.0.0.0:9092
+      KAFKA_INTER_BROKER_LISTENER_NAME: INTERNAL
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+    networks:
+      - ledger-network
+    healthcheck:
+      test: ["CMD", "kafka-topics", "--bootstrap-server", "kafka:29092", "--list"]
+      interval: 15s
+      timeout: 10s
+      retries: 5
+      start_period: 10s
+
+  kafka-ui:
+    image: provectuslabs/kafka-ui:latest
+    container_name: kafka-ui
+    ports:
+      - "8090:8080"
+    environment:
+      KAFKA_CLUSTERS_0_NAME: local
+      KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: kafka:29092
+      KAFKA_CLUSTERS_0_ZOOKEEPER: zookeeper:2181
+    networks:
+      - ledger-network
+    depends_on:
+      kafka:
+        condition: service_healthy
+
+  postgres:
+    image: postgres:15-alpine
+    container_name: ledger-postgres
+    command: postgres -c max_connections=200 # Aumentando o limite de conexões
+    environment:
+      - POSTGRES_DB=ledger-service
+      - POSTGRES_USER=ledger-service
+      - POSTGRES_PASSWORD=123456
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - ledger-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ledger-service"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    container_name: ledger-redis
+    ports:
+      - "6379:6379"
+    networks:
+      - ledger-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  loki:
+    image: grafana/loki:2.9.0
+    container_name: loki
+    ports:
+      - "3100:3100"
+    command: -config.file=/etc/loki/local-config.yaml
+    networks:
+      - ledger-network
+    healthcheck:
+      test: wget --no-verbose --tries=1 --spider http://localhost:3100/ready || exit 1
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  datadog-agent:
+    image: datadog/agent:latest
+    container_name: datadog-agent
+    environment:
+      - DD_API_KEY=970d91141bd898b2e9c5e7aa183a7302
+      - DD_SITE=datadoghq.com
+      - DD_LOGS_ENABLED=true
+      - DD_LOGS_CONFIG_CONTAINER_COLLECT_ALL=true
+      - DD_CONTAINER_EXCLUDE="image:datadog/agent"
+      - DD_DOGSTATSD_NON_LOCAL_TRAFFIC=true
+    ports:
+      - "8125:8125/udp"
+      - "8126:8126/tcp"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - /proc/:/host/proc/:ro
+      - /sys/fs/cgroup/:/host/sys/fs/cgroup:ro
+      - ./datadog/conf.d:/etc/datadog-agent/conf.d:ro
+    networks:
+      - ledger-network
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    healthcheck:
+      test: ["CMD", "agent", "health"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+
+  prometheus:
+    image: prom/prometheus:v2.45.0
+    container_name: prometheus
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    networks:
+      - ledger-network
+    healthcheck:
+      test: wget --no-verbose --tries=1 --spider http://localhost:9090/-/healthy || exit 1
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  grafana:
+    image: grafana/grafana:9.5.3
+    container_name: grafana
+    ports:
+      - "3000:3000"
+    environment:
+      - GF_SECURITY_ADMIN_USER=admin
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+    volumes:
+      - ./grafana.ini:/etc/grafana/grafana.ini
+      - ./grafana-datasources.yml:/etc/grafana/provisioning/datasources/datasources.yaml
+      # Volume persistente para dados do Grafana (dashboards criados na UI, usuários, etc.)
+      - grafana_data:/var/lib/grafana
+      # Volume para provisionamento automático de dashboards (se você quiser salvar JSONs)
+      - ./grafana/provisioning:/etc/grafana/provisioning
+    depends_on:
+      prometheus:
+        condition: service_healthy
+      loki:
+        condition: service_healthy
+    networks:
+      - ledger-network
+    healthcheck:
+      test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://localhost:3000/api/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+networks:
+  ledger-network:
+    driver: bridge
+
+volumes:
+  postgres_data:
+    driver: local
+  grafana_data: # Volume nomeado para persistência do Grafana
+    driver: local

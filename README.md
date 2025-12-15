@@ -1,16 +1,197 @@
-astro-pay
-A Ledger Service for user's
+# Ledger Service - Simplified Accounting System
 
-The Double-Entry Ledger
+This project implements a robust and scalable Ledger service to manage user accounts and financial transactions. It is designed following the best practices of microservices architecture, with a focus on resilience, performance, and observability.
 
-AstroPay is building a new neo-bank.
+## 🚀 Technologies and Tools
 
-You need to build the core Ledger Service. This system is the "source of truth" for all user balances.
+The project uses a modern and complete technology stack:
 
-Requirement: Design a system that handles money transfers between two users within your platform (internal transfers).
+### Backend & Frameworks
+*   **Java 21:** Base language, leveraging the latest performance and syntax features.
+*   **Spring Boot 3:** Main framework for dependency injection, configuration, and execution.
+*   **Spring Data JPA / Hibernate:** Persistence layer and ORM.
+*   **Spring Web:** Building the RESTful API. 5 Levels of Richardson Maturity Model.
+*   **Spring HATEOAS:** Implementation of hypermedia in the API.
+*   **Flyway:** Database migration and versioning management.
 
-Scale: 1,000 transactions per second (TPS) at peak.
+### Infrastructure & Data
+*   **PostgreSQL:** Main relational database.
+*   **Redis:** Distributed cache for high performance in reads.
+*   **Apache Kafka:** Event streaming platform for asynchronous communication and notifications.
+*   **Docker & Docker Compose:** Containerization and orchestration of the development environment.
 
-Durability: ACID compliance is non-negotiable. Money cannot be created or destroyed. Connectivity: The system must emit events when a transaction completes so that downstream services (Notifications, Fraud Detection, Rewards) can react.
+### Observability & Monitoring
+*   **Grafana:** Real-time visualization of metrics and dashboards.
+*   **Prometheus:** Collection and storage of application metrics.
+*   **Datadog:** Configured integration for advanced monitoring (APM, logs, metrics).
+*   **Micrometer:** Metrics facade for application instrumentation.
 
-Deliverable: A high-level design document (diagrams + 1-2 page explanation) and a database schema. No full implementation is required, but pseudo-code for the critical "move money" function is encouraged.
+### Security & Code Quality
+*   **Veracode:** Static Application Security Testing (SAST) to identify vulnerabilities in the code.
+*   **SonarQube:** Continuous inspection of code quality, detecting bugs, code smells, and security vulnerabilities.
+*   **Snyk:** Monitoring of vulnerabilities in open source dependencies (SCA) and containers.
+
+### Testing & Quality
+*   **JUnit 5:** Unit testing framework.
+*   **Mockito:** Mocking framework for isolated tests.
+*   **Testcontainers:** Integration tests with real containers (Postgres, Kafka).
+*   **k6:** Tool for load and performance testing.
+
+---
+
+## 🏗️ Architecture Overview
+
+The system follows a **Hexagonal Architecture (Ports and Adapters)**, ensuring that the business logic (Domain) remains isolated from infrastructure details and external frameworks.
+
+### Key Architectural Features:
+*   **Isolated Domain:** Business entities and rules reside at the core of the application, without dependencies on external frameworks.
+*   **Ports:** Interfaces that define the contracts for input (use cases) and output (persistence, messaging).
+*   **Adapters:** Concrete implementations of the ports.
+    *   **Driving Adapters:** REST Controllers, Kafka Listeners.
+    *   **Driven Adapters:** JPA Repositories, Kafka Producers, Email Clients.
+*   **Event-Driven:** The system uses domain events to decouple complex processes, such as fund transfers, ensuring eventual consistency and high availability.
+
+### Key Components:
+-   **REST API:** Main interface for interacting with the system.
+-   **Asynchronous Processing (Outbox Pattern):** Transfers are saved in a `tb_outbox` table and processed asynchronously, ensuring resilience and consistency.
+-   **Cache (Redis):** Optimization of frequent reads.
+-   **Messaging (Kafka):** Notifications and asynchronous communication between domains.
+
+---
+
+## ✨ Main Features
+
+-   **User Management:** Complete CRUD for users.
+-   **Account Management:**
+    -   Automatic account creation when registering a new user.
+    -   Querying account balance and details.
+    -   Deactivation of accounts.
+-   **Financial Transfers:**
+    -   Endpoint to request transfers between accounts.
+    -   Asynchronous and secure processing of transfers.
+    -   Email notification (simulated) for sender and receiver.
+
+---
+
+## 🛠️ How to Run the Project Locally
+
+### Prerequisites
+
+-   Java 21+
+-   Maven 3.8+
+-   Docker and Docker Compose
+
+### 1. Starting the Infrastructure
+
+The `docker-compose.yml` at the root of the project orchestrates all necessary services (PostgreSQL, Redis, Kafka, Prometheus, Grafana).
+
+To start the entire infrastructure, run:
+
+```sh
+docker-compose up -d
+```
+
+This will start all services in the background.
+
+### 2. Running the Application
+
+With the infrastructure running, you can start the Spring Boot application.
+
+**Via Maven:**
+
+```sh
+./mvnw spring-boot:run
+```
+
+**Via IDE:**
+Run the main class `LedgerServiceApplication.java`.
+
+The API will be available at `http://localhost:8082/api/v1`.
+
+### 3. Accessing Auxiliary Services
+
+-   **API Documentation (Swagger):** `http://localhost:8082/api/v1/swagger-ui.html`
+-   **Grafana:** `http://localhost:3000` (login: `admin`/`admin`)
+    -   The "JVM (Micrometer)" dashboard is pre-configured.
+-   **Prometheus:** `http://localhost:9090`
+
+### 4. Importing Requests (Insomnia)
+
+To facilitate manual API testing, an Insomnia collection file is included at the root of the project.
+
+-   **File:** `insomnia_collection_ledger.json`
+-   **How to use:** Open Insomnia, go to `Application` -> `Preferences` -> `Data` -> `Import Data` -> `From File` and select the JSON file. All configured routes will be ready to use.
+
+---
+
+## ✅ Tests
+
+### Unit and Integration Tests
+
+To run all unit and integration tests, use the Maven command:
+
+```sh
+./mvnw test
+```
+
+### Load Testing (k6)
+
+![](/home/bruno/ledger-service/Screenshot from 2025-12-15 04-37-10.png)
+
+The project includes a simple load test script using k6.
+
+1.  **Install k6:** Follow the instructions at `k6.io`.
+2.  **Run the test:**
+
+    ```sh
+    k6 run load-test.js
+    ```
+    
+    
+
+This will simulate multiple users creating accounts and making transfers, helping to validate the system's performance and resilience under load.
+
+---
+
+## 📂 Project Structure
+
+```
+.
+├── src
+│   ├── main
+│   │   ├── java/com/astropay
+│   │   │   ├── application         # Use Cases, DTOs, Services (Application Layer)
+│   │   │   ├── domain              # Entities, Business Rules (Domain Layer)
+│   │   │   └── infrastructure      # Configurations, Adapters (Infrastructure Layer)
+│   │   └── resources
+│   │       ├── application.properties
+│   │       └── db/migration        # Flyway scripts
+│   └── test                      # Unit and integration tests
+├── docker-compose.yml              # Local infrastructure orchestration
+├── insomnia_collection_ledger.json # Insomnia request collection
+├── pom.xml                         # Project dependencies and build
+└── README.md                       # This file
+```
+
+## 🔄 Important Business Flows
+
+### 1. User Creation
+
+1.  `POST /users` is called.
+2.  `UserServiceImpl` validates the data and saves a new `User`.
+3.  Immediately, `UserServiceImpl` calls `AccountService.createAccountForUser` to create an associated account with a default initial balance.
+4.  `AccountService` triggers an `AccountCreatedEvent` to Kafka.
+5.  `AccountCreatedEventListener` consumes the event and (simulates) sending a welcome email.
+
+### 2. Money Transfer
+
+1.  `POST /transfers` is called.
+2.  `TransferController` returns `202 Accepted` immediately.
+3.  `TransferServiceImpl` **does not** execute the transfer. It creates an `OutboxEvent` and saves it to the `tb_outbox` table in the same transaction.
+4.  `TransferEventScheduler` (running every 2 seconds) fetches events from `tb_outbox`.
+5.  For each event, the scheduler:
+    a. Creates a `Transaction` with `PENDING` status and saves it.
+    b. Attempts to debit and credit the accounts.
+    c. Updates the `Transaction` to `SUCCESS` or `FAILED`.
+    d. Triggers a `TransactionEvent` to Kafka.
+6.  `TransactionEventListener` consumes the event and (simulates) sending notification emails to the sender and receiver.

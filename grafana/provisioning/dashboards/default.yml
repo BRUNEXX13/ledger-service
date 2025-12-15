@@ -1,0 +1,11 @@
+apiVersion: 1
+
+providers:
+  - name: 'default' # Nome do provedor
+    orgId: 1
+    folder: '' # Pasta onde os dashboards serão colocados no Grafana ('' significa a pasta Geral)
+    type: file
+    disableDeletion: false # Permite que o Grafana apague dashboards se o arquivo JSON for removido
+    editable: true # Permite que os dashboards provisionados sejam editados na UI
+    options:
+      path: /etc/grafana/provisioning/dashboards # Caminho DENTRO do container onde os JSONs estão

@@ -1,0 +1,10 @@
+global:
+  scrape_interval: 5s # Coleta métricas a cada 5 segundos (rápido para dev)
+
+scrape_configs:
+  - job_name: 'ledger-service'
+    metrics_path: '/api/v1/actuator/prometheus' # Caminho que configuramos no Spring
+    static_configs:
+      - targets: ['host.docker.internal:8082'] # Aponta para o localhost da máquina host
+        labels:
+          application: 'ledger-service' # <--- ADICIONADO: Define a label 'application' explicitamente

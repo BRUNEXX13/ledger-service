@@ -1,0 +1,498 @@
+type: collection.insomnia.rest/5.0
+schema_version: "5.1"
+name: Ledger Service - Complete Suite
+meta:
+  id: wrk_156948d1f03c4c28a7a61ca9c84f8a39
+  created: 1765638283823
+  modified: 1765657656114
+  description: ""
+collection:
+  - name: 3. Transfers & Transactions
+    meta:
+      id: fld_3262ecebbb54451a8f39ebfe7c953b83
+      created: 1716390000000
+      modified: 1765639535041
+      sortKey: -1765638283858
+      description: Money movement and history
+    children:
+      - url: "{{ _.base_url }}/transactions/1"
+        name: Get Transaction by ID
+        meta:
+          id: req_1b095c1dfcb64ac69f3ee6cd32011aff
+          created: 1716390000000
+          modified: 1716390000000
+          isPrivate: false
+          description: ""
+          sortKey: 300
+        method: GET
+        settings:
+          renderRequestBody: true
+          encodeUrl: true
+          followRedirects: global
+          cookies:
+            send: true
+            store: true
+          rebuildPath: true
+      - url: "{{ _.base_url }}/transfers"
+        name: Make Transfer
+        meta:
+          id: req_339a01f858cf4719bc509c72b5012fd7
+          created: 1716390000000
+          modified: 1765781859440
+          isPrivate: false
+          description: Transfers money between Account 1 and Account 2.
+          sortKey: 100
+        method: POST
+        body:
+          mimeType: application/json
+          text: |-
+            {
+            	"senderAccountId": 1,
+            	"receiverAccountId": 3,
+            	"amount": 12.00,
+            	"idempotencyKey": "{% uuid 'v4' %}"
+            }
+        headers:
+          - name: Content-Type
+            value: application/json
+        settings:
+          renderRequestBody: true
+          encodeUrl: true
+          followRedirects: global
+          cookies:
+            send: true
+            store: true
+          rebuildPath: true
+      - url: "{{ _.base_url }}/transactions"
+        name: List All Transactions
+        meta:
+          id: req_fabb731a8a18418aa16fee2bdf990e52
+          created: 1716390000000
+          modified: 1716390000000
+          isPrivate: false
+          description: ""
+          sortKey: 200
+        method: GET
+        settings:
+          renderRequestBody: true
+          encodeUrl: true
+          followRedirects: global
+          cookies:
+            send: true
+            store: true
+          rebuildPath: true
+  - name: 2. Accounts Management
+    meta:
+      id: fld_488f49b557bb4bd89495ee7f104e0c51
+      created: 1716390000000
+      modified: 1765680848926
+      sortKey: -1765638283883
+      description: CRUD operations for Accounts
+    children:
+      - url: "{{ _.base_url }}/accounts/1"
+        name: Inactivate Account (Soft Delete)
+        meta:
+          id: req_44696ab89197401fbdc673813d521c16
+          created: 1716390000000
+          modified: 1716390000000
+          isPrivate: false
+          description: Only works if balance is 0.
+          sortKey: 600
+        method: DELETE
+        settings:
+          renderRequestBody: true
+          encodeUrl: true
+          followRedirects: global
+          cookies:
+            send: true
+            store: true
+          rebuildPath: true
+      - url: "{{ _.base_url }}/accounts/1"
+        name: Update Account Balance
+        meta:
+          id: req_8dda84a97b904d1da69ff85fd3ec9d6d
+          created: 1716390000000
+          modified: 1716390000000
+          isPrivate: false
+          description: Admin adjustment of balance.
+          sortKey: 500
+        method: PUT
+        body:
+          mimeType: application/json
+          text: |-
+            {
+            	"balance": 1500.00
+            }
+        headers:
+          - name: Content-Type
+            value: application/json
+        settings:
+          renderRequestBody: true
+          encodeUrl: true
+          followRedirects: global
+          cookies:
+            send: true
+            store: true
+          rebuildPath: true
+      - url: "{{ _.base_url }}/accounts/1"
+        name: Get Account by ID
+        meta:
+          id: req_9232b9e26f4f4ced959756ea7bb62bb7
+          created: 1716390000000
+          modified: 1716390000000
+          isPrivate: false
+          description: ""
+          sortKey: 400
+        method: GET
+        settings:
+          renderRequestBody: true
+          encodeUrl: true
+          followRedirects: global
+          cookies:
+            send: true
+            store: true
+          rebuildPath: true
+      - url: "{{ _.base_url }}/accounts"
+        name: List All Accounts
+        meta:
+          id: req_c1f1014d0ef24818828668b9667ec4ae
+          created: 1716390000000
+          modified: 1765657611097
+          isPrivate: false
+          description: ""
+          sortKey: 300
+        method: GET
+        settings:
+          renderRequestBody: true
+          encodeUrl: true
+          followRedirects: global
+          cookies:
+            send: true
+            store: true
+          rebuildPath: true
+  - name: 1. Users Management
+    meta:
+      id: fld_52e17f5608674fe5bb6e0ad20886d32b
+      created: 1716390000000
+      modified: 1765679686112
+      sortKey: -1765638283933
+      description: CRUD operations for Users
+    children:
+      - url: "{{ _.base_url }}/users"
+        name: Create User 2 (Receiver)
+        meta:
+          id: req_1572310e6ea54e699619073e4fc15aaf
+          created: 1716390000000
+          modified: 1765728801732
+          isPrivate: false
+          description: Creates another standard user.
+          sortKey: 300
+        method: POST
+        body:
+          mimeType: application/json
+          text: |-
+            {
+            	"name": "Jane Smith",
+            	"document": "55537227788",
+            	"email": "jane.sm33@example.com",
+            	"role": "ROLE_EMPLOYEE"
+            }
+        headers:
+          - name: Content-Type
+            value: application/json
+        settings:
+          renderRequestBody: true
+          encodeUrl: true
+          followRedirects: global
+          cookies:
+            send: true
+            store: true
+          rebuildPath: true
+      - url: "{{ _.base_url }}/users"
+        name: Create User (ADMIN)
+        meta:
+          id: req_20269ee47bca4aeb9acfcc442fd8bfd6
+          created: 1716390000000
+          modified: 1765781843250
+          isPrivate: false
+          description: Creates the first user as ADMIN.
+          sortKey: 100
+        method: POST
+        body:
+          mimeType: application/json
+          text: |-
+            {
+            	"name": "Admin User",
+            	"document": "0231",
+            	"email": "432@astropay.com"
+            }
+        headers:
+          - name: Content-Type
+            value: application/json
+        settings:
+          renderRequestBody: true
+          encodeUrl: true
+          followRedirects: global
+          cookies:
+            send: true
+            store: true
+          rebuildPath: true
+      - url: "{{ _.base_url }}/users/3"
+        name: Delete User
+        meta:
+          id: req_2aa1f610e87b4ace9f61848ef47a9a6c
+          created: 1716390000000
+          modified: 1716390000000
+          isPrivate: false
+          description: ""
+          sortKey: 800
+        method: DELETE
+        settings:
+          renderRequestBody: true
+          encodeUrl: true
+          followRedirects: global
+          cookies:
+            send: true
+            store: true
+          rebuildPath: true
+      - url: "{{ _.base_url }}/users"
+        name: Create User 1 (Sender)
+        meta:
+          id: req_605ebb2a01ac41739317c0295dbf6595
+          created: 1716390000000
+          modified: 1765774433314
+          isPrivate: false
+          description: Creates a standard user.
+          sortKey: 200
+        method: POST
+        body:
+          mimeType: application/json
+          text: |-
+            {
+            	"name": "MA3",
+            	"document": "313330",
+            	"email": "Maca1333ao@mail.com"
+            }
+        headers:
+          - name: Content-Type
+            value: application/json
+        settings:
+          renderRequestBody: true
+          encodeUrl: true
+          followRedirects: global
+          cookies:
+            send: true
+            store: true
+          rebuildPath: true
+      - url: "{{ _.base_url }}/users/2"
+        name: Patch User (Block/Activate)
+        meta:
+          id: req_7b0025ce08814292a6d61275ec0ac33c
+          created: 1716390000000
+          modified: 1716390000000
+          isPrivate: false
+          description: Partially updates user status.
+          sortKey: 700
+        method: PATCH
+        body:
+          mimeType: application/json
+          text: |-
+            {
+            	"status": "BLOCKED"
+            }
+        headers:
+          - name: Content-Type
+            value: application/json
+          - name: X-User-Id
+            value: "1"
+            description: ID of the user performing the action
+        settings:
+          renderRequestBody: true
+          encodeUrl: true
+          followRedirects: global
+          cookies:
+            send: true
+            store: true
+          rebuildPath: true
+      - url: "{{ _.base_url }}/users/2"
+        name: Update User (PUT)
+        meta:
+          id: req_9b506841a7b9459e9b3aa16b516d4aed
+          created: 1716390000000
+          modified: 1765684577329
+          isPrivate: false
+          description: Requires X-User-Id header (Simulating Admin ID 1).
+          sortKey: 600
+        method: PUT
+        body:
+          mimeType: application/json
+          text: |-
+            {
+            	"name": "John 333Updated",
+            	"email": "john.new@example.com",
+            	"role": "ROLE_MANAGER"
+            }
+        headers:
+          - name: Content-Type
+            value: application/json
+          - name: X-User-Id
+            value: "1"
+            description: ID of the user performing the action
+        settings:
+          renderRequestBody: true
+          encodeUrl: true
+          followRedirects: global
+          cookies:
+            send: true
+            store: true
+          rebuildPath: true
+      - url: "{{ _.base_url }}/users"
+        name: List All Users
+        meta:
+          id: req_cd37cb7db70c49f1a97f949694366f7d
+          created: 1716390000000
+          modified: 1765680958235
+          isPrivate: false
+          description: ""
+          sortKey: 450
+        method: GET
+        settings:
+          renderRequestBody: true
+          encodeUrl: true
+          followRedirects: global
+          cookies:
+            send: true
+            store: true
+          rebuildPath: true
+      - url: "{{ _.base_url }}/users/1"
+        name: Get User by ID
+        meta:
+          id: req_f10efa67a67745fea5074384705f1336
+          created: 1716390000000
+          modified: 1765639928710
+          isPrivate: false
+          description: ""
+          sortKey: 500
+        method: GET
+        settings:
+          renderRequestBody: true
+          encodeUrl: true
+          followRedirects: global
+          cookies:
+            send: true
+            store: true
+          rebuildPath: true
+  - name: "Observability "
+    meta:
+      id: fld_c25435f865db4fb19065abb7e6178f87
+      created: 1716390000000
+      modified: 1765642246995
+      sortKey: -1765638284033
+      description: Actuator Endpoints
+    children:
+      - url: "{{ _.base_url }}/actuator/health"
+        name: Health Check
+        meta:
+          id: req_86df9caea9cb41c49146cd4b6e4a4fa9
+          created: 1716390000000
+          modified: 1765639062058
+          isPrivate: false
+          description: ""
+          sortKey: 100
+        method: GET
+        settings:
+          renderRequestBody: true
+          encodeUrl: true
+          followRedirects: global
+          cookies:
+            send: true
+            store: true
+          rebuildPath: true
+      - url: "{{ _.base_url }}/actuator/prometheus"
+        name: Prometheus Metrics
+        meta:
+          id: req_b56deded805144bcb1d3d554f6f7af12
+          created: 1716390000000
+          modified: 1765639135082
+          isPrivate: false
+          description: ""
+          sortKey: 200
+        method: GET
+        settings:
+          renderRequestBody: true
+          encodeUrl: true
+          followRedirects: global
+          cookies:
+            send: true
+            store: true
+          rebuildPath: true
+  - name: Open Api Swagger
+    meta:
+      id: fld_dd3590159e0b4d4490dec991b593454a
+      created: 1765642150789
+      modified: 1765642241890
+      sortKey: -1765642150789
+      description: ""
+    children:
+      - url: http://localhost:8082/api/v1/v3/api-docs
+        name: "Docs Api "
+        meta:
+          id: req_40fa9f735f5a4bb2bd766d2a955ae032
+          created: 1765642154051
+          modified: 1765642225477
+          isPrivate: false
+          description: ""
+          sortKey: -1765642154051
+        method: GET
+        headers:
+          - name: User-Agent
+            value: insomnia/12.1.0
+            description: ""
+            disabled: false
+        settings:
+          renderRequestBody: true
+          encodeUrl: true
+          followRedirects: global
+          cookies:
+            send: true
+            store: true
+          rebuildPath: true
+      - url: http://localhost:8082/api/v1/swagger-ui.html
+        name: Swagger
+        meta:
+          id: req_00ad76251eba4891bdb8a636faa076c9
+          created: 1765642200452
+          modified: 1765642214939
+          isPrivate: false
+          description: ""
+          sortKey: -1765157608843.125
+        method: GET
+        headers:
+          - name: User-Agent
+            value: insomnia/12.1.0
+            description: ""
+            disabled: false
+        settings:
+          renderRequestBody: true
+          encodeUrl: true
+          followRedirects: global
+          cookies:
+            send: true
+            store: true
+          rebuildPath: true
+cookieJar:
+  name: Default Jar
+  meta:
+    id: jar_476a660e5e3f879e827608141ce4176581f2f673
+    created: 1765638285491
+    modified: 1765638285491
+environments:
+  name: Localhost (8082)
+  meta:
+    id: env_b03a74bb8c4149e7a61d3d51bcb4cbaa
+    created: 1716390000000
+    modified: 1765658976686
+    isPrivate: false
+  data:
+    base_url: http://localhost:8082/api/v1
+  color: "#5e6ad2"
