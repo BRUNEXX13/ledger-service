@@ -1,0 +1,110 @@
+package com.astropay.application.controller.user;
+
+import com.astropay.application.dto.request.user.CreateUserRequest;
+import com.astropay.application.dto.request.user.UpdateUserRequest;
+import com.astropay.application.dto.response.user.UserResponse;
+import com.astropay.application.service.user.port.in.UserService;
+import com.astropay.domain.model.user.Role;
+import com.astropay.domain.model.user.UserStatus;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.web.PagedResourcesAssembler;
+import org.springframework.http.MediaType;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
+import org.springframework.test.web.servlet.MockMvc;
+
+import java.time.LocalDateTime;
+import java.util.Collections;
+
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doNothing;
+import static org.mockito.Mockito.when;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+
+@WebMvcTest(UserController.class)
+class UserControllerTest {
+
+    @Autowired
+    private MockMvc mockMvc;
+
+    @Autowired
+    private ObjectMapper objectMapper;
+
+    @MockitoBean
+    private UserService userService;
+    
+    @MockitoBean
+    private PagedResourcesAssembler<UserResponse> pagedResourcesAssembler;
+
+    @Test
+    @DisplayName("POST /users - Should return 201 Created for valid request")
+    void shouldCreateUser() throws Exception {
+        CreateUserRequest request = new CreateUserRequest("John Doe", "12345678900", "john.doe@example.com");
+        UserResponse response = new UserResponse(1L, "John Doe", "12345678900", "john.doe@example.com", UserStatus.ACTIVE, Role.ROLE_EMPLOYEE, LocalDateTime.now(), LocalDateTime.now());
+        when(userService.createUser(any(CreateUserRequest.class))).thenReturn(response);
+
+        mockMvc.perform(post("/users")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.name").value("John Doe"));
+    }
+
+    @Test
+    @DisplayName("GET /users/{id} - Should return 200 OK for existing user")
+    void shouldGetUserById() throws Exception {
+        Long userId = 1L;
+        UserResponse response = new UserResponse(userId, "John Doe", "12345678900", "john.doe@example.com", UserStatus.ACTIVE, Role.ROLE_EMPLOYEE, LocalDateTime.now(), LocalDateTime.now());
+        when(userService.findUserById(userId)).thenReturn(response);
+
+        mockMvc.perform(get("/users/{id}", userId))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.id").value(userId));
+    }
+
+    @Test
+    @DisplayName("GET /users - Should return 200 OK with a page of users")
+    void shouldGetAllUsers() throws Exception {
+        Page<UserResponse> page = new PageImpl<>(Collections.emptyList());
+        when(userService.findAllUsers(any(Pageable.class))).thenReturn(page);
+
+        mockMvc.perform(get("/users"))
+                .andExpect(status().isOk());
+    }
+
+    @Test
+    @DisplayName("PUT /users/{id} - Should return 200 OK for successful update")
+    void shouldUpdateUser() throws Exception {
+        Long userId = 1L;
+        Long executorId = 99L;
+        UpdateUserRequest request = new UpdateUserRequest("John Doe Updated", "john.doe.updated@example.com", Role.ROLE_MANAGER);
+        UserResponse response = new UserResponse(userId, "John Doe Updated", "12345678900", "john.doe.updated@example.com", UserStatus.ACTIVE, Role.ROLE_MANAGER, LocalDateTime.now(), LocalDateTime.now());
+        when(userService.updateUser(eq(userId), any(UpdateUserRequest.class), eq(executorId))).thenReturn(response);
+
+        mockMvc.perform(put("/users/{id}", userId)
+                .header("Executor-ID", executorId)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.name").value("John Doe Updated"));
+    }
+
+    @Test
+    @DisplayName("DELETE /users/{id} - Should return 204 No Content for successful deletion")
+    void shouldDeleteUser() throws Exception {
+        Long userId = 1L;
+        doNothing().when(userService).deleteUser(userId);
+
+        mockMvc.perform(delete("/users/{id}", userId))
+                .andExpect(status().isNoContent());
+    }
+}

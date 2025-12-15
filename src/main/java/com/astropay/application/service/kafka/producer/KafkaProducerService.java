@@ -26,10 +26,10 @@ public class KafkaProducerService {
 
         future.whenComplete((result, ex) -> {
             if (ex != null) {
-                log.error("Falha ao enviar evento de TRANSAÇÃO para o Kafka. IdempotencyKey: {}. Causa: {}",
+                log.error("Failed to send TRANSACTION event to Kafka. IdempotencyKey: {}. Cause: {}",
                         event.getIdempotencyKey(), ex.getMessage());
             } else {
-                log.info("Evento de TRANSAÇÃO enviado com sucesso para o Kafka. IdempotencyKey: {}, Offset: {}",
+                log.info("TRANSACTION event sent successfully to Kafka. IdempotencyKey: {}, Offset: {}",
                         event.getIdempotencyKey(), result.getRecordMetadata().offset());
             }
         });
@@ -40,10 +40,10 @@ public class KafkaProducerService {
 
         future.whenComplete((result, ex) -> {
             if (ex != null) {
-                log.error("Falha ao enviar evento de CRIAÇÃO DE CONTA para o Kafka. AccountId: {}. Causa: {}",
+                log.error("Failed to send ACCOUNT CREATION event to Kafka. AccountId: {}. Cause: {}",
                         event.getAccountId(), ex.getMessage());
             } else {
-                log.info("Evento de CRIAÇÃO DE CONTA enviado com sucesso para o Kafka. AccountId: {}, Offset: {}",
+                log.info("ACCOUNT CREATION event sent successfully to Kafka. AccountId: {}, Offset: {}",
                         event.getAccountId(), result.getRecordMetadata().offset());
             }
         });

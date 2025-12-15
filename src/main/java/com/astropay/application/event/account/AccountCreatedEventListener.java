@@ -22,18 +22,18 @@ public class AccountCreatedEventListener {
     @KafkaListener(topics = "accounts", groupId = "ledger-notification-group")
     public void handleAccountCreatedEvent(AccountCreatedEvent event) {
         try {
-            log.info("Evento de CONTA CRIADA recebido para notificação. AccountId: {}", event.getAccountId());
+            log.info("ACCOUNT CREATED event received for notification. AccountId: {}", event.getAccountId());
 
-            String subject = "Bem-vindo ao Nosso Banco!";
+            String subject = "Welcome to Our Bank!";
             String body = String.format(
-                    "Olá, %s! Sua conta foi criada com sucesso. Seu ID de conta é %d.",
+                    "Hello, %s! Your account has been successfully created. Your account ID is %d.",
                     event.getUserName(), event.getAccountId()
             );
             emailService.sendTransactionNotification(event.getUserEmail(), subject, body);
 
         } catch (Exception e) {
-            log.error("Erro ao processar evento de CRIAÇÃO DE CONTA: {}", e.getMessage(), e);
-            throw new RuntimeException("Falha no processamento do evento de criação de conta", e);
+            log.error("Error processing ACCOUNT CREATION event: {}", e.getMessage(), e);
+            throw new RuntimeException("Failed to process account creation event", e);
         }
     }
 }

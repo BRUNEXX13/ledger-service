@@ -6,7 +6,6 @@ import com.astropay.domain.model.outbox.OutboxEvent;
 import com.astropay.domain.model.outbox.OutboxEventRepository;
 import com.astropay.domain.model.outbox.OutboxEventStatus;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import org.jspecify.annotations.NonNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.data.domain.PageRequest;
@@ -38,49 +37,33 @@ public class OutboxEventScheduler {
         this.objectMapper = objectMapper;
     }
 
-    @Scheduled(fixedDelay = 3000) // Executa a cada 3 segundos
+    @Scheduled(fixedDelay = 3000)
     @Transactional
     public void processNotificationEvents() {
         LocalDateTime lockTimeout = LocalDateTime.now().minusMinutes(1);
+        
+        List<OutboxEvent> events = new ArrayList<>();
+        for (String eventType : NOTIFICATION_EVENT_TYPES) {
+            events.addAll(outboxEventRepository.findAndLockUnprocessedEvents(
+                    OutboxEventStatus.UNPROCESSED, eventType, lockTimeout, PageRequest.of(0, BATCH_SIZE)));
+        }
 
-        List<OutboxEvent> events = getOutboxEvents(lockTimeout);
         if (events.isEmpty()) {
             return;
         }
+
         log.info("[Notifications] Found {} events to process.", events.size());
-
-        verifyForEvents(events);
-
-        List<OutboxEvent> processedEvents = new ArrayList<>();
-
-        List<OutboxEvent> failedEvents = new ArrayList<>();
-
-        extractedListEvent(events, processedEvents, failedEvents);
-
-        processedEvents(processedEvents, failedEvents);
-    }
-
-    private void verifyForEvents(List<OutboxEvent> events) {
         LocalDateTime newLockTime = LocalDateTime.now();
         for (OutboxEvent event : events) {
             event.setStatus(OutboxEventStatus.PROCESSING);
             event.setLockedAt(newLockTime);
         }
         outboxEventRepository.saveAll(events);
-    }
 
-    private void processedEvents(List<OutboxEvent> processedEvents, List<OutboxEvent> failedEvents) {
-        if (!processedEvents.isEmpty()) {
-            outboxEventRepository.deleteAllInBatch(processedEvents);
-            log.info("[Notifications] Successfully processed and deleted {} events.", processedEvents.size());
-        }
-        if (!failedEvents.isEmpty()) {
-            outboxEventRepository.saveAll(failedEvents);
-            log.warn("[Notifications] Marked {} events as FAILED after multiple retries.", failedEvents.size());
-        }
-    }
+        List<OutboxEvent> processedEvents = new ArrayList<>();
+        List<OutboxEvent> failedEvents = new ArrayList<>();
+        List<OutboxEvent> eventsToRetry = new ArrayList<>(); // Nova lista
 
-    private void extractedListEvent(List<OutboxEvent> events, List<OutboxEvent> processedEvents, List<OutboxEvent> failedEvents) {
         for (OutboxEvent event : events) {
             try {
                 TransactionEvent transactionEvent = objectMapper.readValue(event.getPayload(), TransactionEvent.class);
@@ -93,19 +76,23 @@ public class OutboxEventScheduler {
                     event.setStatus(OutboxEventStatus.FAILED);
                     failedEvents.add(event);
                 } else {
-                    event.setStatus(OutboxEventStatus.UNPROCESSED); // Volta para a fila
+                    event.setStatus(OutboxEventStatus.UNPROCESSED);
+                    eventsToRetry.add(event); // Adiciona à lista de retentativa
                 }
             }
         }
-    }
 
-    private @NonNull List<OutboxEvent> getOutboxEvents(LocalDateTime lockTimeout) {
-        // Busca eventos de notificação não processados
-        List<OutboxEvent> events = new ArrayList<>();
-        for (String eventType : NOTIFICATION_EVENT_TYPES) {
-            events.addAll(outboxEventRepository.findAndLockUnprocessedEvents(
-                    OutboxEventStatus.UNPROCESSED, eventType, lockTimeout, PageRequest.of(0, BATCH_SIZE)));
+        if (!processedEvents.isEmpty()) {
+            outboxEventRepository.deleteAllInBatch(processedEvents);
+            log.info("[Notifications] Successfully processed and deleted {} events.", processedEvents.size());
         }
-        return events;
+        if (!failedEvents.isEmpty()) {
+            outboxEventRepository.saveAll(failedEvents);
+            log.warn("[Notifications] Marked {} events as FAILED after multiple retries.", failedEvents.size());
+        }
+        if (!eventsToRetry.isEmpty()) {
+            outboxEventRepository.saveAll(eventsToRetry); // Salva os eventos para retentativa
+            log.info("[Notifications] Marked {} events for retry.", eventsToRetry.size());
+        }
     }
 }

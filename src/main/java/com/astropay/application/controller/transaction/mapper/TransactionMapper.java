@@ -11,7 +11,7 @@ public class TransactionMapper {
         if (transaction == null) {
             return null;
         }
-        return new TransactionResponse(
+        TransactionResponse response = new TransactionResponse(
             transaction.getId(),
             transaction.getSender().getId(),
             transaction.getReceiver().getId(),
@@ -20,5 +20,7 @@ public class TransactionMapper {
             transaction.getFailureReason(),
             transaction.getIdempotencyKey()
         );
+        response.setCreatedAt(transaction.getCreatedAt()); // Corrigido
+        return response;
     }
 }
