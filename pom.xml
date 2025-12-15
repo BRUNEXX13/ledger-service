@@ -18,6 +18,7 @@
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
         <resilience4j.version>2.2.0</resilience4j.version>
+        <jacoco.version>0.8.12</jacoco.version>
     </properties>
 
     <dependencies>
@@ -178,6 +179,40 @@
                 <configuration>
                     <source>21</source>
                     <target>21</target>
+                </configuration>
+            </plugin>
+            <plugin>
+                <groupId>org.jacoco</groupId>
+                <artifactId>jacoco-maven-plugin</artifactId>
+                <version>${jacoco.version}</version>
+                <executions>
+                    <execution>
+                        <goals>
+                            <goal>prepare-agent</goal>
+                        </goals>
+                    </execution>
+                    <execution>
+                        <id>report</id>
+                        <phase>test</phase>
+                        <goals>
+                            <goal>report</goal>
+                        </goals>
+                    </execution>
+                </executions>
+                <configuration>
+                    <excludes>
+                        <!-- Exclui a classe principal da aplicação -->
+                        <exclude>com/astropay/LedgerServiceApplication.class</exclude>
+                        <!-- Exclui todas as classes de configuração -->
+                        <exclude>com/astropay/application/config/**/*</exclude>
+                        <exclude>com/astropay/infrastructure/**/*</exclude>
+                        <!-- Exclui todos os DTOs -->
+                        <exclude>com/astropay/application/dto/**/*</exclude>
+                        <!-- Exclui todas as exceções customizadas -->
+                        <exclude>com/astropay/application/exception/**/*</exclude>
+                        <!-- Exclui todas as entidades de domínio e enums -->
+                        <exclude>com/astropay/domain/model/**/*</exclude>
+                    </excludes>
                 </configuration>
             </plugin>
         </plugins>

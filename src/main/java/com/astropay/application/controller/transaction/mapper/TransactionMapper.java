@@ -13,11 +13,12 @@ public class TransactionMapper {
         }
         return new TransactionResponse(
             transaction.getId(),
-            transaction.getSender().getId(), // Extrai o ID da conta
-            transaction.getReceiver().getId(), // Extrai o ID da conta
+            transaction.getSender().getId(),
+            transaction.getReceiver().getId(),
             transaction.getAmount(),
-            transaction.getIdempotencyKey(),
-            transaction.getCreatedAt()
+            transaction.getStatus().toString(),
+            transaction.getFailureReason(),
+            transaction.getIdempotencyKey()
         );
     }
 }

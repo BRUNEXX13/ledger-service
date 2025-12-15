@@ -19,7 +19,7 @@ public class KafkaTopicConfig {
     @Bean
     public NewTopic accountsTopic() {
         return TopicBuilder.name("accounts")
-                .partitions(1) // Apenas 1 partição é suficiente para este tipo de evento
+                .partitions(1) // Only 1 partition is sufficient for this type of event
                 .replicas(1)
                 .build();
     }

@@ -14,7 +14,6 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
-
 import java.util.Map;
 
 @RestController
@@ -32,7 +31,7 @@ public class TransferController {
     }
 
     @PostMapping
-    @RateLimiter(name = "transfers") // Aplica o rate limiter específico para transferências
+    @RateLimiter(name = "transfers") // Applies the specific rate limiter for transfers
     public ResponseEntity<?> transfer(@Valid @RequestBody TransferRequest request) {
         try {
             var transfer = transferMapper.toDomain(request);

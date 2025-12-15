@@ -10,12 +10,12 @@ import org.springframework.stereotype.Component;
 public class UserMapper {
 
     public User toUser(CreateUserRequest request) {
-        // A role padrão é atribuída no serviço, aqui apenas mapeamos os dados do request
+        // The default role is assigned in the service, here we only map the request data
         return new User(
             request.name(),
             request.document(),
             request.email(),
-            null // A role será definida no serviço
+            null // The role will be defined in the service
         );
     }
 
@@ -25,8 +25,8 @@ public class UserMapper {
             user.getName(),
             user.getDocument(),
             user.getEmail(),
-            user.getStatus(),
-            user.getRole(),
+            user.getStatus(), // The DTO expects the Enum
+            user.getRole(),   // The DTO expects the Enum
             user.getCreatedAt(),
             user.getUpdatedAt()
         );

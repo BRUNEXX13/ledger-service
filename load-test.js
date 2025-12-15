@@ -7,22 +7,21 @@ export const options = {
   scenarios: {
     transfer_stress_test: {
       executor: 'ramping-arrival-rate',
-      startRate: 100, // Começa mais agressivo
+      startRate: 100,
       timeUnit: '1s',
-      preAllocatedVUs: 500, // Mais VUs pré-alocados
-      maxVUs: 5000, // Permite até 5000 VUs para tentar atingir a meta
+      preAllocatedVUs: 1000, 
+      maxVUs: 3000, 
       stages: [
         { target: 1000, duration: '1m' },  // Aquece para 1k TPS
-        { target: 5000, duration: '2m' },  // Sobe para 5k TPS
-        { target: 10000, duration: '2m' }, // Tenta atingir 10k TPS (Carga Extrema)
-        { target: 10000, duration: '2m' }, // Mantém 10k TPS
+        { target: 2000, duration: '1m' },  // Sobe para 2k TPS
+        { target: 3000, duration: '3m' },  // Mantém 3k TPS por 3 minutos
         { target: 0, duration: '1m' },     // Resfria
       ],
     },
   },
   thresholds: {
     http_req_failed: ['rate<0.01'], // Erros abaixo de 1%
-    http_req_duration: ['p(95)<1000'], // 95% das requisições em menos de 1s
+    http_req_duration: ['p(95)<500'], // Meta de 500ms
   },
 };
 

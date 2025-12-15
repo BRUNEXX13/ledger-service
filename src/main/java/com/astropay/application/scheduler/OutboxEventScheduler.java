@@ -4,20 +4,27 @@ import com.astropay.application.event.transactions.TransactionEvent;
 import com.astropay.application.service.kafka.producer.KafkaProducerService;
 import com.astropay.domain.model.outbox.OutboxEvent;
 import com.astropay.domain.model.outbox.OutboxEventRepository;
-import com.fasterxml.jackson.core.JsonProcessingException;
+import com.astropay.domain.model.outbox.OutboxEventStatus;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import org.jspecify.annotations.NonNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.List;
 
 @Component
 public class OutboxEventScheduler {
 
     private static final Logger log = LoggerFactory.getLogger(OutboxEventScheduler.class);
+    private static final int BATCH_SIZE = 100;
+    private static final int MAX_RETRIES = 5;
+    private static final List<String> NOTIFICATION_EVENT_TYPES = List.of("TransactionCompleted", "TransactionFailed");
 
     private final OutboxEventRepository outboxEventRepository;
     private final KafkaProducerService kafkaProducerService;
@@ -31,37 +38,74 @@ public class OutboxEventScheduler {
         this.objectMapper = objectMapper;
     }
 
-    @Scheduled(fixedDelay = 5000) // Executa a cada 5 segundos
+    @Scheduled(fixedDelay = 3000) // Executa a cada 3 segundos
     @Transactional
-    public void processOutboxEvents() {
-        List<OutboxEvent> events = outboxEventRepository.findTop100ByOrderByCreatedAtAsc();
+    public void processNotificationEvents() {
+        LocalDateTime lockTimeout = LocalDateTime.now().minusMinutes(1);
+
+        List<OutboxEvent> events = getOutboxEvents(lockTimeout);
         if (events.isEmpty()) {
             return;
         }
+        log.info("[Notifications] Found {} events to process.", events.size());
 
-        log.info("Found {} events in outbox to process.", events.size());
+        verifyForEvents(events);
 
+        List<OutboxEvent> processedEvents = new ArrayList<>();
+
+        List<OutboxEvent> failedEvents = new ArrayList<>();
+
+        extractedListEvent(events, processedEvents, failedEvents);
+
+        processedEvents(processedEvents, failedEvents);
+    }
+
+    private void verifyForEvents(List<OutboxEvent> events) {
+        LocalDateTime newLockTime = LocalDateTime.now();
+        for (OutboxEvent event : events) {
+            event.setStatus(OutboxEventStatus.PROCESSING);
+            event.setLockedAt(newLockTime);
+        }
+        outboxEventRepository.saveAll(events);
+    }
+
+    private void processedEvents(List<OutboxEvent> processedEvents, List<OutboxEvent> failedEvents) {
+        if (!processedEvents.isEmpty()) {
+            outboxEventRepository.deleteAllInBatch(processedEvents);
+            log.info("[Notifications] Successfully processed and deleted {} events.", processedEvents.size());
+        }
+        if (!failedEvents.isEmpty()) {
+            outboxEventRepository.saveAll(failedEvents);
+            log.warn("[Notifications] Marked {} events as FAILED after multiple retries.", failedEvents.size());
+        }
+    }
+
+    private void extractedListEvent(List<OutboxEvent> events, List<OutboxEvent> processedEvents, List<OutboxEvent> failedEvents) {
         for (OutboxEvent event : events) {
             try {
-                // Desserializa o payload para o objeto de evento específico
                 TransactionEvent transactionEvent = objectMapper.readValue(event.getPayload(), TransactionEvent.class);
-
-                // Envia para o Kafka
                 kafkaProducerService.sendTransactionEvent(transactionEvent);
-
-                // Se o envio for bem-sucedido, remove o evento da tabela outbox
-                outboxEventRepository.delete(event);
-
-            } catch (JsonProcessingException e) {
-                log.error("Failed to deserialize event payload for outbox event id: {}. Moving to dead-letter queue or handling error.", event.getId(), e);
-                // Em um cenário real, moveríamos este evento para uma "dead-letter queue" para análise manual.
-                // Por simplicidade, vamos apenas deletá-lo para não bloquear o processamento.
-                outboxEventRepository.delete(event);
+                processedEvents.add(event);
             } catch (Exception e) {
-                log.error("Failed to send event to Kafka for outbox event id: {}. Will retry later.", event.getId(), e);
-                // A transação será revertida, e o evento permanecerá no banco para a próxima tentativa.
-                throw e; // Lança a exceção para garantir o rollback da transação
+                log.error("[Notifications] Failed to send event to Kafka for outbox event id: {}. Will retry or mark as FAILED.", event.getId(), e);
+                event.incrementRetryCount();
+                if (event.getRetryCount() >= MAX_RETRIES) {
+                    event.setStatus(OutboxEventStatus.FAILED);
+                    failedEvents.add(event);
+                } else {
+                    event.setStatus(OutboxEventStatus.UNPROCESSED); // Volta para a fila
+                }
             }
         }
+    }
+
+    private @NonNull List<OutboxEvent> getOutboxEvents(LocalDateTime lockTimeout) {
+        // Busca eventos de notificação não processados
+        List<OutboxEvent> events = new ArrayList<>();
+        for (String eventType : NOTIFICATION_EVENT_TYPES) {
+            events.addAll(outboxEventRepository.findAndLockUnprocessedEvents(
+                    OutboxEventStatus.UNPROCESSED, eventType, lockTimeout, PageRequest.of(0, BATCH_SIZE)));
+        }
+        return events;
     }
 }

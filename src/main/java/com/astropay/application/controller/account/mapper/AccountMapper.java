@@ -12,7 +12,7 @@ public class AccountMapper {
             account.getId(),
             account.getUser().getId(),
             account.getBalance(),
-            account.getStatus(), // Adicionado
+            account.getStatus(),
             account.getCreatedAt(),
             account.getUpdatedAt()
         );

@@ -13,7 +13,7 @@ import org.springframework.scheduling.annotation.EnableScheduling;
 @EnableRetry
 @EnableScheduling
 @EnableJpaRepositories(basePackages = "com.astropay.domain.model")
-@ComponentScan(basePackages = {"com.astropay.application", "com.astropay.domain"}) // Escaneia os pacotes de aplicação e domínio
+@ComponentScan(basePackages = {"com.astropay.application", "com.astropay.domain"}) // Scans the application and domain packages
 public class LedgerServiceApplication {
 
     public static void main(String[] args) {

@@ -27,16 +27,14 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
-
 import java.util.List;
-
 import static org.springframework.hateoas.server.mvc.WebMvcLinkBuilder.linkTo;
 import static org.springframework.hateoas.server.mvc.WebMvcLinkBuilder.methodOn;
 
 @RestController
 @RequestMapping("/users")
 @Tag(name = "User Management", description = "Endpoints for creating, reading, updating, and deleting users")
-@RateLimiter(name = "default") // Aplica o rate limiter padrão a todos os métodos desta classe
+@RateLimiter(name = "default") // Applies the default rate limiter to all methods in this class
 public class UserController {
 
     private final UserService userService;
@@ -67,41 +65,34 @@ public class UserController {
     }
 
     @GetMapping
-    @Operation(summary = "List all users")
+    @Operation(summary = "Get all users with pagination")
     public ResponseEntity<PagedModel<EntityModel<UserResponse>>> getAllUsers(Pageable pageable) {
         Page<UserResponse> userPage = userService.findAllUsers(pageable);
         userPage.forEach(user -> user.setLinks(List.of(linkTo(methodOn(UserController.class).getUserById(user.getId())).withSelfRel())));
-        PagedModel<EntityModel<UserResponse>> pagedModel = pagedResourcesAssembler.toModel(userPage, user -> EntityModel.of(user,
-                linkTo(methodOn(UserController.class).getUserById(user.getId())).withSelfRel()));
+        
+        PagedModel<EntityModel<UserResponse>> pagedModel = pagedResourcesAssembler.toModel(userPage);
+        
         return ResponseEntity.ok(pagedModel);
     }
 
     @PutMapping("/{id}")
-    @Operation(summary = "Update a user (PUT)")
-    public ResponseEntity<UserResponse> updateUser(
-        @PathVariable Long id, 
-        @Valid @RequestBody UpdateUserRequest request,
-        @RequestHeader("X-User-Id") Long executorId) {
-        
+    @Operation(summary = "Update a user by ID")
+    public ResponseEntity<UserResponse> updateUser(@PathVariable Long id, @Valid @RequestBody UpdateUserRequest request, @RequestHeader("Executor-ID") Long executorId) {
         UserResponse updatedUser = userService.updateUser(id, request, executorId);
         updatedUser.setLinks(List.of(linkTo(methodOn(UserController.class).getUserById(id)).withSelfRel()));
         return ResponseEntity.ok(updatedUser);
     }
 
     @PatchMapping("/{id}")
-    @Operation(summary = "Partially update a user (PATCH)")
-    public ResponseEntity<UserResponse> patchUser(
-        @PathVariable Long id, 
-        @Valid @RequestBody PatchUserRequest request,
-        @RequestHeader("X-User-Id") Long executorId) {
-            
+    @Operation(summary = "Partially update a user by ID")
+    public ResponseEntity<UserResponse> patchUser(@PathVariable Long id, @Valid @RequestBody PatchUserRequest request, @RequestHeader("Executor-ID") Long executorId) {
         UserResponse patchedUser = userService.patchUser(id, request, executorId);
         patchedUser.setLinks(List.of(linkTo(methodOn(UserController.class).getUserById(id)).withSelfRel()));
         return ResponseEntity.ok(patchedUser);
     }
 
     @DeleteMapping("/{id}")
-    @Operation(summary = "Delete a user")
+    @Operation(summary = "Delete a user by ID")
     public ResponseEntity<Void> deleteUser(@PathVariable Long id) {
         userService.deleteUser(id);
         return ResponseEntity.noContent().build();

@@ -13,17 +13,27 @@ public class OutboxEvent {
     private UUID id;
 
     @Column(nullable = false)
-    private String aggregateType; // Ex: "Transaction"
+    private String aggregateType;
 
     @Column(nullable = false)
-    private String aggregateId; // Ex: ID da transação
+    private String aggregateId;
 
     @Column(nullable = false)
-    private String eventType; // Ex: "TransactionCreated"
+    private String eventType;
 
     @Lob
     @Column(nullable = false, columnDefinition = "TEXT")
-    private String payload; // O JSON do evento
+    private String payload;
+
+    @Enumerated(EnumType.ORDINAL)
+    @Column(nullable = false)
+    private OutboxEventStatus status = OutboxEventStatus.UNPROCESSED;
+
+    @Column
+    private LocalDateTime lockedAt;
+
+    @Column(nullable = false)
+    private int retryCount = 0;
 
     @Column(nullable = false, updatable = false)
     private LocalDateTime createdAt;
@@ -40,27 +50,21 @@ public class OutboxEvent {
     }
 
     // Getters
-    public UUID getId() {
-        return id;
-    }
+    public UUID getId() { return id; }
+    public String getAggregateType() { return aggregateType; }
+    public String getAggregateId() { return aggregateId; }
+    public String getEventType() { return eventType; }
+    public String getPayload() { return payload; }
+    public OutboxEventStatus getStatus() { return status; }
+    public LocalDateTime getLockedAt() { return lockedAt; }
+    public int getRetryCount() { return retryCount; }
+    public LocalDateTime getCreatedAt() { return createdAt; }
 
-    public String getAggregateType() {
-        return aggregateType;
-    }
-
-    public String getAggregateId() {
-        return aggregateId;
-    }
-
-    public String getEventType() {
-        return eventType;
-    }
-
-    public String getPayload() {
-        return payload;
-    }
-
-    public LocalDateTime getCreatedAt() {
-        return createdAt;
-    }
+    // Setters
+    public void setStatus(OutboxEventStatus status) { this.status = status; }
+    public void setLockedAt(LocalDateTime lockedAt) { this.lockedAt = lockedAt; }
+    public void incrementRetryCount() { this.retryCount++; }
+    
+    // Setter for testing purposes
+    public void setRetryCount(int retryCount) { this.retryCount = retryCount; }
 }

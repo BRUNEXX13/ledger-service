@@ -35,12 +35,12 @@ public interface AccountRepository extends JpaRepository<Account, Long> {
     @Caching(
         evict = {
             @CacheEvict(value = "accounts", key = "#id"),
-            // Precisamos buscar a entidade para saber o userId e invalidar o outro cache
-            // Isso pode ser complexo. Uma alternativa é invalidar o cache inteiro.
-            // Por simplicidade, vamos focar em invalidar pelo ID.
-            // A busca por UserID ficará obsoleta até o TTL expirar.
-            // Para um sistema crítico, seria necessário um passo a mais aqui.
-            @CacheEvict(value = "accounts", allEntries = true) // Alternativa mais segura, porém mais agressiva
+            // We need to fetch the entity to know the userId and invalidate the other cache.
+            // This can be complex. An alternative is to invalidate the entire cache.
+            // For simplicity, we will focus on invalidating by ID.
+            // The search by UserID will be outdated until the TTL expires.
+            // For a critical system, an extra step would be needed here.
+            @CacheEvict(value = "accounts", allEntries = true) // Safer, but more aggressive alternative
         }
     )
     void deleteById(Long id);

@@ -60,10 +60,10 @@ public class AccountServiceImpl implements AccountService {
 
         BigDecimal initialBalance = request.initialBalance() != null ? request.initialBalance() : BigDecimal.ZERO;
         
-        // Reutiliza a lógica do método principal
+        // Reuses the logic of the main method
         createAccountForUser(user, initialBalance);
 
-        // Busca a conta recém-criada para retornar a resposta
+        // Fetches the newly created account to return the response
         Account savedAccount = accountRepository.findByUser_Id(user.getId())
             .orElseThrow(() -> new IllegalStateException("Could not find created account for user: " + user.getId()));
 

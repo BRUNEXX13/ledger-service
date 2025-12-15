@@ -55,8 +55,12 @@ CREATE TABLE tb_outbox_event (
     aggregate_id VARCHAR(255) NOT NULL,
     event_type VARCHAR(255) NOT NULL,
     payload TEXT NOT NULL,
+    status SMALLINT NOT NULL DEFAULT 0,
+    locked_at TIMESTAMP WITHOUT TIME ZONE,
+    retry_count INT NOT NULL DEFAULT 0,
     created_at TIMESTAMP WITHOUT TIME ZONE NOT NULL
 );
+CREATE INDEX idx_outbox_event_status_type ON tb_outbox_event(status, event_type);
 
 
 -- =================================================================
