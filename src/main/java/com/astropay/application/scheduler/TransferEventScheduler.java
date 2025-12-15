@@ -9,23 +9,26 @@ import com.astropay.domain.model.outbox.OutboxEventRepository;
 import com.astropay.domain.model.outbox.OutboxEventStatus;
 import com.astropay.domain.model.transaction.Transaction;
 import com.astropay.domain.model.transaction.TransactionRepository;
+import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.dao.OptimisticLockingFailureException;
 import org.springframework.data.domain.PageRequest;
-import org.springframework.retry.annotation.Backoff;
-import org.springframework.retry.annotation.Retryable;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 
 @Component
 public class TransferEventScheduler {
@@ -53,6 +56,11 @@ public class TransferEventScheduler {
     }
 
     @Scheduled(fixedDelay = 2000)
+    @Transactional(propagation = Propagation.NEVER)
+    public void scheduleProcessTransferEvents() {
+        processTransferEvents();
+    }
+
     @Transactional
     public void processTransferEvents() {
         LocalDateTime lockTimeout = LocalDateTime.now().minusMinutes(1);
@@ -64,83 +72,162 @@ public class TransferEventScheduler {
         }
 
         log.info("Found {} events to process.", events.size());
+        
         LocalDateTime newLockTime = LocalDateTime.now();
-        for (OutboxEvent event : events) {
+        events.forEach(event -> {
             event.setStatus(OutboxEventStatus.PROCESSING);
             event.setLockedAt(newLockTime);
-        }
+        });
         outboxEventRepository.saveAll(events);
 
-        List<OutboxEvent> processedEvents = new ArrayList<>();
-        List<OutboxEvent> failedEvents = new ArrayList<>();
-
-        for (OutboxEvent event : events) {
-            try {
-                processTransfer(event);
-                processedEvents.add(event);
-            } catch (Exception e) {
-                log.error("Failed to process outbox event {}. It will be retried or marked as FAILED.", event.getId(), e);
-                event.incrementRetryCount();
-                if (event.getRetryCount() >= MAX_RETRIES) {
-                    event.setStatus(OutboxEventStatus.FAILED);
-                    failedEvents.add(event);
-                } else {
-                    event.setStatus(OutboxEventStatus.UNPROCESSED);
-                }
-            }
-        }
-
-        if (!processedEvents.isEmpty()) {
-            outboxEventRepository.deleteAllInBatch(processedEvents);
-            log.info("Successfully processed and deleted {} events.", processedEvents.size());
-        }
-        if (!failedEvents.isEmpty()) {
-            outboxEventRepository.saveAll(failedEvents);
-            log.warn("Marked {} events as FAILED after multiple retries.", failedEvents.size());
+        try {
+            processBatch(events);
+        } catch (Exception e) {
+            log.error("A critical error occurred during batch processing.", e);
+            events.forEach(event -> event.setStatus(OutboxEventStatus.UNPROCESSED));
+            outboxEventRepository.saveAll(events);
         }
     }
 
-    @Retryable(
-            value = {OptimisticLockingFailureException.class},
-            maxAttempts = 3,
-            backoff = @Backoff(delay = 150)
-    )
-    @Transactional
-    public void processTransfer(OutboxEvent event) throws Exception {
-        JsonNode payload = objectMapper.readTree(event.getPayload());
+    private void processBatch(List<OutboxEvent> events) {
+        Map<Long, Account> accountsMap = fetchAccountsForEvents(events);
+        List<Transaction> transactionsToSave = new ArrayList<>();
+        List<OutboxEvent> failedEvents = new ArrayList<>();
+
+        prepareTransactions(events, accountsMap, transactionsToSave, failedEvents);
         
-        // Correctly read data from the event payload
-        Long senderAccountId = payload.get("senderAccountId").asLong();
-        Long receiverAccountId = payload.get("receiverAccountId").asLong();
+        // Save initial PENDING state
+        if (!transactionsToSave.isEmpty()) {
+            transactionRepository.saveAll(transactionsToSave);
+        }
+
+        List<OutboxEvent> processedEvents = executeTransactions(events, transactionsToSave, failedEvents);
+
+        persistFinalState(accountsMap, transactionsToSave, processedEvents, failedEvents);
+    }
+
+    private Map<Long, Account> fetchAccountsForEvents(List<OutboxEvent> events) {
+        List<Long> accountIds = new ArrayList<>();
+        for (OutboxEvent event : events) {
+            try {
+                JsonNode payload = objectMapper.readTree(event.getPayload());
+                accountIds.add(payload.get("senderAccountId").asLong());
+                accountIds.add(payload.get("receiverAccountId").asLong());
+            } catch (JsonProcessingException e) {
+                log.error("Failed to parse payload for event {}. Marking as FAILED.", event.getId(), e);
+                event.setStatus(OutboxEventStatus.FAILED);
+            }
+        }
+        return accountRepository.findByIds(accountIds.stream().distinct().collect(Collectors.toList()))
+                .stream()
+                .collect(Collectors.toMap(Account::getId, Function.identity()));
+    }
+
+    private void prepareTransactions(List<OutboxEvent> events, Map<Long, Account> accountsMap, 
+                                     List<Transaction> transactionsToSave, List<OutboxEvent> failedEvents) {
+        for (OutboxEvent event : events) {
+            if (event.getStatus() == OutboxEventStatus.FAILED) continue;
+
+            try {
+                Transaction transaction = createTransactionFromEvent(event, accountsMap);
+                transactionsToSave.add(transaction);
+            } catch (Exception e) {
+                log.error("Failed to prepare transaction for event {}. Marking as FAILED.", event.getId(), e);
+                event.setStatus(OutboxEventStatus.FAILED);
+                failedEvents.add(event);
+            }
+        }
+    }
+
+    private Transaction createTransactionFromEvent(OutboxEvent event, Map<Long, Account> accountsMap) throws JsonProcessingException {
+        JsonNode payload = objectMapper.readTree(event.getPayload());
+        Long senderId = payload.get("senderAccountId").asLong();
+        Long receiverId = payload.get("receiverAccountId").asLong();
         BigDecimal amount = new BigDecimal(payload.get("amount").asText());
         UUID idempotencyKey = UUID.fromString(payload.get("idempotencyKey").asText());
 
-        // --- Create the Transaction ---
-        Account senderAccount = accountRepository.findById(senderAccountId)
-                .orElseThrow(() -> new IllegalStateException("Sender account not found for id: " + senderAccountId));
-        Account receiverAccount = accountRepository.findById(receiverAccountId)
-                .orElseThrow(() -> new IllegalStateException("Receiver account not found for id: " + receiverAccountId));
+        Account sender = accountsMap.get(senderId);
+        Account receiver = accountsMap.get(receiverId);
 
-        Transaction transaction = new Transaction(senderAccount, receiverAccount, amount, idempotencyKey);
-        transactionRepository.save(transaction); // Save initial PENDING transaction
-        
-        // --- Process the Transfer ---
+        if (sender == null || receiver == null) {
+            throw new IllegalStateException("Sender or receiver account not found for event " + event.getId());
+        }
+
+        return new Transaction(sender, receiver, amount, idempotencyKey);
+    }
+
+    private List<OutboxEvent> executeTransactions(List<OutboxEvent> events, List<Transaction> transactions, 
+                                                  List<OutboxEvent> failedEvents) {
+        List<OutboxEvent> processedEvents = new ArrayList<>();
+        int transactionIndex = 0;
+
+        for (OutboxEvent event : events) {
+            if (event.getStatus() == OutboxEventStatus.FAILED) {
+                if (!failedEvents.contains(event)) failedEvents.add(event);
+                continue;
+            }
+
+            Transaction transaction = transactions.get(transactionIndex++);
+            processTransactionAndHandleErrors(event, transaction, processedEvents, failedEvents);
+        }
+        return processedEvents;
+    }
+
+    private void processTransactionAndHandleErrors(OutboxEvent event, Transaction transaction, 
+                                                   List<OutboxEvent> processedEvents, List<OutboxEvent> failedEvents) {
         try {
-            senderAccount.withdraw(transaction.getAmount());
-            receiverAccount.deposit(transaction.getAmount());
-
-            accountRepository.save(senderAccount);
-            accountRepository.save(receiverAccount);
-
-            transaction.complete();
-            transactionAuditService.createAuditEvent(transaction, "TransactionCompleted");
-
+            processSingleTransaction(transaction);
+            processedEvents.add(event);
         } catch (InsufficientBalanceException | IllegalStateException e) {
-            log.warn("Transaction {} FAILED. Reason: {}", transaction.getId(), e.getMessage());
-            transaction.fail(e.getMessage());
-            transactionAuditService.createAuditEvent(transaction, "TransactionFailed");
-        } finally {
-            transactionRepository.save(transaction); // Save final state (COMPLETED or FAILED)
+            handleTransactionFailure(event, transaction, e);
+            processedEvents.add(event);
+        } catch (Exception e) {
+            handleUnexpectedError(event, e, failedEvents);
+        }
+    }
+
+    private void processSingleTransaction(Transaction transaction) {
+        Account sender = transaction.getSender();
+        Account receiver = transaction.getReceiver();
+
+        sender.withdraw(transaction.getAmount());
+        receiver.deposit(transaction.getAmount());
+        
+        transaction.complete();
+        transactionAuditService.createAuditEvent(transaction, "TransactionCompleted");
+    }
+
+    private void handleTransactionFailure(OutboxEvent event, Transaction transaction, Exception e) {
+        log.warn("Transaction for event {} FAILED. Reason: {}", event.getId(), e.getMessage());
+        transaction.fail(e.getMessage());
+        transactionAuditService.createAuditEvent(transaction, "TransactionFailed");
+    }
+
+    private void handleUnexpectedError(OutboxEvent event, Exception e, List<OutboxEvent> failedEvents) {
+        log.error("Unexpected error processing event {}. Will retry.", event.getId(), e);
+        event.incrementRetryCount();
+        if (event.getRetryCount() >= MAX_RETRIES) {
+            event.setStatus(OutboxEventStatus.FAILED);
+            failedEvents.add(event);
+        } else {
+            event.setStatus(OutboxEventStatus.UNPROCESSED);
+        }
+    }
+
+    private void persistFinalState(Map<Long, Account> accountsMap, List<Transaction> transactions, 
+                                   List<OutboxEvent> processedEvents, List<OutboxEvent> failedEvents) {
+        saveIfNotEmpty(accountsMap.values(), accountRepository::saveAll);
+        saveIfNotEmpty(transactions, transactionRepository::saveAll);
+        saveIfNotEmpty(failedEvents, outboxEventRepository::saveAll);
+        
+        if (!processedEvents.isEmpty()) {
+            outboxEventRepository.deleteAllInBatch(processedEvents);
+        }
+    }
+
+    private <T> void saveIfNotEmpty(Collection<T> entities, Function<Collection<T>, ?> saveFunction) {
+        if (!entities.isEmpty()) {
+            saveFunction.apply(entities);
         }
     }
 }

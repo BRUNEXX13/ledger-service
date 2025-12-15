@@ -1,8 +1,7 @@
 package com.astropay.domain.model.outbox;
 
-import jakarta.persistence.LockModeType;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
-import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
@@ -14,12 +13,12 @@ import java.util.UUID;
 @Repository
 public interface OutboxEventRepository extends JpaRepository<OutboxEvent, UUID> {
 
-    @Lock(LockModeType.PESSIMISTIC_WRITE)
-    @Query("SELECT e FROM OutboxEvent e WHERE e.status = :status AND e.eventType = :eventType AND (e.lockedAt IS NULL OR e.lockedAt < :lockTimeout) ORDER BY e.createdAt ASC")
+    // Using native query for PostgreSQL's FOR UPDATE SKIP LOCKED
+    @Query(value = "SELECT * FROM tb_outbox e WHERE e.status = :#{#status.name()} AND e.event_type = :eventType AND (e.locked_at IS NULL OR e.locked_at < :lockTimeout) ORDER BY e.created_at ASC FOR UPDATE SKIP LOCKED", nativeQuery = true)
     List<OutboxEvent> findAndLockUnprocessedEvents(@Param("status") OutboxEventStatus status,
                                                    @Param("eventType") String eventType,
                                                    @Param("lockTimeout") LocalDateTime lockTimeout,
-                                                   org.springframework.data.domain.Pageable pageable);
+                                                   Pageable pageable);
 
     List<OutboxEvent> findByEventType(String eventType);
 }
