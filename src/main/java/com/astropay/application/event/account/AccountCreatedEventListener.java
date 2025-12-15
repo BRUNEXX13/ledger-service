@@ -2,10 +2,11 @@ package com.astropay.application.event.account;
 
 import com.astropay.application.exception.AccountCreatedFailedException;
 import com.astropay.application.service.notification.EmailService;
-import com.astropay.domain.model.account.AccountRepository;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.kafka.annotation.KafkaListener;
+import org.springframework.messaging.handler.annotation.Payload;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -15,14 +16,19 @@ public class AccountCreatedEventListener {
     private static final Logger log = LoggerFactory.getLogger(AccountCreatedEventListener.class);
 
     private final EmailService emailService;
+    private final ObjectMapper objectMapper;
 
-    public AccountCreatedEventListener(EmailService emailService) {
+    public AccountCreatedEventListener(EmailService emailService, ObjectMapper objectMapper) {
         this.emailService = emailService;
+        this.objectMapper = objectMapper;
     }
+
     @Transactional
-    @KafkaListener(topics = "accounts", groupId = "ledger-notification-group")
-    public void handleAccountCreatedEvent(AccountCreatedEvent event) {
+    @KafkaListener(topics = "accounts", groupId = "${spring.kafka.consumer.group-id}")
+    public void handleAccountCreatedEvent(@Payload String jsonPayload) {
         try {
+            AccountCreatedEvent event = objectMapper.readValue(jsonPayload, AccountCreatedEvent.class);
+            
             log.info("ACCOUNT CREATED event received for notification. AccountId: {}", event.getAccountId());
 
             String subject = "Welcome to Our Bank!";
@@ -33,8 +39,8 @@ public class AccountCreatedEventListener {
             emailService.sendTransactionNotification(event.getUserEmail(), subject, body);
 
         } catch (Exception e) {
-            log.error("Error processing ACCOUNT CREATION event for AccountId: {}. Error: {}", event.getAccountId(), e.getMessage(), e);
-            throw new AccountCreatedFailedException(String.format("Failed to process account creation event for accountId: %d", event.getAccountId()), e);
+            log.error("Error processing ACCOUNT CREATION event. Payload: {}. Error: {}", jsonPayload, e.getMessage(), e);
+            throw new AccountCreatedFailedException(String.format("Failed to process account creation event from payload: %s", jsonPayload), e);
         }
     }
 }
