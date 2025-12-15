@@ -2,13 +2,11 @@ package com.astropay.application.service.transaction;
 
 import com.astropay.application.dto.response.transaction.TransactionUserResponse;
 import com.astropay.application.event.transactions.TransactionEvent;
-import com.astropay.application.exception.JsonSerializationException;
 import com.astropay.application.exception.ResourceNotFoundException;
 import com.astropay.domain.model.outbox.OutboxEvent;
 import com.astropay.domain.model.outbox.OutboxEventRepository;
 import com.astropay.domain.model.transaction.Transaction;
 import com.astropay.domain.model.transaction.TransactionRepository;
-import com.astropay.domain.model.user.User;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.slf4j.Logger;

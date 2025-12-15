@@ -39,7 +39,7 @@ O projeto utiliza uma stack tecnológica moderna e completa:
 O sistema segue uma **Arquitetura Hexagonal (Ports and Adapters)**, garantindo que a lógica de negócio (Domínio) permaneça isolada de detalhes de infraestrutura e frameworks externos.
 
 -   **API REST:** Interface principal para interação com o sistema, permitindo a criação de usuários, gerenciamento de contas e início de transferências.
--   **Processamento Assíncrono (Outbox Pattern):** As transferências não são processadas em tempo real. Elas são salvas em uma tabela `tb_outbox` e processadas de forma assíncrona por um scheduler, garantindo que nenhuma requisição seja perdida e que o sistema seja resiliente a falhas.
+-   **Processamento Assíncrono (Outbox Pattern):** As transferências não são processadas em tempo real. Elas são salvas em uma tabela `tb_outbox_event` e processadas de forma assíncrona por um scheduler, garantindo que nenhuma requisição seja perdida e que o sistema seja resiliente a falhas.
 -   **Cache (Redis):** Utilizado para otimizar consultas frequentes a contas, reduzindo a carga no banco de dados.
 -   **Mensageria (Kafka):** Usado para notificar os usuários sobre eventos importantes, como a criação de contas e a conclusão de transações.
 
@@ -53,7 +53,7 @@ O sistema segue uma **Arquitetura Hexagonal (Ports and Adapters)**, garantindo q
 
 ### Componentes Chave:
 -   **API REST:** Interface principal para interação com o sistema.
--   **Processamento Assíncrono (Outbox Pattern):** As transferências são salvas em uma tabela `tb_outbox` e processadas de forma assíncrona, garantindo resiliência e consistência.
+-   **Processamento Assíncrono (Outbox Pattern):** As transferências são salvas em uma tabela `tb_outbox_event` e processadas de forma assíncrona, garantindo resiliência e consistência.
 -   **Cache (Redis):** Otimização de leituras frequentes.
 -   **Mensageria (Kafka):** Notificações e comunicação assíncrona entre domínios.
 
