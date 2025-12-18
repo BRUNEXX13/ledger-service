@@ -1,6 +1,14 @@
 package com.astropay.domain.model.outbox;
 
-import jakarta.persistence.*;
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.GenerationType;
+import jakarta.persistence.Id;
+import jakarta.persistence.Table;
+
 import java.time.LocalDateTime;
 import java.util.UUID;
 
@@ -37,7 +45,7 @@ public class OutboxEvent {
     @Column(nullable = false, updatable = false)
     private LocalDateTime createdAt;
 
-    @Deprecated
+
     protected OutboxEvent() {}
 
     public OutboxEvent(String aggregateType, String aggregateId, String eventType, String payload) {

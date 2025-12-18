@@ -1,4 +1,4 @@
-package com.astropay.application.config;
+package com.astropay.infrastructure.config;
 
 import org.springframework.context.annotation.Configuration;
 import org.springframework.data.jpa.repository.config.EnableJpaAuditing;

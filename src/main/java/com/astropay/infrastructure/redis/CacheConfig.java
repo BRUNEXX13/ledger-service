@@ -27,7 +27,7 @@ public class CacheConfig {
 
     @Bean
     public RedisCacheManagerBuilderCustomizer redisCacheManagerBuilderCustomizer() {
-        return (builder) -> builder
+        return builder -> builder
                 .withCacheConfiguration("accounts",
                         createCacheConfiguration(Duration.ofMinutes(10)))
                 .withCacheConfiguration("users",

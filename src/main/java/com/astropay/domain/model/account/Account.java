@@ -53,7 +53,7 @@ public class Account implements Serializable {
     @Column(nullable = false)
     private LocalDateTime updatedAt;
 
-    @Deprecated
+
     protected Account() {}
 
     public Account(User user, BigDecimal balance) {
