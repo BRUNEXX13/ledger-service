@@ -1,5 +1,6 @@
 package com.astropay.application.dto.response.account;
 
+import com.astropay.application.util.AppConstants;
 import com.astropay.domain.model.account.AccountStatus;
 import com.fasterxml.jackson.annotation.JsonFormat;
 import com.fasterxml.jackson.annotation.JsonInclude;
@@ -21,10 +22,10 @@ public class AccountResponse extends RepresentationModel<AccountResponse> {
     private BigDecimal balance;
     private AccountStatus status;
 
-    @JsonFormat(pattern = "MM/dd/yyyy HH:mm:ss.SSS")
+    @JsonFormat(pattern = AppConstants.DATE_TIME_FORMAT)
     private LocalDateTime createdAt;
 
-    @JsonFormat(pattern = "MM/dd/yyyy HH:mm:ss.SSS")
+    @JsonFormat(pattern = AppConstants.DATE_TIME_FORMAT)
     private LocalDateTime updatedAt;
 
     /**

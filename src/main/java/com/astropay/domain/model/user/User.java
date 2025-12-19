@@ -1,5 +1,6 @@
 package com.astropay.domain.model.user;
 
+import com.astropay.application.util.AppConstants;
 import com.fasterxml.jackson.annotation.JsonFormat;
 import jakarta.persistence.*;
 import jakarta.validation.constraints.Email;
@@ -48,12 +49,12 @@ public class User implements Serializable {
     private Role role;
 
     @CreatedDate
-    @JsonFormat(pattern = "MM/dd/yyyy HH:mm:ss.SSS")
+    @JsonFormat(pattern = AppConstants.DATE_TIME_FORMAT)
     @Column(nullable = false, updatable = false)
     private LocalDateTime createdAt;
 
     @LastModifiedDate
-    @JsonFormat(pattern = "MM/dd/yyyy HH:mm:ss.SSS")
+    @JsonFormat(pattern = AppConstants.DATE_TIME_FORMAT)
     @Column(nullable = false)
     private LocalDateTime updatedAt;
 

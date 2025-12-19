@@ -14,6 +14,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
@@ -42,23 +43,26 @@ public class TransferEventScheduler {
     private final AccountRepository accountRepository;
     private final TransactionAuditService transactionAuditService;
     private final ObjectMapper objectMapper;
+    private final TransferEventScheduler self;
 
     public TransferEventScheduler(OutboxEventRepository outboxEventRepository,
                                   TransactionRepository transactionRepository,
                                   AccountRepository accountRepository,
                                   TransactionAuditService transactionAuditService,
-                                  ObjectMapper objectMapper) {
+                                  ObjectMapper objectMapper,
+                                  @Lazy TransferEventScheduler self) {
         this.outboxEventRepository = outboxEventRepository;
         this.transactionRepository = transactionRepository;
         this.accountRepository = accountRepository;
         this.transactionAuditService = transactionAuditService;
         this.objectMapper = objectMapper;
+        this.self = self;
     }
 
     @Scheduled(fixedDelay = 2000)
     @Transactional(propagation = Propagation.NEVER)
     public void scheduleProcessTransferEvents() {
-        processTransferEvents();
+        self.processTransferEvents();
     }
 
     @Transactional
@@ -118,7 +122,7 @@ public class TransferEventScheduler {
                 event.setStatus(OutboxEventStatus.FAILED);
             }
         }
-        return accountRepository.findByIds(accountIds.stream().distinct().collect(Collectors.toList()))
+        return accountRepository.findByIds(accountIds.stream().distinct().toList())
                 .stream()
                 .collect(Collectors.toMap(Account::getId, Function.identity()));
     }
