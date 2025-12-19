@@ -92,28 +92,6 @@ services:
       timeout: 5s
       retries: 5
 
-  localstack:
-    image: localstack/localstack:3.0
-    container_name: localstack
-    ports:
-      - "4566:4566"            # Porta principal para todos os serviços
-      - "4510-4559:4510-4559"  # Portas externas para serviços específicos
-    environment:
-      - DEBUG=${DEBUG:-0}
-      - SERVICES=s3,sqs,sns
-      - DOCKER_HOST=unix:///var/run/docker.sock
-    volumes:
-      - "${LOCALSTACK_VOLUME_DIR:-./volume}:/var/lib/localstack"
-      - "/var/run/docker.sock:/var/run/docker.sock"
-      - "./init-aws.sh:/etc/localstack/init/ready.d/init-aws.sh" # Script de inicialização
-    networks:
-      - ledger-network
-    healthcheck:
-      test: ["CMD", "awslocal", "health"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-
   loki:
     image: grafana/loki:2.9.0
     container_name: loki
@@ -132,11 +110,14 @@ services:
     image: datadog/agent:latest
     container_name: datadog-agent
     environment:
-      - DD_API_KEY=YOUR_API_KEY
+      # Substitua pela sua API Key e Site (ex: datadoghq.com, datadoghq.eu)
+      - DD_API_KEY=${DD_API_KEY}
       - DD_SITE=datadoghq.com
+      - DD_ENV=local
+      - DD_SERVICE=ledger-service
+      - DD_VERSION=1.0
       - DD_LOGS_ENABLED=true
       - DD_LOGS_CONFIG_CONTAINER_COLLECT_ALL=true
-      - DD_CONTAINER_EXCLUDE="image:datadog/agent"
       - DD_DOGSTATSD_NON_LOCAL_TRAFFIC=true
     ports:
       - "8125:8125/udp"
@@ -186,9 +167,7 @@ services:
     volumes:
       - ./grafana.ini:/etc/grafana/grafana.ini
       - ./grafana-datasources.yml:/etc/grafana/provisioning/datasources/datasources.yaml
-      # Volume persistente para dados do Grafana (dashboards criados na UI, usuários, etc.)
       - grafana_data:/var/lib/grafana
-      # Volume para provisionamento automático de dashboards (se você quiser salvar JSONs)
       - ./grafana/provisioning:/etc/grafana/provisioning
     depends_on:
       prometheus:
@@ -210,5 +189,5 @@ networks:
 volumes:
   postgres_data:
     driver: local
-  grafana_data: # Volume nomeado para persistência do Grafana
+  grafana_data:
     driver: local

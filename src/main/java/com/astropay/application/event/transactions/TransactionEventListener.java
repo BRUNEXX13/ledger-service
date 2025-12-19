@@ -3,8 +3,6 @@ package com.astropay.application.event.transactions;
 import com.astropay.application.service.notification.EmailService;
 import com.astropay.domain.model.user.User;
 import com.astropay.domain.model.user.UserRepository;
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.kafka.annotation.KafkaListener;
@@ -19,19 +17,15 @@ public class TransactionEventListener {
 
     private final EmailService emailService;
     private final UserRepository userRepository;
-    private final ObjectMapper objectMapper;
 
-    public TransactionEventListener(EmailService emailService, UserRepository userRepository, ObjectMapper objectMapper) {
+    public TransactionEventListener(EmailService emailService, UserRepository userRepository) {
         this.emailService = emailService;
         this.userRepository = userRepository;
-        this.objectMapper = objectMapper;
     }
 
     @Transactional
     @KafkaListener(topics = "transactions", groupId = "${spring.kafka.consumer.group-id}")
-    public void handleTransactionEvent(@Payload String jsonPayload) throws JsonProcessingException {
-        TransactionEvent event = objectMapper.readValue(jsonPayload, TransactionEvent.class);
-        
+    public void handleTransactionEvent(@Payload TransactionEvent event) {
         log.info("Evento de TRANSAÇÃO recebido para notificação. IdempotencyKey: {}", event.getIdempotencyKey());
 
         User sender = userRepository.findById(event.getSenderAccountId())

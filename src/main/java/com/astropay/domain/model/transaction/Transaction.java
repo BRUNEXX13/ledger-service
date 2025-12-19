@@ -1,18 +1,7 @@
 package com.astropay.domain.model.transaction;
 
 import com.astropay.domain.model.account.Account;
-import jakarta.persistence.Column;
-import jakarta.persistence.Entity;
-import jakarta.persistence.EntityListeners;
-import jakarta.persistence.FetchType;
-import jakarta.persistence.GeneratedValue;
-import jakarta.persistence.GenerationType;
-import jakarta.persistence.Id;
-import jakarta.persistence.Index;
-import jakarta.persistence.JoinColumn;
-import jakarta.persistence.ManyToOne;
-import jakarta.persistence.Table;
-import jakarta.persistence.UniqueConstraint;
+import jakarta.persistence.*;
 import org.springframework.data.annotation.CreatedDate;
 import org.springframework.data.jpa.domain.support.AuditingEntityListener;
 
@@ -90,6 +79,13 @@ public class Transaction {
     public String getFailureReason() { return failureReason; }
     public LocalDateTime getCreatedAt() { return createdAt; }
     public UUID getIdempotencyKey() { return idempotencyKey; }
+
+    @PrePersist
+    public void prePersist() {
+        if (this.createdAt == null) {
+            this.createdAt = LocalDateTime.now();
+        }
+    }
 
     @Override
     public boolean equals(Object o) {

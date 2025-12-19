@@ -4,10 +4,6 @@ import com.astropay.application.service.notification.EmailService;
 import com.astropay.domain.model.user.Role;
 import com.astropay.domain.model.user.User;
 import com.astropay.domain.model.user.UserRepository;
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.SerializationFeature;
-import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -15,7 +11,6 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
-import org.mockito.Spy;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.test.util.ReflectionTestUtils;
 
@@ -44,21 +39,15 @@ class TransactionEventListenerTest {
     @Mock
     private UserRepository userRepository;
 
-    @Spy
-    private ObjectMapper objectMapper = new ObjectMapper()
-            .registerModule(new JavaTimeModule())
-            .disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);
-
     @InjectMocks
     private TransactionEventListener eventListener;
 
     private User sender;
     private User receiver;
     private TransactionEvent transactionEvent;
-    private String jsonPayload;
 
     @BeforeEach
-    void setUp() throws Exception {
+    void setUp() {
         sender = new User("Sender Name", "111", "sender@example.com", Role.ROLE_EMPLOYEE);
         ReflectionTestUtils.setField(sender, "id", 10L);
 
@@ -66,18 +55,17 @@ class TransactionEventListenerTest {
         ReflectionTestUtils.setField(receiver, "id", 20L);
 
         transactionEvent = new TransactionEvent(1L, 10L, 20L, new BigDecimal("100.50"), LocalDateTime.now(), UUID.randomUUID());
-        jsonPayload = objectMapper.writeValueAsString(transactionEvent);
     }
 
     @Test
     @DisplayName("Should handle transaction event and send emails to sender and receiver")
-    void shouldHandleTransactionEvent() throws JsonProcessingException {
+    void shouldHandleTransactionEvent() {
         // Arrange
         when(userRepository.findById(10L)).thenReturn(Optional.of(sender));
         when(userRepository.findById(20L)).thenReturn(Optional.of(receiver));
 
         // Act
-        eventListener.handleTransactionEvent(jsonPayload);
+        eventListener.handleTransactionEvent(transactionEvent);
 
         // Assert
         ArgumentCaptor<String> emailCaptor = ArgumentCaptor.forClass(String.class);
@@ -108,7 +96,7 @@ class TransactionEventListenerTest {
         when(userRepository.findById(10L)).thenReturn(Optional.empty());
 
         // Act & Assert
-        assertThrows(RuntimeException.class, () -> eventListener.handleTransactionEvent(jsonPayload));
+        assertThrows(RuntimeException.class, () -> eventListener.handleTransactionEvent(transactionEvent));
         
         verify(emailService, never()).sendTransactionNotification(any(), any(), any());
     }
@@ -122,16 +110,6 @@ class TransactionEventListenerTest {
         doThrow(new RuntimeException("SMTP server down")).when(emailService).sendTransactionNotification(any(), any(), any());
 
         // Act & Assert
-        assertThrows(RuntimeException.class, () -> eventListener.handleTransactionEvent(jsonPayload));
-    }
-
-    @Test
-    @DisplayName("Should throw JsonProcessingException for invalid payload")
-    void shouldThrowExceptionForInvalidPayload() {
-        // Arrange
-        String invalidJsonPayload = "{\"invalid\":\"json\"}";
-
-        // Act & Assert
-        assertThrows(JsonProcessingException.class, () -> eventListener.handleTransactionEvent(invalidJsonPayload));
+        assertThrows(RuntimeException.class, () -> eventListener.handleTransactionEvent(transactionEvent));
     }
 }

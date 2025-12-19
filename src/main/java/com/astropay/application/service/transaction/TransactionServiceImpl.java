@@ -30,7 +30,7 @@ public class TransactionServiceImpl implements TransactionService {
     }
 
     @Override
-    @Cacheable(value = "transactions", key = "#id")
+    @Cacheable(value = "transaction_responses_v3", key = "#id")
     public TransactionResponse findTransactionById(Long id) {
         return transactionRepository.findById(id)
             .map(transactionMapper::toTransactionResponse)

@@ -1,19 +1,15 @@
 package com.astropay.domain.model.outbox;
 
-import jakarta.persistence.Column;
-import jakarta.persistence.Entity;
-import jakarta.persistence.EnumType;
-import jakarta.persistence.Enumerated;
-import jakarta.persistence.GeneratedValue;
-import jakarta.persistence.GenerationType;
-import jakarta.persistence.Id;
-import jakarta.persistence.Table;
+import jakarta.persistence.*;
+import org.springframework.data.annotation.CreatedDate;
+import org.springframework.data.jpa.domain.support.AuditingEntityListener;
 
 import java.time.LocalDateTime;
 import java.util.UUID;
 
 @Entity
 @Table(name = "tb_outbox_event")
+@EntityListeners(AuditingEntityListener.class)
 public class OutboxEvent {
 
     @Id
@@ -42,6 +38,7 @@ public class OutboxEvent {
     @Column(nullable = false)
     private int retryCount = 0;
 
+    @CreatedDate
     @Column(nullable = false, updatable = false)
     private LocalDateTime createdAt;
 
@@ -74,4 +71,11 @@ public class OutboxEvent {
     
     // Setter for testing purposes
     public void setRetryCount(int retryCount) { this.retryCount = retryCount; }
+
+    @PrePersist
+    public void prePersist() {
+        if (this.createdAt == null) {
+            this.createdAt = LocalDateTime.now();
+        }
+    }
 }

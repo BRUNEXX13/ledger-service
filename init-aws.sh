@@ -1,4 +1,7 @@
 #!/bin/bash
+
+chmod +x run-local.sh init-aws.sh
+
 echo "Iniciando configuração do LocalStack..."
 
 # Criar Bucket S3
