@@ -214,16 +214,11 @@
                         </goals>
                         <configuration>
                             <excludes>
-                                <!-- Exclui a classe principal da aplicação -->
                                 <exclude>com/astropay/LedgerServiceApplication.class</exclude>
-                                <!-- Exclui todas as classes de configuração -->
                                 <exclude>com/astropay/application/config/**/*</exclude>
                                 <exclude>com/astropay/infrastructure/**/*</exclude>
-                                <!-- Exclui todos os DTOs -->
                                 <exclude>com/astropay/application/dto/**/*</exclude>
-                                <!-- Exclui todas as exceções customizadas -->
                                 <exclude>com/astropay/application/exception/**/*</exclude>
-                                <!-- Exclui todo o pacote de domínio (incluindo models, enums, etc.) -->
                                 <exclude>com/astropay/domain/**/*</exclude>
                             </excludes>
                         </configuration>
