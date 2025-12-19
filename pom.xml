@@ -19,7 +19,20 @@
         <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
         <resilience4j.version>2.2.0</resilience4j.version>
         <jacoco.version>0.8.12</jacoco.version>
+        <spring-cloud-aws.version>3.1.1</spring-cloud-aws.version>
     </properties>
+
+    <dependencyManagement>
+        <dependencies>
+            <dependency>
+                <groupId>io.awspring.cloud</groupId>
+                <artifactId>spring-cloud-aws-dependencies</artifactId>
+                <version>${spring-cloud-aws.version}</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
+        </dependencies>
+    </dependencyManagement>
 
     <dependencies>
         <!-- Spring Boot Starters -->
@@ -34,6 +47,16 @@
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-aop</artifactId>
+        </dependency>
+
+        <!-- AWS Integration -->
+        <dependency>
+            <groupId>io.awspring.cloud</groupId>
+            <artifactId>spring-cloud-aws-starter-s3</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>io.awspring.cloud</groupId>
+            <artifactId>spring-cloud-aws-starter-sqs</artifactId>
         </dependency>
 
         <!-- Flyway Migration -->
@@ -198,10 +221,15 @@
                         </goals>
                         <configuration>
                             <excludes>
+                                <!-- JDK Internals -->
                                 <exclude>jdk.internal.*</exclude>
-                                <!-- Exclui classes geradas dinamicamente pelo Mockito/CGLIB -->
+                                <exclude>java.net.http.*</exclude>
+                                <exclude>jdk.jshell.*</exclude>
+                                <exclude>sun.*</exclude>
+                                <exclude>com.sun.*</exclude>
+                                <exclude>org.jcp.*</exclude>
+                                <!-- Mockito/ByteBuddy -->
                                 <exclude>*MockitoMock*</exclude>
-                                <!-- Exclui classes internas do ByteBuddy -->
                                 <exclude>net.bytebuddy.*</exclude>
                             </excludes>
                         </configuration>

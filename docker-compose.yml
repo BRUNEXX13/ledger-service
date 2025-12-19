@@ -92,6 +92,27 @@ services:
       timeout: 5s
       retries: 5
 
+  localstack:
+    image: localstack/localstack:3.0
+    container_name: localstack
+    ports:
+      - "4566:4566"            # Porta principal para todos os serviços
+      - "4510-4559:4510-4559"  # Portas externas para serviços específicos
+    environment:
+      - DEBUG=${DEBUG:-0}
+      - SERVICES=s3,sqs,sns
+      - DOCKER_HOST=unix:///var/run/docker.sock
+    volumes:
+      - "${LOCALSTACK_VOLUME_DIR:-./volume}:/var/lib/localstack"
+      - "/var/run/docker.sock:/var/run/docker.sock"
+    networks:
+      - ledger-network
+    healthcheck:
+      test: ["CMD", "awslocal", "health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
   loki:
     image: grafana/loki:2.9.0
     container_name: loki
