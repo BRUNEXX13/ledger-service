@@ -57,7 +57,6 @@ public class User implements Serializable {
     @Column(nullable = false)
     private LocalDateTime updatedAt;
 
-    @Deprecated
     protected User() {}
 
     // Constructor adjusted for use by the mapper
