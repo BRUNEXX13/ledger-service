@@ -83,7 +83,7 @@ public class TransferEventScheduler {
         try {
             processBatch(events);
         } catch (Exception e) {
-            log.error("A critical error occurred during batch processing.", e);
+            log.error("A critical error occurred during batch processing. Rolling back status for events.", e);
             events.forEach(event -> event.setStatus(OutboxEventStatus.UNPROCESSED));
             outboxEventRepository.saveAll(events);
         }
@@ -204,12 +204,14 @@ public class TransferEventScheduler {
     }
 
     private void handleUnexpectedError(OutboxEvent event, Exception e, List<OutboxEvent> failedEvents) {
-        log.error("Unexpected error processing event {}. Will retry.", event.getId(), e);
         event.incrementRetryCount();
         if (event.getRetryCount() >= MAX_RETRIES) {
+            log.error("Unexpected error processing event {} after {} retries. Marking as FAILED.", event.getId(), MAX_RETRIES, e);
             event.setStatus(OutboxEventStatus.FAILED);
             failedEvents.add(event);
         } else {
+            log.warn("Unexpected error processing event {}. Retrying (attempt {}/{}). Error: {}", 
+                     event.getId(), event.getRetryCount(), MAX_RETRIES, e.getMessage());
             event.setStatus(OutboxEventStatus.UNPROCESSED);
         }
     }

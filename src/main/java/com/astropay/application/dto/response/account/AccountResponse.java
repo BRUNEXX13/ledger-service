@@ -9,6 +9,7 @@ import org.springframework.hateoas.server.core.Relation;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.Objects;
 
 @JsonRootName(value = "account")
 @Relation(collectionRelation = "accounts")
@@ -54,4 +55,23 @@ public class AccountResponse extends RepresentationModel<AccountResponse> {
     public void setCreatedAt(LocalDateTime createdAt) { this.createdAt = createdAt; }
     public LocalDateTime getUpdatedAt() { return updatedAt; }
     public void setUpdatedAt(LocalDateTime updatedAt) { this.updatedAt = updatedAt; }
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (o == null || getClass() != o.getClass()) return false;
+        if (!super.equals(o)) return false;
+        AccountResponse that = (AccountResponse) o;
+        return Objects.equals(id, that.id) &&
+                Objects.equals(userId, that.userId) &&
+                Objects.equals(balance, that.balance) &&
+                status == that.status &&
+                Objects.equals(createdAt, that.createdAt) &&
+                Objects.equals(updatedAt, that.updatedAt);
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(super.hashCode(), id, userId, balance, status, createdAt, updatedAt);
+    }
 }

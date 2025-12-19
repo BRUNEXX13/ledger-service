@@ -4,6 +4,7 @@ import com.astropay.application.service.notification.EmailService;
 import com.astropay.domain.model.user.Role;
 import com.astropay.domain.model.user.User;
 import com.astropay.domain.model.user.UserRepository;
+import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
@@ -21,13 +22,18 @@ import org.springframework.test.util.ReflectionTestUtils;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Locale;
 import java.util.Optional;
 import java.util.UUID;
 
-import static org.junit.jupiter.api.Assertions.*;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyString;
-import static org.mockito.Mockito.*;
+import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
 class TransactionEventListenerTest {
@@ -65,7 +71,7 @@ class TransactionEventListenerTest {
 
     @Test
     @DisplayName("Should handle transaction event and send emails to sender and receiver")
-    void shouldHandleTransactionEvent() {
+    void shouldHandleTransactionEvent() throws JsonProcessingException {
         // Arrange
         when(userRepository.findById(10L)).thenReturn(Optional.of(sender));
         when(userRepository.findById(20L)).thenReturn(Optional.of(receiver));
@@ -75,8 +81,9 @@ class TransactionEventListenerTest {
 
         // Assert
         ArgumentCaptor<String> emailCaptor = ArgumentCaptor.forClass(String.class);
+        ArgumentCaptor<String> subjectCaptor = ArgumentCaptor.forClass(String.class);
         ArgumentCaptor<String> bodyCaptor = ArgumentCaptor.forClass(String.class);
-        verify(emailService, times(2)).sendTransactionNotification(emailCaptor.capture(), anyString(), bodyCaptor.capture());
+        verify(emailService, times(2)).sendTransactionNotification(emailCaptor.capture(), subjectCaptor.capture(), bodyCaptor.capture());
 
         List<String> emails = emailCaptor.getAllValues();
         List<String> bodies = bodyCaptor.getAllValues();
@@ -84,8 +91,8 @@ class TransactionEventListenerTest {
         assertTrue(emails.contains("sender@example.com"));
         assertTrue(emails.contains("receiver@example.com"));
 
-        // Format the expected amount string in the same way as the application code
-        String expectedAmountString = String.format("%.2f", transactionEvent.getAmount());
+        // Format the expected amount string using a specific Locale to avoid test failures on different machines
+        String expectedAmountString = String.format(Locale.US, "%.2f", transactionEvent.getAmount());
 
         String senderBody = bodies.stream().filter(b -> b.contains("Você enviou")).findFirst().orElse("");
         assertTrue(senderBody.contains(expectedAmountString) && senderBody.contains("Receiver Name"));
@@ -101,8 +108,7 @@ class TransactionEventListenerTest {
         when(userRepository.findById(10L)).thenReturn(Optional.empty());
 
         // Act & Assert
-        RuntimeException exception = assertThrows(RuntimeException.class, () -> eventListener.handleTransactionEvent(jsonPayload));
-        assertTrue(exception.getMessage().contains("Falha ao desserializar ou processar o evento de transação"));
+        assertThrows(RuntimeException.class, () -> eventListener.handleTransactionEvent(jsonPayload));
         
         verify(emailService, never()).sendTransactionNotification(any(), any(), any());
     }
@@ -116,7 +122,16 @@ class TransactionEventListenerTest {
         doThrow(new RuntimeException("SMTP server down")).when(emailService).sendTransactionNotification(any(), any(), any());
 
         // Act & Assert
-        RuntimeException exception = assertThrows(RuntimeException.class, () -> eventListener.handleTransactionEvent(jsonPayload));
-        assertTrue(exception.getMessage().contains("Falha ao desserializar ou processar o evento de transação"));
+        assertThrows(RuntimeException.class, () -> eventListener.handleTransactionEvent(jsonPayload));
+    }
+
+    @Test
+    @DisplayName("Should throw JsonProcessingException for invalid payload")
+    void shouldThrowExceptionForInvalidPayload() {
+        // Arrange
+        String invalidJsonPayload = "{\"invalid\":\"json\"}";
+
+        // Act & Assert
+        assertThrows(JsonProcessingException.class, () -> eventListener.handleTransactionEvent(invalidJsonPayload));
     }
 }

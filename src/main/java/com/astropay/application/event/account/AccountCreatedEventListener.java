@@ -1,7 +1,7 @@
 package com.astropay.application.event.account;
 
-import com.astropay.application.exception.AccountCreatedFailedException;
 import com.astropay.application.service.notification.EmailService;
+import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -25,22 +25,16 @@ public class AccountCreatedEventListener {
 
     @Transactional
     @KafkaListener(topics = "accounts", groupId = "${spring.kafka.consumer.group-id}")
-    public void handleAccountCreatedEvent(@Payload String jsonPayload) {
-        try {
-            AccountCreatedEvent event = objectMapper.readValue(jsonPayload, AccountCreatedEvent.class);
-            
-            log.info("ACCOUNT CREATED event received for notification. AccountId: {}", event.getAccountId());
+    public void handleAccountCreatedEvent(@Payload String jsonPayload) throws JsonProcessingException {
+        AccountCreatedEvent event = objectMapper.readValue(jsonPayload, AccountCreatedEvent.class);
+        
+        log.info("ACCOUNT CREATED event received for notification. AccountId: {}", event.getAccountId());
 
-            String subject = "Welcome to Our Bank!";
-            String body = String.format(
-                    "Hello, %s! Your account has been successfully created. Your account ID is %d.",
-                    event.getUserName(), event.getAccountId()
-            );
-            emailService.sendTransactionNotification(event.getUserEmail(), subject, body);
-
-        } catch (Exception e) {
-            log.error("Error processing ACCOUNT CREATION event. Payload: {}. Error: {}", jsonPayload, e.getMessage(), e);
-            throw new AccountCreatedFailedException(String.format("Failed to process account creation event from payload: %s", jsonPayload), e);
-        }
+        String subject = "Welcome to Our Bank!";
+        String body = String.format(
+                "Hello, %s! Your account has been successfully created. Your account ID is %d.",
+                event.getUserName(), event.getAccountId()
+        );
+        emailService.sendTransactionNotification(event.getUserEmail(), subject, body);
     }
 }
