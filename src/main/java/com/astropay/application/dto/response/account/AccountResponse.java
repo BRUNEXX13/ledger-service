@@ -28,8 +28,10 @@ public class AccountResponse extends RepresentationModel<AccountResponse> {
     private LocalDateTime updatedAt;
 
     /**
-     * Construtor padrão exigido pelo Jackson para deserialização.
+     * Construtor padrão exigido por frameworks como Jackson para deserialização.
+     * Suprimindo o aviso "unused" pois é invocado via reflexão.
      */
+    @SuppressWarnings("unused")
     public AccountResponse() {
     }
 
