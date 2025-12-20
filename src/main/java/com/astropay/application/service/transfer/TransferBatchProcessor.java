@@ -14,6 +14,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -21,6 +22,7 @@ import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -53,12 +55,92 @@ public class TransferBatchProcessor {
     public void processBatch(List<OutboxEvent> events) {
         var batchContext = prepareBatchContext(events);
         
+        // 1. Filter out transactions that already exist (Optimization & Idempotency)
+        filterExistingTransactions(batchContext);
+
         if (!batchContext.transactions.isEmpty()) {
-            transactionRepository.saveAll(batchContext.transactions);
+            try {
+                // 2. Try batch save
+                transactionRepository.saveAll(batchContext.transactions);
+            } catch (DataIntegrityViolationException e) {
+                // 3. Fallback: If race condition occurred after filter, save individually
+                log.warn("Batch save failed despite pre-filtering. Falling back to single processing.", e);
+                saveTransactionsIndividually(batchContext);
+            }
         }
 
         executeTransactions(batchContext);
         persistResults(batchContext);
+    }
+
+    private void filterExistingTransactions(BatchContext context) {
+        if (context.transactions.isEmpty()) return;
+
+        List<UUID> keys = context.transactions.stream()
+                .map(Transaction::getIdempotencyKey)
+                .toList();
+
+        Set<UUID> existingKeys = transactionRepository.findAllByIdempotencyKeyIn(keys).stream()
+                .map(Transaction::getIdempotencyKey)
+                .collect(Collectors.toSet());
+
+        if (!existingKeys.isEmpty()) {
+            List<Transaction> newTransactions = new ArrayList<>();
+            List<OutboxEvent> newValidEvents = new ArrayList<>();
+
+            for (int i = 0; i < context.transactions.size(); i++) {
+                Transaction tx = context.transactions.get(i);
+                OutboxEvent event = context.validEvents.get(i);
+
+                if (existingKeys.contains(tx.getIdempotencyKey())) {
+                    log.info("Transaction with idempotency key {} already exists (Found in pre-filter). Skipping.", tx.getIdempotencyKey());
+                    context.processedEvents.add(event);
+                } else {
+                    newTransactions.add(tx);
+                    newValidEvents.add(event);
+                }
+            }
+            
+            context.transactions.clear();
+            context.transactions.addAll(newTransactions);
+            context.validEvents.clear();
+            context.validEvents.addAll(newValidEvents);
+        }
+    }
+
+    private void saveTransactionsIndividually(BatchContext context) {
+        List<Transaction> savedTransactions = new ArrayList<>();
+        List<OutboxEvent> savedEvents = new ArrayList<>();
+        
+        for (int i = 0; i < context.transactions.size(); i++) {
+            Transaction tx = context.transactions.get(i);
+            OutboxEvent event = context.validEvents.get(i);
+            
+            try {
+                // Double-check idempotency before saving individually
+                if (transactionRepository.findByIdempotencyKey(tx.getIdempotencyKey()).isPresent()) {
+                    log.warn("Transaction with idempotency key {} already exists (Found in fallback). Skipping.", tx.getIdempotencyKey());
+                    context.processedEvents.add(event);
+                    continue;
+                }
+                
+                transactionRepository.save(tx);
+                savedTransactions.add(tx);
+                savedEvents.add(event);
+            } catch (DataIntegrityViolationException ex) {
+                log.error("Failed to save transaction {} individually. Reason: {}", tx.getIdempotencyKey(), ex.getMessage());
+                // Mark event as processed (duplicate/invalid) to avoid infinite retry loop
+                context.processedEvents.add(event);
+            } catch (Exception ex) {
+                log.error("Unexpected error saving transaction {}. Will retry.", tx.getIdempotencyKey(), ex);
+                handleUnexpectedError(event, ex, context);
+            }
+        }
+        
+        context.transactions.clear();
+        context.transactions.addAll(savedTransactions);
+        context.validEvents.clear();
+        context.validEvents.addAll(savedEvents);
     }
 
     private BatchContext prepareBatchContext(List<OutboxEvent> events) {
@@ -91,7 +173,9 @@ public class TransferBatchProcessor {
                 .distinct()
                 .toList();
 
-        return accountRepository.findByIds(accountIds).stream()
+        // CRITICAL FIX: Use findByIdsAndLock to prevent Lost Updates and Deadlocks
+        // This ensures pessimistic locking (SELECT ... FOR UPDATE) in ID order
+        return accountRepository.findByIdsAndLock(accountIds).stream()
                 .collect(Collectors.toMap(Account::getId, Function.identity()));
     }
 
@@ -163,6 +247,7 @@ public class TransferBatchProcessor {
         } else {
             log.warn("Retrying event {} (attempt {}/{}). Error: {}", event.getId(), event.getRetryCount(), MAX_RETRIES, e.getMessage());
             event.setStatus(OutboxEventStatus.UNPROCESSED);
+            context.eventsToUpdate.add(event); // Add to update list
         }
     }
 
@@ -170,6 +255,7 @@ public class TransferBatchProcessor {
         if (!context.accountsMap.isEmpty()) accountRepository.saveAll(context.accountsMap.values());
         if (!context.transactions.isEmpty()) transactionRepository.saveAll(context.transactions);
         if (!context.failedEvents.isEmpty()) outboxEventRepository.saveAll(context.failedEvents);
+        if (!context.eventsToUpdate.isEmpty()) outboxEventRepository.saveAll(context.eventsToUpdate);
         if (!context.processedEvents.isEmpty()) outboxEventRepository.deleteAllInBatch(context.processedEvents);
     }
 
@@ -183,6 +269,7 @@ public class TransferBatchProcessor {
         final List<OutboxEvent> validEvents = new ArrayList<>();
         final List<OutboxEvent> processedEvents = new ArrayList<>();
         final List<OutboxEvent> failedEvents = new ArrayList<>();
+        final List<OutboxEvent> eventsToUpdate = new ArrayList<>(); // New list
 
         BatchContext(Map<Long, Account> accountsMap) {
             this.accountsMap = accountsMap;

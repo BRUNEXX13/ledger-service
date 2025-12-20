@@ -16,6 +16,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.CompletableFuture;
 
 @Component
 public class OutboxEventScheduler {
@@ -60,27 +61,29 @@ public class OutboxEventScheduler {
         }
         outboxEventRepository.saveAll(events);
 
+        List<CompletableFuture<Void>> futures = new ArrayList<>();
         List<OutboxEvent> processedEvents = new ArrayList<>();
         List<OutboxEvent> failedEvents = new ArrayList<>();
-        List<OutboxEvent> eventsToRetry = new ArrayList<>(); // Nova lista
+        List<OutboxEvent> eventsToRetry = new ArrayList<>();
 
         for (OutboxEvent event : events) {
             try {
                 TransactionEvent transactionEvent = objectMapper.readValue(event.getPayload(), TransactionEvent.class);
-                kafkaProducerService.sendTransactionEvent(transactionEvent);
-                processedEvents.add(event);
+                CompletableFuture<Void> future = kafkaProducerService.sendTransactionEvent(transactionEvent)
+                        .thenRun(() -> processedEvents.add(event))
+                        .exceptionally(ex -> {
+                            log.error("[Notifications] Failed to send event to Kafka for outbox event id: {}. Will retry or mark as FAILED.", event.getId(), ex);
+                            handleFailedEvent(event, failedEvents, eventsToRetry);
+                            return null;
+                        });
+                futures.add(future);
             } catch (Exception e) {
-                log.error("[Notifications] Failed to send event to Kafka for outbox event id: {}. Will retry or mark as FAILED.", event.getId(), e);
-                event.incrementRetryCount();
-                if (event.getRetryCount() >= MAX_RETRIES) {
-                    event.setStatus(OutboxEventStatus.FAILED);
-                    failedEvents.add(event);
-                } else {
-                    event.setStatus(OutboxEventStatus.UNPROCESSED);
-                    eventsToRetry.add(event); // Adiciona à lista de retentativa
-                }
+                log.error("[Notifications] Failed to process event payload for outbox event id: {}.", event.getId(), e);
+                handleFailedEvent(event, failedEvents, eventsToRetry);
             }
         }
+
+        CompletableFuture.allOf(futures.toArray(new CompletableFuture[0])).join();
 
         if (!processedEvents.isEmpty()) {
             outboxEventRepository.deleteAllInBatch(processedEvents);
@@ -91,8 +94,19 @@ public class OutboxEventScheduler {
             log.warn("[Notifications] Marked {} events as FAILED after multiple retries.", failedEvents.size());
         }
         if (!eventsToRetry.isEmpty()) {
-            outboxEventRepository.saveAll(eventsToRetry); // Salva os eventos para retentativa
+            outboxEventRepository.saveAll(eventsToRetry);
             log.info("[Notifications] Marked {} events for retry.", eventsToRetry.size());
+        }
+    }
+
+    private void handleFailedEvent(OutboxEvent event, List<OutboxEvent> failedEvents, List<OutboxEvent> eventsToRetry) {
+        event.incrementRetryCount();
+        if (event.getRetryCount() >= MAX_RETRIES) {
+            event.setStatus(OutboxEventStatus.FAILED);
+            failedEvents.add(event);
+        } else {
+            event.setStatus(OutboxEventStatus.UNPROCESSED);
+            eventsToRetry.add(event);
         }
     }
 }

@@ -5,6 +5,7 @@ import org.springframework.cache.annotation.Cacheable;
 import org.springframework.cache.annotation.Caching;
 import org.springframework.data.jpa.repository.JpaRepository;
 
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -16,6 +17,9 @@ public interface TransactionRepository extends JpaRepository<Transaction, Long> 
 
     @Cacheable(value = "transactions", key = "#idempotencyKey")
     Optional<Transaction> findByIdempotencyKey(UUID idempotencyKey);
+
+    // Novo método para verificação em lote
+    List<Transaction> findAllByIdempotencyKeyIn(List<UUID> idempotencyKeys);
 
     @Override
     @Caching(

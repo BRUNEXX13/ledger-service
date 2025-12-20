@@ -21,14 +21,16 @@ public class KafkaProducerService {
         this.kafkaTemplate = kafkaTemplate;
     }
 
-    public void sendTransactionEvent(TransactionEvent event) {
+    public CompletableFuture<SendResult<String, Object>> sendTransactionEvent(TransactionEvent event) {
         CompletableFuture<SendResult<String, Object>> future = kafkaTemplate.send("transactions", event);
         logSendResult("TRANSACTION", event.getIdempotencyKey().toString(), future);
+        return future;
     }
 
-    public void sendAccountCreatedEvent(AccountCreatedEvent event) {
+    public CompletableFuture<SendResult<String, Object>> sendAccountCreatedEvent(AccountCreatedEvent event) {
         CompletableFuture<SendResult<String, Object>> future = kafkaTemplate.send("accounts", event);
         logSendResult("ACCOUNT CREATION", event.getAccountId().toString(), future);
+        return future;
     }
 
     private void logSendResult(String eventType, String eventKey, CompletableFuture<SendResult<String, Object>> future) {

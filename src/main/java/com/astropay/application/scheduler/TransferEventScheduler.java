@@ -56,7 +56,8 @@ public class TransferEventScheduler {
             batchProcessor.processBatch(events);
             adjustBatchSize(System.currentTimeMillis() - startTime, events.size(), batchSize);
         } catch (Exception e) {
-            log.error("Critical error during batch processing. Events will be rolled back by transaction.", e);
+            log.error("Critical error during batch processing. Reverting event status to UNPROCESSED.", e);
+            unlockEvents(events);
             currentBatchSize.set(Math.max(MIN_BATCH_SIZE, batchSize / 2));
         }
     }
@@ -75,6 +76,19 @@ public class TransferEventScheduler {
             outboxEventRepository.saveAll(events);
         }
         return events;
+    }
+
+    private void unlockEvents(List<OutboxEvent> events) {
+        try {
+            events.forEach(event -> {
+                event.setStatus(OutboxEventStatus.UNPROCESSED);
+                event.setLockedAt(null);
+                event.incrementRetryCount(); // Increment retry count to avoid infinite loops on poison pills
+            });
+            outboxEventRepository.saveAll(events);
+        } catch (Exception ex) {
+            log.error("Failed to unlock events after batch failure. These events might be stuck in PROCESSING state until timeout.", ex);
+        }
     }
 
     private boolean isDatabaseOverloaded() {
