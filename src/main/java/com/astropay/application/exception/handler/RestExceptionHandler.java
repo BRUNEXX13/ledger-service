@@ -27,6 +27,7 @@ public class RestExceptionHandler extends ResponseEntityExceptionHandler {
     private static final String ERROR_KEY_RATE = "error";
     private static final String ERROR_KEY_INSUFICIENT = "error";
     private static final String ERROR_KEY_ILLEGAL = "error";
+    private static final String ERROR_KEY_STATE = "error";
     private static final String ERROR_KEY_SECURITY = "error";
     private static final String ERROR_KEY_CAUGHT= "error";
 
@@ -71,6 +72,13 @@ public class RestExceptionHandler extends ResponseEntityExceptionHandler {
     protected ResponseEntity<Object> handleIllegalArgument(IllegalArgumentException ex) {
         log.warn("Business validation failed: {}", ex.getMessage());
         return new ResponseEntity<>(Map.of(ERROR_KEY_ILLEGAL, ex.getMessage()), HttpStatus.BAD_REQUEST);
+    }
+
+    @ExceptionHandler(IllegalStateException.class)
+    protected ResponseEntity<Object> handleIllegalState(IllegalStateException ex) {
+        log.warn("Invalid state transition or conflict: {}", ex.getMessage());
+        // 409 Conflict is appropriate for state issues like "User already has an account"
+        return new ResponseEntity<>(Map.of(ERROR_KEY_STATE, ex.getMessage()), HttpStatus.CONFLICT);
     }
 
     @ExceptionHandler(SecurityException.class)
