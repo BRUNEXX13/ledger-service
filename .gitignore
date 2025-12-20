@@ -33,3 +33,6 @@ build/
 .vscode/
 /.mvn/
 /volume/
+/logs/
+/grafana/
+/volume/

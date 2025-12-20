@@ -1,6 +1,7 @@
 import http from 'k6/http';
 import { check } from 'k6';
 import { randomIntBetween } from 'https://jslib.k6.io/k6-utils/1.2.0/index.js';
+import { uuidv4 } from 'https://jslib.k6.io/k6-utils/1.4.0/index.js';
 
 // Configuração do Teste para 1000 RPS constantes
 export const options = {
@@ -15,7 +16,7 @@ export const options = {
       timeUnit: '1s',
       
       // Duração do teste
-      duration: '5m',
+      duration: '1m',
       
       // Número de VUs a serem pré-alocados antes do teste começar
       preAllocatedVUs: 100,
@@ -48,6 +49,7 @@ export default function () {
     senderAccountId: senderId,
     receiverAccountId: receiverId,
     amount: 10.00, // Valor fixo para simplificar
+    idempotencyKey: uuidv4(), // ADICIONADO: Chave de idempotência obrigatória
   });
 
   const params = {
