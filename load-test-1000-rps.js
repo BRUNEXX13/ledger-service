@@ -47,7 +47,7 @@ export default function () {
   const payload = JSON.stringify({
     senderId: senderId,
     receiverId: receiverId,
-    amount: 10.00, // Valor fixo para simplificar
+    amount: 10, // Valor fixo para simplificar
   });
 
   const params = {
