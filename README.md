@@ -110,14 +110,32 @@ Run the main class `LedgerServiceApplication.java`.
 
 The API will be available at `http://localhost:8082/api/v1`.
 
-### 3. Accessing Auxiliary Services
+### 3. Performance Tuning (VM Options)
+
+To achieve maximum performance and throughput when running locally (especially for load testing), it is recommended to use the following VM Options. These settings optimize the Garbage Collector (G1GC), Heap memory, and JIT compiler for high-concurrency scenarios.
+
+Add these to your IDE's Run Configuration or pass them via command line:
+
+```
+-server -Xms4g -Xmx8g -XX:+UseG1GC -XX:MaxGCPauseMillis=100 -XX:+UnlockExperimentalVMOptions -XX:+EnableJVMCI -XX:+UseJVMCICompiler -Dspring.output.ansi.enabled=always -Dcom.sun.management.jmxremote -Dspring.jmx.enabled=true -Dspring.liveBeansView.mbeanDomain -Dspring.application.admin.enabled=true
+```
+
+**Explanation:**
+*   `-server`: Enables the C2 compiler for long-running performance.
+*   `-Xms4g -Xmx8g`: Allocates a generous Heap (4GB min, 8GB max) to avoid frequent GCs under load.
+*   `-XX:+UseG1GC`: Uses the G1 Garbage Collector, optimized for large heaps and low latency.
+*   `-XX:MaxGCPauseMillis=100`: Instructs G1 to aim for pause times under 100ms.
+*   `-XX:+UseJVMCICompiler`: Enables the Graal JIT compiler (if available) for further optimization.
+
+### 4. Accessing Auxiliary Services
 
 -   **API Documentation (Swagger):** `http://localhost:8082/api/v1/swagger-ui.html`
 -   **Grafana:** `http://localhost:3000` (login: `admin`/`admin`)
     -   The "JVM (Micrometer)" dashboard is pre-configured.
 -   **Prometheus:** `http://localhost:9090`
+-   **Zipkin:** `http://localhost:9411` (Distributed Tracing)
 
-### 4. Importing Requests (Insomnia)
+### 5. Importing Requests (Insomnia)
 
 To facilitate manual API testing, an Insomnia collection file is included at the root of the project.
 

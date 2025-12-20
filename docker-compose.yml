@@ -35,6 +35,9 @@ services:
       KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
       KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
       KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_MESSAGE_MAX_BYTES: 157286400
+      KAFKA_SOCKET_REQUEST_MAX_BYTES: 157286400
+      KAFKA_REPLICA_FETCH_MAX_BYTES: 157286400
     networks:
       - ledger-network
     healthcheck:
@@ -119,7 +122,7 @@ services:
     container_name: datadog-agent
     environment:
       # Substitua pela sua API Key e Site (ex: datadoghq.com, datadoghq.eu)
-      - DD_API_KEY=${DD_API_KEY}
+      - DD_API_KEY=652fa08041698a37b701db2d9c16adae
       - DD_SITE=datadoghq.com
       - DD_ENV=local
       - DD_SERVICE=ledger-service
@@ -127,6 +130,7 @@ services:
       - DD_LOGS_ENABLED=true
       - DD_LOGS_CONFIG_CONTAINER_COLLECT_ALL=true
       - DD_DOGSTATSD_NON_LOCAL_TRAFFIC=true
+      - ENV DD_IAST_ENABLED=true
     ports:
       - "8125:8125/udp"
       - "8126:8126/tcp"

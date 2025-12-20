@@ -193,6 +193,22 @@
                         </goals>
                     </execution>
                 </executions>
+                <configuration>
+                    <jvmArguments>
+                        -javaagent:dd-java-agent.jar
+                        -Ddd.logs.injection=true
+                        -XX:+UseG1GC
+                        -XX:MaxGCPauseMillis=100
+                        -XX:+UnlockExperimentalVMOptions
+                        -XX:+EnableJVMCI
+                        -XX:+UseJVMCICompiler
+                        -Dspring.output.ansi.enabled=always
+                        -Dcom.sun.management.jmxremote
+                        -Dspring.jmx.enabled=true
+                        -Dspring.liveBeansView.mbeanDomain
+                        -Dspring.application.admin.enabled=true
+                    </jvmArguments>
+                </configuration>
             </plugin>
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
