@@ -10,7 +10,7 @@ export const options = {
       rate: 6500, // 🎯 AJUSTADO PARA 6.500 RPS (Meta Segura Local)
       timeUnit: '1s',
       duration: '5m',
-      preAllocatedVUs: 1000,
+      preAllocatedVUs: 4000, // Ajustado para cobrir o pico observado de ~3940 VUs
       maxVUs: 7000, // Reduzido levemente para economizar recursos da máquina de teste
     },
   },
