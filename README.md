@@ -166,7 +166,7 @@ The project includes a simple load test script using k6.
 2.  **Run the test:**
 
     ```sh
-    k6 run load-test.js
+    k6 run load-test-650RPS.js
     ```
 
 This will simulate multiple users creating accounts and making transfers, helping to validate the performance and resilience of the system under load.
@@ -179,7 +179,7 @@ This will simulate multiple users creating accounts and making transfers, helpin
  / __________ \  |_|\_\  \_____/ 
 
      execution: local
-        script: load-test.js
+        script: load-test-650RPS.js
         output: -
 
      scenarios: (100.00%) 1 scenario, 5000 max VUs, 5m30s max duration (incl. graceful stop):

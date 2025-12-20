@@ -1,5 +1,5 @@
 import http from 'k6/http';
-import { check } from 'k6';
+import { check, fail } from 'k6';
 import { randomIntBetween } from 'https://jslib.k6.io/k6-utils/1.2.0/index.js';
 import { uuidv4 } from 'https://jslib.k6.io/k6-utils/1.4.0/index.js';
 
@@ -26,7 +26,8 @@ const HEADERS = { 'Content-Type': 'application/json' };
 
 const MAX_ACCOUNT_ID = 100000; 
 
-export default function () {
+// Função auxiliar para criar o payload
+function createPayload() {
   const sender = randomIntBetween(1, MAX_ACCOUNT_ID);
   let receiver = randomIntBetween(1, MAX_ACCOUNT_ID);
   
@@ -34,16 +35,40 @@ export default function () {
     receiver = randomIntBetween(1, MAX_ACCOUNT_ID);
   }
   
-  const payload = JSON.stringify({
+  return JSON.stringify({
     senderAccountId: sender,
     receiverAccountId: receiver,
     amount: randomIntBetween(1, 100),
     idempotencyKey: uuidv4(),
   });
+}
 
-  const res = http.post(`${BASE_URL}/transfers`, payload, { headers: HEADERS });
+export function setup() {
+  console.log('🚀 Iniciando Setup: Verificando saúde da API...');
+  const res = http.post(`${BASE_URL}/transfers`, createPayload(), { headers: HEADERS });
+  
+  if (res.status !== 202) {
+    console.error(`❌ Setup falhou! API retornou status ${res.status}. Abortando teste.`);
+    fail('Setup failed - API not healthy');
+  }
+  console.log('✅ Setup concluído: API está respondendo corretamente (202 Accepted).');
+}
+
+export default function () {
+  const res = http.post(`${BASE_URL}/transfers`, createPayload(), { headers: HEADERS });
 
   check(res, {
     'status is 202': (r) => r.status === 202,
   });
+}
+
+export function teardown() {
+  console.log('🏁 Iniciando Teardown: Verificando saúde da API pós-teste...');
+  const res = http.post(`${BASE_URL}/transfers`, createPayload(), { headers: HEADERS });
+  
+  if (res.status !== 202) {
+    console.error(`❌ Teardown falhou! API retornou status ${res.status} após a carga.`);
+  } else {
+    console.log('✅ Teardown concluído: API sobreviveu e continua respondendo corretamente.');
+  }
 }
