@@ -1,5 +1,9 @@
 # Ledger Service - Simplified Accounting System
 
+> **⚠️ EDUCATIONAL PROJECT DISCLAIMER**
+>
+> This project is designed for **educational and demonstration purposes**. While it implements enterprise-grade patterns (Hexagonal Architecture, Event-Driven Design, Observability) and technologies (Kafka, Redis, Spring Boot 3), it is intended to serve as a reference for learning and experimentation. It is not a production-ready banking system.
+
 This project implements a robust and scalable Ledger service to manage user accounts and financial transactions. It is designed following the best practices of microservices architecture, with a focus on resilience, performance, and observability.
 
 ## 🚀 Technologies and Tools
