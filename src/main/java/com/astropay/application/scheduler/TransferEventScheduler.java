@@ -4,8 +4,8 @@ import com.astropay.application.service.transfer.TransferBatchProcessor;
 import com.astropay.domain.model.outbox.OutboxEvent;
 import com.astropay.domain.model.outbox.OutboxEventRepository;
 import com.astropay.domain.model.outbox.OutboxEventStatus;
+import io.micrometer.core.instrument.Gauge;
 import io.micrometer.core.instrument.MeterRegistry;
-import io.micrometer.core.instrument.Tag;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.data.domain.PageRequest;
@@ -38,11 +38,10 @@ public class TransferEventScheduler {
         this.meterRegistry = meterRegistry;
     }
 
-    @Scheduled(fixedDelay = 2000)
+    @Scheduled(fixedDelay = 50) 
     public void scheduleProcessTransferEvents() {
         if (isDatabaseOverloaded()) {
-            log.warn("Database connection pool is saturated. Skipping execution cycle.");
-            return;
+            return; 
         }
 
         long startTime = System.currentTimeMillis();
@@ -58,7 +57,6 @@ public class TransferEventScheduler {
             adjustBatchSize(System.currentTimeMillis() - startTime, events.size(), batchSize);
         } catch (Exception e) {
             log.error("Critical error during batch processing. Events will be rolled back by transaction.", e);
-            // On critical failure, reduce batch size drastically
             currentBatchSize.set(Math.max(MIN_BATCH_SIZE, batchSize / 2));
         }
     }
@@ -80,14 +78,14 @@ public class TransferEventScheduler {
     }
 
     private boolean isDatabaseOverloaded() {
-        Double activeConnections = meterRegistry.gauge("hikaricp.connections.active", List.of(Tag.of("pool", "HikariPool")), 0.0);
-        Double maxConnections = meterRegistry.gauge("hikaricp.connections.max", List.of(Tag.of("pool", "HikariPool")), 0.0);
+        double activeConnections = getMetricValue("hikaricp.connections.active");
+        double maxConnections = getMetricValue("hikaricp.connections.max");
 
-        if (activeConnections != null && maxConnections != null && maxConnections > 0) {
+        if (maxConnections > 0) {
             double saturation = activeConnections / maxConnections;
             if (saturation >= HIKARI_SATURATION_THRESHOLD) {
                 if (log.isWarnEnabled()) {
-                    log.warn("HikariCP saturation at {}%. Threshold is {}%.", String.format("%.2f", saturation * 100), HIKARI_SATURATION_THRESHOLD * 100);
+                    log.warn("HikariCP saturation at {}%. Threshold is {}%. Skipping cycle.", String.format("%.2f", saturation * 100), HIKARI_SATURATION_THRESHOLD * 100);
                 }
                 return true;
             }
@@ -95,8 +93,13 @@ public class TransferEventScheduler {
         return false;
     }
 
+    private double getMetricValue(String metricName) {
+        Gauge gauge = meterRegistry.find(metricName).tag("pool", "HikariPool").gauge();
+        return gauge != null ? gauge.value() : 0.0;
+    }
+
     private void adjustBatchSize(long durationMillis, int processedCount, int batchSize) {
-        long targetDuration = 1000; // Target: 1s
+        long targetDuration = 1000;
         
         if (durationMillis > targetDuration * 1.5) {
             currentBatchSize.updateAndGet(current -> Math.max(MIN_BATCH_SIZE, (int) (current * 0.8)));
