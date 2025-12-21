@@ -7,11 +7,11 @@ export const options = {
   scenarios: {
     transfer_stress_test: {
       executor: 'constant-arrival-rate',
-      rate: 6500, // 🎯 AJUSTADO PARA 6.500 RPS (Meta Segura Local)
+      rate: 6500, // 🎯 Meta de 6.500 RPS
       timeUnit: '1s',
       duration: '5m',
-      preAllocatedVUs: 8000, // Ajustado para cobrir o pico de 7774 VUs
-      maxVUs: 10000, // Aumentado para evitar o erro "Insufficient VUs"
+      preAllocatedVUs: 1000, // Valor inicial razoável
+      maxVUs: 5000, // 🛑 LIMITADO A 5000 PARA EVITAR RESOURCE STARVATION LOCAL
     },
   },
   thresholds: {
