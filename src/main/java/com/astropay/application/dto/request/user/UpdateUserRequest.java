@@ -1,5 +1,6 @@
 package com.astropay.application.dto.request.user;
 
+import com.astropay.application.util.AppConstants;
 import com.astropay.domain.model.user.Role;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
@@ -10,7 +11,7 @@ public record UpdateUserRequest(
     String name,
 
     @NotBlank(message = "Email is required")
-    @Email(message = "Invalid email format")
+    @Email(message = AppConstants.INVALID_EMAIL_MSG)
     String email,
 
     @NotNull(message = "Role is required")

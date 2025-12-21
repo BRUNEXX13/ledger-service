@@ -19,6 +19,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
@@ -96,6 +97,22 @@ class AccountServiceImplTest {
             accountService.createAccountForUser(user, BigDecimal.TEN)
         );
         assertEquals("User already has an account.", exception.getMessage());
+    }
+
+    @Test
+    @DisplayName("createAccountForUser should throw exception on concurrent creation (DataIntegrityViolation)")
+    void createAccountForUser_shouldThrowExceptionOnConcurrentCreation() {
+        // Arrange
+        // Simulate that findByUser_Id returns empty (race condition window)
+        when(accountRepository.findByUser_Id(user.getId())).thenReturn(Optional.empty());
+        // But save throws DataIntegrityViolationException (DB constraint hit)
+        when(accountRepository.save(any(Account.class))).thenThrow(new DataIntegrityViolationException("Unique constraint violation"));
+
+        // Act & Assert
+        IllegalStateException exception = assertThrows(IllegalStateException.class, () -> 
+            accountService.createAccountForUser(user, BigDecimal.TEN)
+        );
+        assertTrue(exception.getMessage().contains("concurrent creation detected"));
     }
 
     // Tests for createAccount

@@ -1,5 +1,6 @@
 package com.astropay.application.dto.response.transaction;
 
+import com.astropay.application.util.AppConstants;
 import com.fasterxml.jackson.annotation.JsonFormat;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonRootName;
@@ -8,6 +9,7 @@ import org.springframework.hateoas.server.core.Relation;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.Objects;
 import java.util.UUID;
 
 @JsonRootName(value = "transaction")
@@ -23,7 +25,7 @@ public class TransactionResponse extends RepresentationModel<TransactionResponse
     private String failureReason; // Adicionado
     private UUID idempotencyKey;
 
-    @JsonFormat(pattern = "MM/dd/yyyy HH:mm:ss.SSS")
+    @JsonFormat(pattern = AppConstants.DATE_TIME_FORMAT)
     private LocalDateTime createdAt;
 
     public TransactionResponse() {
@@ -57,4 +59,25 @@ public class TransactionResponse extends RepresentationModel<TransactionResponse
     public void setIdempotencyKey(UUID idempotencyKey) { this.idempotencyKey = idempotencyKey; }
     public LocalDateTime getCreatedAt() { return createdAt; }
     public void setCreatedAt(LocalDateTime createdAt) { this.createdAt = createdAt; }
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (o == null || getClass() != o.getClass()) return false;
+        if (!super.equals(o)) return false;
+        TransactionResponse that = (TransactionResponse) o;
+        return Objects.equals(id, that.id) &&
+                Objects.equals(senderAccountId, that.senderAccountId) &&
+                Objects.equals(receiverAccountId, that.receiverAccountId) &&
+                Objects.equals(amount, that.amount) &&
+                Objects.equals(status, that.status) &&
+                Objects.equals(failureReason, that.failureReason) &&
+                Objects.equals(idempotencyKey, that.idempotencyKey) &&
+                Objects.equals(createdAt, that.createdAt);
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(super.hashCode(), id, senderAccountId, receiverAccountId, amount, status, failureReason, idempotencyKey, createdAt);
+    }
 }

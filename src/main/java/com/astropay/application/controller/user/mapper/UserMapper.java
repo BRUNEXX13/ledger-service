@@ -2,7 +2,6 @@ package com.astropay.application.controller.user.mapper;
 
 import com.astropay.application.dto.request.user.CreateUserRequest;
 import com.astropay.application.dto.response.user.UserResponse;
-import com.astropay.domain.model.user.Role;
 import com.astropay.domain.model.user.User;
 import org.springframework.stereotype.Component;
 

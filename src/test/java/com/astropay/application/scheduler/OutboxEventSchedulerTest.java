@@ -19,16 +19,17 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.mockito.junit.jupiter.MockitoSettings;
 import org.mockito.quality.Strictness;
 import org.springframework.data.domain.PageRequest;
+import org.springframework.kafka.support.SendResult;
 
 import java.time.LocalDateTime;
 import java.util.Collections;
 import java.util.List;
+import java.util.concurrent.CompletableFuture;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
@@ -72,6 +73,9 @@ class OutboxEventSchedulerTest {
                 eq(OutboxEventStatus.UNPROCESSED), eq(eventType), any(LocalDateTime.class), any(PageRequest.class)))
                 .thenReturn(List.of(event));
 
+        // Mock Kafka success
+        when(kafkaProducerService.sendTransactionEvent(any())).thenReturn(CompletableFuture.completedFuture(mock(SendResult.class)));
+
         // Act
         scheduler.processNotificationEvents();
 
@@ -85,7 +89,11 @@ class OutboxEventSchedulerTest {
     void shouldMarkEventAsFailedAfterRetries() {
         // Arrange
         OutboxEvent event = new OutboxEvent("Transaction", "1", "TransactionCompleted", "{}");
-        doThrow(new RuntimeException("Kafka is down")).when(kafkaProducerService).sendTransactionEvent(any());
+        
+        // Mock Kafka failure via CompletableFuture
+        CompletableFuture<SendResult<String, Object>> failedFuture = new CompletableFuture<>();
+        failedFuture.completeExceptionally(new RuntimeException("Kafka is down"));
+        when(kafkaProducerService.sendTransactionEvent(any())).thenReturn(failedFuture);
         
         event.setRetryCount(4);
 
@@ -114,7 +122,11 @@ class OutboxEventSchedulerTest {
     void shouldRetryOnSingleFailure() {
         // Arrange
         OutboxEvent event = new OutboxEvent("Transaction", "1", "TransactionCompleted", "{}");
-        doThrow(new RuntimeException("Kafka is down")).when(kafkaProducerService).sendTransactionEvent(any());
+        
+        // Mock Kafka failure via CompletableFuture
+        CompletableFuture<SendResult<String, Object>> failedFuture = new CompletableFuture<>();
+        failedFuture.completeExceptionally(new RuntimeException("Kafka is down"));
+        when(kafkaProducerService.sendTransactionEvent(any())).thenReturn(failedFuture);
         
         event.setRetryCount(0);
 
@@ -129,11 +141,9 @@ class OutboxEventSchedulerTest {
         // Assert
         verify(outboxEventRepository, never()).deleteAllInBatch(any());
 
-        // Correção: Captura todas as chamadas ao saveAll (esperamos 2)
         ArgumentCaptor<List<OutboxEvent>> captor = ArgumentCaptor.forClass(List.class);
         verify(outboxEventRepository, times(2)).saveAll(captor.capture());
 
-        // A segunda chamada deve conter o evento para retentativa
         List<OutboxEvent> retryEventsSave = captor.getAllValues().get(1);
 
         assertEquals(1, retryEventsSave.size());

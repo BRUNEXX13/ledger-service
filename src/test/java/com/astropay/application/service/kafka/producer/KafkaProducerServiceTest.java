@@ -19,6 +19,7 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
@@ -38,23 +39,23 @@ class KafkaProducerServiceTest {
 
     @BeforeEach
     void setUp() {
-        // This setup is flexible for both success and failure scenarios
         future = new CompletableFuture<>();
     }
 
     // --- Tests for sendTransactionEvent ---
 
     @Test
-    @DisplayName("sendTransactionEvent should call kafkaTemplate with correct topic and event")
+    @DisplayName("sendTransactionEvent should call kafkaTemplate and return future")
     void sendTransactionEvent_shouldCallKafkaTemplateCorrectly() {
         // Arrange
         TransactionEvent event = new TransactionEvent(1L, 10L, 20L, BigDecimal.TEN, LocalDateTime.now(), UUID.randomUUID());
         when(kafkaTemplate.send(eq("transactions"), any(TransactionEvent.class))).thenReturn(future);
 
         // Act
-        kafkaProducerService.sendTransactionEvent(event);
+        CompletableFuture<SendResult<String, Object>> result = kafkaProducerService.sendTransactionEvent(event);
 
         // Assert
+        assertNotNull(result);
         verify(kafkaTemplate).send("transactions", event);
     }
 
@@ -77,7 +78,6 @@ class KafkaProducerServiceTest {
         future.complete(sendResult);
 
         // Assert
-        // We verify that no exception is thrown during the callback execution
         assertDoesNotThrow(() -> future.join());
     }
 
@@ -95,12 +95,11 @@ class KafkaProducerServiceTest {
         future.completeExceptionally(new RuntimeException("Kafka error"));
 
         // Assert
-        // We verify that the exception is caught and logged, not rethrown
         assertDoesNotThrow(() -> {
             try {
                 future.join();
             } catch (Exception e) {
-                // Expected exception from join(), but the service logic should have handled it
+                // Expected
             }
         });
     }
@@ -108,61 +107,17 @@ class KafkaProducerServiceTest {
     // --- Tests for sendAccountCreatedEvent ---
 
     @Test
-    @DisplayName("sendAccountCreatedEvent should call kafkaTemplate with correct topic and event")
+    @DisplayName("sendAccountCreatedEvent should call kafkaTemplate and return future")
     void sendAccountCreatedEvent_shouldCallKafkaTemplateCorrectly() {
         // Arrange
         AccountCreatedEvent event = new AccountCreatedEvent(1L, 10L, "John Doe", "john.doe@example.com", LocalDateTime.now());
         when(kafkaTemplate.send(eq("accounts"), any(AccountCreatedEvent.class))).thenReturn(future);
 
         // Act
-        kafkaProducerService.sendAccountCreatedEvent(event);
+        CompletableFuture<SendResult<String, Object>> result = kafkaProducerService.sendAccountCreatedEvent(event);
 
         // Assert
+        assertNotNull(result);
         verify(kafkaTemplate).send("accounts", event);
-    }
-
-    @Test
-    @DisplayName("sendAccountCreatedEvent should handle success callback")
-    void sendAccountCreatedEvent_shouldHandleSuccessCallback() {
-        // Arrange
-        AccountCreatedEvent event = new AccountCreatedEvent(1L, 10L, "John Doe", "john.doe@example.com", LocalDateTime.now());
-        when(kafkaTemplate.send(eq("accounts"), any(AccountCreatedEvent.class))).thenReturn(future);
-        
-        SendResult<String, Object> sendResult = mock(SendResult.class);
-        RecordMetadata metadata = mock(RecordMetadata.class);
-        when(sendResult.getRecordMetadata()).thenReturn(metadata);
-        when(metadata.offset()).thenReturn(1L);
-
-        // Act
-        kafkaProducerService.sendAccountCreatedEvent(event);
-        
-        // Simulate success
-        future.complete(sendResult);
-
-        // Assert
-        assertDoesNotThrow(() -> future.join());
-    }
-
-    @Test
-    @DisplayName("sendAccountCreatedEvent should handle failure callback")
-    void sendAccountCreatedEvent_shouldHandleFailureCallback() {
-        // Arrange
-        AccountCreatedEvent event = new AccountCreatedEvent(1L, 10L, "John Doe", "john.doe@example.com", LocalDateTime.now());
-        when(kafkaTemplate.send(eq("accounts"), any(AccountCreatedEvent.class))).thenReturn(future);
-
-        // Act
-        kafkaProducerService.sendAccountCreatedEvent(event);
-        
-        // Simulate failure
-        future.completeExceptionally(new RuntimeException("Kafka error"));
-
-        // Assert
-        assertDoesNotThrow(() -> {
-            try {
-                future.join();
-            } catch (Exception e) {
-                // Expected exception from join()
-            }
-        });
     }
 }

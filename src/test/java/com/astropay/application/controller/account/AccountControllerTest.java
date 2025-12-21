@@ -1,6 +1,5 @@
 package com.astropay.application.controller.account;
 
-import com.astropay.application.dto.request.account.CreateAccountRequest;
 import com.astropay.application.dto.request.account.UpdateAccountRequest;
 import com.astropay.application.dto.response.account.AccountResponse;
 import com.astropay.application.exception.handler.RestExceptionHandler;
@@ -30,7 +29,9 @@ import java.util.Collections;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.when;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
