@@ -16,6 +16,7 @@ import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.CachePut;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.cache.annotation.Caching;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
@@ -52,7 +53,12 @@ public class AccountServiceImpl implements AccountService {
         }
         
         Account newAccount = new Account(user, initialBalance);
-        Account savedAccount = accountRepository.save(newAccount);
+        Account savedAccount;
+        try {
+            savedAccount = accountRepository.save(newAccount);
+        } catch (DataIntegrityViolationException e) {
+            throw new IllegalStateException("User already has an account (concurrent creation detected).", e);
+        }
 
         // Centralized event dispatching
         AccountCreatedEvent event = new AccountCreatedEvent(
@@ -83,11 +89,11 @@ public class AccountServiceImpl implements AccountService {
 
     @Override
     @Transactional(readOnly = true)
-    @Cacheable(value = "accounts", key = "#id")
+    @Cacheable(value = "account_responses_v3", key = "#id", unless = "#result == null")
     public AccountResponse findAccountById(Long id) {
-        return accountRepository.findById(id)
-            .map(accountMapper::toAccountResponse)
+        Account account = accountRepository.findById(id)
             .orElseThrow(() -> new ResourceNotFoundException(ACCOUNT_NOT_FOUND_ID + id));
+        return accountMapper.toAccountResponse(account);
     }
 
     @Override
@@ -98,7 +104,7 @@ public class AccountServiceImpl implements AccountService {
     }
 
     @Override
-    @CachePut(value = "accounts", key = "#id")
+    @CachePut(value = "account_responses_v3", key = "#id")
     public AccountResponse updateAccount(Long id, UpdateAccountRequest request) {
         Account account = accountRepository.findById(id)
             .orElseThrow(() -> new ResourceNotFoundException(ACCOUNT_NOT_FOUND_ID + id));
@@ -112,8 +118,7 @@ public class AccountServiceImpl implements AccountService {
     @Override
     @Caching(
         evict = {
-            @CacheEvict(value = "accounts", key = "#id"),
-            @CacheEvict(value = "accounts", key = "'user:' + #result.user.id", condition = "#result.user != null")
+            @CacheEvict(value = "account_responses_v3", key = "#id")
         }
     )
     public void inactivateAccount(Long id) {

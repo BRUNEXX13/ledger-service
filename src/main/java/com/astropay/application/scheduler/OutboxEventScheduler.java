@@ -16,12 +16,14 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.CompletableFuture;
 
 @Component
 public class OutboxEventScheduler {
 
     private static final Logger log = LoggerFactory.getLogger(OutboxEventScheduler.class);
-    private static final int BATCH_SIZE = 100;
+    // TUNING: Aumentado para 500 para acompanhar a vazão de 5000 RPS
+    private static final int BATCH_SIZE = 500;
     private static final int MAX_RETRIES = 5;
     private static final List<String> NOTIFICATION_EVENT_TYPES = List.of("TransactionCompleted", "TransactionFailed");
 
@@ -37,7 +39,8 @@ public class OutboxEventScheduler {
         this.objectMapper = objectMapper;
     }
 
-    @Scheduled(fixedDelay = 3000)
+    // TUNING: Reduzido de 3000ms para 50ms para evitar backlog massivo
+    @Scheduled(fixedDelay = 50)
     @Transactional
     public void processNotificationEvents() {
         LocalDateTime lockTimeout = LocalDateTime.now().minusMinutes(1);
@@ -52,7 +55,11 @@ public class OutboxEventScheduler {
             return;
         }
 
-        log.info("[Notifications] Found {} events to process.", events.size());
+        // Log apenas se houver um volume considerável para evitar spam no log em baixa carga
+        if (events.size() > 50) {
+            log.info("[Notifications] Found {} events to process.", events.size());
+        }
+        
         LocalDateTime newLockTime = LocalDateTime.now();
         for (OutboxEvent event : events) {
             event.setStatus(OutboxEventStatus.PROCESSING);
@@ -60,39 +67,50 @@ public class OutboxEventScheduler {
         }
         outboxEventRepository.saveAll(events);
 
+        List<CompletableFuture<Void>> futures = new ArrayList<>();
         List<OutboxEvent> processedEvents = new ArrayList<>();
         List<OutboxEvent> failedEvents = new ArrayList<>();
-        List<OutboxEvent> eventsToRetry = new ArrayList<>(); // Nova lista
+        List<OutboxEvent> eventsToRetry = new ArrayList<>();
 
         for (OutboxEvent event : events) {
             try {
                 TransactionEvent transactionEvent = objectMapper.readValue(event.getPayload(), TransactionEvent.class);
-                kafkaProducerService.sendTransactionEvent(transactionEvent);
-                processedEvents.add(event);
+                CompletableFuture<Void> future = kafkaProducerService.sendTransactionEvent(transactionEvent)
+                        .thenRun(() -> processedEvents.add(event))
+                        .exceptionally(ex -> {
+                            log.error("[Notifications] Failed to send event to Kafka for outbox event id: {}. Will retry or mark as FAILED.", event.getId(), ex);
+                            handleFailedEvent(event, failedEvents, eventsToRetry);
+                            return null;
+                        });
+                futures.add(future);
             } catch (Exception e) {
-                log.error("[Notifications] Failed to send event to Kafka for outbox event id: {}. Will retry or mark as FAILED.", event.getId(), e);
-                event.incrementRetryCount();
-                if (event.getRetryCount() >= MAX_RETRIES) {
-                    event.setStatus(OutboxEventStatus.FAILED);
-                    failedEvents.add(event);
-                } else {
-                    event.setStatus(OutboxEventStatus.UNPROCESSED);
-                    eventsToRetry.add(event); // Adiciona à lista de retentativa
-                }
+                log.error("[Notifications] Failed to process event payload for outbox event id: {}.", event.getId(), e);
+                handleFailedEvent(event, failedEvents, eventsToRetry);
             }
         }
 
+        CompletableFuture.allOf(futures.toArray(new CompletableFuture[0])).join();
+
         if (!processedEvents.isEmpty()) {
             outboxEventRepository.deleteAllInBatch(processedEvents);
-            log.info("[Notifications] Successfully processed and deleted {} events.", processedEvents.size());
         }
         if (!failedEvents.isEmpty()) {
             outboxEventRepository.saveAll(failedEvents);
             log.warn("[Notifications] Marked {} events as FAILED after multiple retries.", failedEvents.size());
         }
         if (!eventsToRetry.isEmpty()) {
-            outboxEventRepository.saveAll(eventsToRetry); // Salva os eventos para retentativa
-            log.info("[Notifications] Marked {} events for retry.", eventsToRetry.size());
+            outboxEventRepository.saveAll(eventsToRetry);
+        }
+    }
+
+    private void handleFailedEvent(OutboxEvent event, List<OutboxEvent> failedEvents, List<OutboxEvent> eventsToRetry) {
+        event.incrementRetryCount();
+        if (event.getRetryCount() >= MAX_RETRIES) {
+            event.setStatus(OutboxEventStatus.FAILED);
+            failedEvents.add(event);
+        } else {
+            event.setStatus(OutboxEventStatus.UNPROCESSED);
+            eventsToRetry.add(event);
         }
     }
 }

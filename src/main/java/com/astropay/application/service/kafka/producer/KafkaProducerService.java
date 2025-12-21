@@ -14,37 +14,33 @@ import java.util.concurrent.CompletableFuture;
 public class KafkaProducerService {
 
     private static final Logger log = LoggerFactory.getLogger(KafkaProducerService.class);
-    
+
     private final KafkaTemplate<String, Object> kafkaTemplate;
 
     public KafkaProducerService(KafkaTemplate<String, Object> kafkaTemplate) {
         this.kafkaTemplate = kafkaTemplate;
     }
 
-    public void sendTransactionEvent(TransactionEvent event) {
+    public CompletableFuture<SendResult<String, Object>> sendTransactionEvent(TransactionEvent event) {
         CompletableFuture<SendResult<String, Object>> future = kafkaTemplate.send("transactions", event);
-
-        future.whenComplete((result, ex) -> {
-            if (ex != null) {
-                log.error("Failed to send TRANSACTION event to Kafka. IdempotencyKey: {}. Cause: {}",
-                        event.getIdempotencyKey(), ex.getMessage());
-            } else {
-                log.info("TRANSACTION event sent successfully to Kafka. IdempotencyKey: {}, Offset: {}",
-                        event.getIdempotencyKey(), result.getRecordMetadata().offset());
-            }
-        });
+        logSendResult("TRANSACTION", event.getIdempotencyKey().toString(), future);
+        return future;
     }
 
-    public void sendAccountCreatedEvent(AccountCreatedEvent event) {
+    public CompletableFuture<SendResult<String, Object>> sendAccountCreatedEvent(AccountCreatedEvent event) {
         CompletableFuture<SendResult<String, Object>> future = kafkaTemplate.send("accounts", event);
+        logSendResult("ACCOUNT CREATION", event.getAccountId().toString(), future);
+        return future;
+    }
 
+    private void logSendResult(String eventType, String eventKey, CompletableFuture<SendResult<String, Object>> future) {
         future.whenComplete((result, ex) -> {
             if (ex != null) {
-                log.error("Failed to send ACCOUNT CREATION event to Kafka. AccountId: {}. Cause: {}",
-                        event.getAccountId(), ex.getMessage());
+                log.error("Failed to send {} event to Kafka. Key: {}. Cause: {}",
+                        eventType, eventKey, ex.getMessage());
             } else {
-                log.info("ACCOUNT CREATION event sent successfully to Kafka. AccountId: {}, Offset: {}",
-                        event.getAccountId(), result.getRecordMetadata().offset());
+                log.info("{} event sent successfully to Kafka. Key: {}, Offset: {}",
+                        eventType, eventKey, result.getRecordMetadata().offset());
             }
         });
     }

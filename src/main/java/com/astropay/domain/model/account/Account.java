@@ -1,5 +1,6 @@
 package com.astropay.domain.model.account;
 
+import com.astropay.application.util.AppConstants;
 import com.astropay.domain.model.user.User;
 import com.fasterxml.jackson.annotation.JsonFormat;
 import jakarta.persistence.*;
@@ -10,6 +11,7 @@ import org.springframework.data.annotation.CreatedDate;
 import org.springframework.data.annotation.LastModifiedDate;
 import org.springframework.data.jpa.domain.support.AuditingEntityListener;
 
+import java.io.Serial;
 import java.io.Serializable;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
@@ -23,6 +25,7 @@ import java.util.Objects;
 @Cache(usage = CacheConcurrencyStrategy.READ_WRITE)
 public class Account implements Serializable {
 
+    @Serial
     private static final long serialVersionUID = 1L;
 
     @Id
@@ -44,16 +47,16 @@ public class Account implements Serializable {
     private AccountStatus status;
 
     @CreatedDate
-    @JsonFormat(pattern = "MM/dd/yyyy HH:mm:ss.SSS")
+    @JsonFormat(pattern = AppConstants.DATE_TIME_FORMAT)
     @Column(nullable = false, updatable = false)
     private LocalDateTime createdAt;
 
     @LastModifiedDate
-    @JsonFormat(pattern = "MM/dd/yyyy HH:mm:ss.SSS")
+    @JsonFormat(pattern = AppConstants.DATE_TIME_FORMAT)
     @Column(nullable = false)
     private LocalDateTime updatedAt;
 
-    @Deprecated
+
     protected Account() {}
 
     public Account(User user, BigDecimal balance) {
@@ -115,6 +118,21 @@ public class Account implements Serializable {
 
     public void activate() {
         this.status = AccountStatus.ACTIVE;
+    }
+
+    @PrePersist
+    public void prePersist() {
+        if (this.createdAt == null) {
+            this.createdAt = LocalDateTime.now();
+        }
+        if (this.updatedAt == null) {
+            this.updatedAt = LocalDateTime.now();
+        }
+    }
+
+    @PreUpdate
+    public void preUpdate() {
+        this.updatedAt = LocalDateTime.now();
     }
 
     @Override

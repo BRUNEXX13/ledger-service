@@ -1,7 +1,6 @@
 package com.astropay.domain.model.transaction;
 
 import com.astropay.domain.model.account.Account;
-import com.astropay.domain.model.transaction.TransactionStatus;
 import jakarta.persistence.*;
 import org.springframework.data.annotation.CreatedDate;
 import org.springframework.data.jpa.domain.support.AuditingEntityListener;
@@ -51,7 +50,6 @@ public class Transaction {
     @Column(nullable = false, unique = true)
     private UUID idempotencyKey;
 
-    @Deprecated
     protected Transaction() {}
 
     public Transaction(Account sender, Account receiver, BigDecimal amount, UUID idempotencyKey) {
@@ -81,6 +79,13 @@ public class Transaction {
     public String getFailureReason() { return failureReason; }
     public LocalDateTime getCreatedAt() { return createdAt; }
     public UUID getIdempotencyKey() { return idempotencyKey; }
+
+    @PrePersist
+    public void prePersist() {
+        if (this.createdAt == null) {
+            this.createdAt = LocalDateTime.now();
+        }
+    }
 
     @Override
     public boolean equals(Object o) {

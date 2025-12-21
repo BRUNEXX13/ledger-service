@@ -19,7 +19,20 @@
         <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
         <resilience4j.version>2.2.0</resilience4j.version>
         <jacoco.version>0.8.12</jacoco.version>
+        <spring-cloud-aws.version>3.1.1</spring-cloud-aws.version>
     </properties>
+
+    <dependencyManagement>
+        <dependencies>
+            <dependency>
+                <groupId>io.awspring.cloud</groupId>
+                <artifactId>spring-cloud-aws-dependencies</artifactId>
+                <version>${spring-cloud-aws.version}</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
+        </dependencies>
+    </dependencyManagement>
 
     <dependencies>
         <!-- Spring Boot Starters -->
@@ -34,6 +47,12 @@
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-aop</artifactId>
+        </dependency>
+
+        <!-- AWS Integration -->
+        <dependency>
+            <groupId>io.awspring.cloud</groupId>
+            <artifactId>spring-cloud-aws-starter-sqs</artifactId>
         </dependency>
 
         <!-- Flyway Migration -->
@@ -54,6 +73,11 @@
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-data-redis</artifactId>
+        </dependency>
+        <!-- Required for Redis Connection Pooling -->
+        <dependency>
+            <groupId>org.apache.commons</groupId>
+            <artifactId>commons-pool2</artifactId>
         </dependency>
 
         <!-- HATEOAS Support -->
@@ -88,6 +112,11 @@
         <dependency>
             <groupId>io.micrometer</groupId>
             <artifactId>micrometer-registry-prometheus</artifactId>
+        </dependency>
+        <!-- Zipkin Reporter -->
+        <dependency>
+            <groupId>io.zipkin.reporter2</groupId>
+            <artifactId>zipkin-reporter-brave</artifactId>
         </dependency>
 
         <!-- JSON Logging for Datadog -->
@@ -164,6 +193,22 @@
                         </goals>
                     </execution>
                 </executions>
+                <configuration>
+                    <jvmArguments>
+                        -javaagent:dd-java-agent.jar
+                        -Ddd.logs.injection=true
+                        -XX:+UseG1GC
+                        -XX:MaxGCPauseMillis=100
+                        -XX:+UnlockExperimentalVMOptions
+                        -XX:+EnableJVMCI
+                        -XX:+UseJVMCICompiler
+                        -Dspring.output.ansi.enabled=always
+                        -Dcom.sun.management.jmxremote
+                        -Dspring.jmx.enabled=true
+                        -Dspring.liveBeansView.mbeanDomain
+                        -Dspring.application.admin.enabled=true
+                    </jvmArguments>
+                </configuration>
             </plugin>
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
@@ -193,10 +238,15 @@
                         </goals>
                         <configuration>
                             <excludes>
+                                <!-- JDK Internals -->
                                 <exclude>jdk.internal.*</exclude>
-                                <!-- Exclui classes geradas dinamicamente pelo Mockito/CGLIB -->
+                                <exclude>java.net.http.*</exclude>
+                                <exclude>jdk.jshell.*</exclude>
+                                <exclude>sun.*</exclude>
+                                <exclude>com.sun.*</exclude>
+                                <exclude>org.jcp.*</exclude>
+                                <!-- Mockito/ByteBuddy -->
                                 <exclude>*MockitoMock*</exclude>
-                                <!-- Exclui classes internas do ByteBuddy -->
                                 <exclude>net.bytebuddy.*</exclude>
                             </excludes>
                         </configuration>
@@ -209,16 +259,11 @@
                         </goals>
                         <configuration>
                             <excludes>
-                                <!-- Exclui a classe principal da aplicação -->
                                 <exclude>com/astropay/LedgerServiceApplication.class</exclude>
-                                <!-- Exclui todas as classes de configuração -->
                                 <exclude>com/astropay/application/config/**/*</exclude>
                                 <exclude>com/astropay/infrastructure/**/*</exclude>
-                                <!-- Exclui todos os DTOs -->
                                 <exclude>com/astropay/application/dto/**/*</exclude>
-                                <!-- Exclui todas as exceções customizadas -->
                                 <exclude>com/astropay/application/exception/**/*</exclude>
-                                <!-- Exclui todo o pacote de domínio (incluindo models, enums, etc.) -->
                                 <exclude>com/astropay/domain/**/*</exclude>
                             </excludes>
                         </configuration>

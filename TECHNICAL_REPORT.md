@@ -1,77 +1,76 @@
 # 📘 Ledger Service: Technical Architecture and Engineering Report
 
-The Tables
-
-
 ## 1. System Overview
-The **Ledger Service** is a high-performance accounting system designed to manage digital accounts and process financial transactions at scale. Unlike traditional monolithic applications, it adopts an **asynchronous and event-driven** approach, prioritizing Availability and Eventual Consistency to support massive load spikes (proven at 5,000 RPS).
+The **Ledger Service** is a high-performance, cloud-native accounting system designed to manage digital accounts and process financial transactions at scale. It is engineered with a strong focus on **data integrity, low latency, and high throughput**. The architecture is built on an **asynchronous, event-driven model**, prioritizing Availability and Eventual Consistency to support massive load spikes, as validated by rigorous load testing.
 
-## 2. Software Architecture
-The system was built upon the pillars of **Hexagonal Architecture (Ports and Adapters)**.
+## 2. Core Architectural Pillars
 
-*   **Core (Domain):** Business rules (Entities `Account`, `User`, `Transaction`) are pure and framework-agnostic. They do not know that the database is Postgres or that the queue is Kafka.
-*   **Ports:** Interfaces defining input contracts (Use Cases) and output contracts (Repositories, Publishers).
+### 2.1. Hexagonal Architecture (Ports and Adapters)
+The system's foundation is a strict implementation of Hexagonal Architecture, ensuring a clean separation of concerns:
+*   **Core (Domain):** Contains the business logic and entities (`Account`, `Transaction`). It is completely agnostic of external frameworks and technologies like Spring, Postgres, or Kafka.
+*   **Ports:** Defines the contracts for inbound (Use Cases) and outbound (Repositories, Event Publishers) communication.
 *   **Adapters:**
-    *   *Driving (Input):* REST Controllers (Spring Web) and Kafka Listeners.
-    *   *Driven (Output):* Spring Data JPA (Postgres), Kafka Producer, Redis Client.
+    *   *Driving (Input):* REST Controllers and Kafka Listeners that translate external requests into calls to the application's core.
+    *   *Driven (Output):* Concrete implementations for database access (Spring Data JPA), event publishing (Kafka), and caching (Redis).
 
-### The "Transactional Outbox" Pattern
-The "crown jewel" of this architecture is the implementation of the **Outbox Pattern**.
-To ensure that *no financial transaction is lost* and that *no event is published without the data being saved*, the system does not publish to Kafka directly during the HTTP request.
+### 2.2. The Transactional Outbox Pattern: Guaranteeing Data Consistency
+To solve the critical "dual-write problem" in distributed systems, the service implements the **Transactional Outbox Pattern**. This ensures that a business transaction and the events it produces are saved atomically.
 
-1.  The transaction is saved in the business table (`tb_transaction`).
-2.  The corresponding event is saved in the `tb_outbox_event` table **within the same database transaction (ACID)**.
-3.  A background process (Scheduler/Worker) reads the `outbox` table and publishes to Kafka.
-4.  This ensures **Atomicity** between the database state and the messaging system.
+**Flow:**
+1.  An incoming request (e.g., a transfer) initiates a database transaction.
+2.  Instead of directly modifying account balances and publishing to Kafka, the service creates an `OutboxEvent` entity. This event contains all the necessary information for the subsequent processing.
+3.  This `OutboxEvent` is saved to the `tb_outbox_event` table **within the same ACID transaction** as the primary business data.
+4.  The API immediately returns `202 Accepted`, providing a low-latency user experience.
+5.  A separate, asynchronous process (a scheduler) polls the outbox table, processes the events (e.g., updates account balances), and reliably publishes them to Kafka upon successful completion.
 
-## 3. Technology Stack
+This pattern guarantees that **no event is ever lost or published without its corresponding database state being committed**, ensuring "at-least-once" delivery and enabling a resilient, eventually consistent system.
 
-*   **Language:** Java 21 (Virtual Threads, Record Patterns).
-*   **Framework:** Spring Boot 3 (Native, Observability with Micrometer).
-*   **Database:** PostgreSQL (Relational, ACID).
-    *   Use of `NUMERIC(19,2)` types for absolute monetary precision.
-    *   `CHECK (balance >= 0)` constraints for database-level integrity.
-*   **Messaging:** Apache Kafka (High throughput for `AccountCreated` and `TransactionCompleted` events).
-*   **Cache:** Redis (For fast reading of balances and user data, offloading Postgres).
-*   **Migration:** Flyway (Schema versioning).
+## 3. High-Performance Technology Stack & JVM Tuning
 
-## 4. Critical Business Flows
+The technology stack was carefully selected to achieve extreme performance and low latency under high concurrency.
 
-### A. Financial Transfer (High-Throughput)
-This flow was optimized not to block the client (App/Frontend):
+*   **Language:** **Java 21**
+*   **Framework:** **Spring Boot 3.x**
 
-1.  **Ingestion:** The client sends a `POST /transfers`.
-2.  **Fast Validation:** The system validates format and preliminary balance.
-3.  **Outbox Persistence:** The system records the intent in `tb_outbox_event` and returns **HTTP 202 Accepted** immediately. Response time is extremely low (~3ms).
-4.  **Asynchronous Processing:**
-    *   The *Worker* picks up the event.
-    *   Opens a pessimistic (`PESSIMISTIC_WRITE`) or optimistic transaction on the source and destination accounts.
-    *   Debits from A, Credits to B.
-    *   Updates the transaction status to `COMPLETED`.
-5.  **Notification:** An event is triggered to Kafka, which in turn triggers the sending of emails/push notifications.
+### 3.1. Concurrency Model: Java 21 Virtual Threads
+The service leverages **Virtual Threads** (`spring.threads.virtual.enabled=true`), a cornerstone of modern Java concurrency.
+*   **Why it matters:** For an I/O-bound application like this (waiting for the database, Kafka, Redis), Virtual Threads allow the system to handle thousands of concurrent requests with a very small number of OS threads. This dramatically reduces memory consumption and context-switching overhead, enabling massive scalability.
 
-### B. Account Creation (Onboarding)
-1.  User is created (`tb_user`).
-2.  Account is automatically created (`tb_account`) with a 1:1 relationship.
-3.  `AccountCreatedEvent` is triggered to start KYC (Know Your Customer) or Welcome processes.
+### 3.2. Garbage Collection: Generational ZGC
+The JVM is tuned to use the **Generational Z Garbage Collector (ZGC)** (`-XX:+UseZGC -XX:+ZGenerational`).
+*   **Why it matters:** ZGC is designed for sub-millisecond pause times, even with large heaps. The generational mode (new in Java 21) further optimizes CPU usage by focusing on short-lived objects. This is critical for maintaining consistently low p95/p99 latencies during high-throughput scenarios.
 
-## 5. Performance and Scalability
+### 3.3. Performance Tuning Across the Stack
+*   **Database (PostgreSQL):**
+    *   **JDBC Batching:** Enabled at both the Hibernate (`hibernate.jdbc.batch_size`) and JDBC driver (`reWriteBatchedInserts=true`) levels to send multiple write operations in a single network round-trip.
+    *   **Prepared Statement Caching:** The driver is configured to cache compiled SQL queries, reducing parsing overhead on the database.
+*   **Kafka Producer:**
+    *   **Batching & Compression:** The producer is tuned to batch messages (`batch-size`, `linger.ms`) and use `lz4` compression, maximizing throughput and minimizing network traffic.
+*   **Connection Pools (Hikari & Lettuce):**
+    *   Pool sizes are carefully tuned to work *with* Virtual Threads, preventing resource exhaustion and contention.
 
-Based on load tests (Stress and Soak Tests) performed with **k6**:
+## 4. Load Test Results & Validation
 
-*   **Ingestion Capacity:** The system sustains **5,000 Requests Per Second (RPS)** stably for long periods (5+ minutes).
-*   **Latency:**
-    *   Under normal load: < 5ms.
-    *   Under maximum stress (5k RPS): p95 of **~66ms**.
-*   **Resilience:** The system processed **1.5 million transactions** in 5 minutes with **0% error**.
-*   **Bottleneck:** The system is currently limited by database CPU/IO when writing to the Outbox, which is the expected and healthy behavior (Natural Backpressure).
+The architecture was validated through extensive load testing using **k6**, simulating a high-volume transfer scenario on local hardware.
 
-## 6. Security and Integrity
+*   **Target Load:** 6,500 Requests Per Second (RPS).
+*   **Test Duration:** 5 minutes (Soak Test).
+*   **Total Requests Processed:** ~1.9 Million.
 
-*   **Idempotency:** The `tb_transaction` table has a `UNIQUE` constraint on the `idempotency_key` column. This mathematically prevents the same transfer from being processed twice, even if the client (or Kafka) tries to resend the request.
-*   **Numerical Precision:** The use of `BigDecimal` in Java and `NUMERIC` in Postgres eliminates floating-point rounding errors.
-*   **Isolation:** The database ensures that the balance never becomes negative via *Constraints*, serving as a last line of defense should the application fail.
+### Key Performance Metrics:
+| Metric | Result | Interpretation |
+| :--- | :--- | :--- |
+| **Throughput** | **~6,356 RPS** | Sustained near-target load on local hardware. |
+| **Error Rate** | **0.00%** | Flawless reliability under saturation. |
+| **Median Latency (p50)** | **2.24 ms** | Exceptional responsiveness for the majority of requests. |
+| **95th Percentile Latency (p95)** | **675 ms** | Acceptable queueing under hardware saturation (CPU/IO limit). |
 
-## 7. Expert Conclusion
+These results concretely demonstrate the effectiveness of the architectural choices and performance tuning, proving the system's capability to operate in demanding, large-scale production environments.
 
-The **Ledger Service** is an example of modern and mature software engineering. It moves away from the "simple CRUD" pattern to embrace the necessary complexity of a real financial system. The choice of the **Outbox Pattern** and asynchronous processing demonstrates a correct prioritization of data integrity and user experience (low latency), making it ready to operate in high-demand production environments.
+## 5. Security and Data Integrity
+*   **Idempotency:** A `UNIQUE` constraint on the `idempotency_key` column provides a rock-solid guarantee against duplicate transaction processing.
+*   **Numerical Precision:** The use of `BigDecimal` in Java and `NUMERIC` in Postgres eliminates floating-point rounding errors, which is non-negotiable for financial systems.
+*   **Database Constraints:** `CHECK (balance >= 0)` constraints act as a final line of defense, ensuring data integrity at the database level.
+
+## 6. Expert Conclusion
+The **Ledger Service** is a showcase of modern, expert-level software engineering. It deliberately moves beyond simple CRUD patterns to correctly address the complexities of distributed financial systems. The synergistic use of **Java 21 Virtual Threads, Generational ZGC, and the Transactional Outbox Pattern** creates a system that is not only highly performant and scalable but also resilient and consistent by design.

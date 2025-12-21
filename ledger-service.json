@@ -1,0 +1,321 @@
+{
+  "title": "Ledger Service - High Performance Monitor",
+  "description": "Dashboard focado em Java 21, Virtual Threads, HikariCP e Kafka para o ledger-service.",
+  "widgets": [
+    {
+      "definition": {
+        "type": "group",
+        "layout_type": "ordered",
+        "title": "🚦 Golden Signals (HTTP API)",
+        "widgets": [
+          {
+            "definition": {
+              "type": "timeseries",
+              "requests": [
+                {
+                  "q": "sum:trace.servlet.request.hits{service:ledger-service,env:local}.as_count()",
+                  "display_type": "bars",
+                  "style": {
+                    "palette": "dog_classic",
+                    "line_type": "solid",
+                    "line_width": "normal"
+                  },
+                  "metadata": {
+                    "alias_name": "Requests per Second"
+                  }
+                }
+              ],
+              "title": "Throughput (RPS)",
+              "show_legend": true
+            }
+          },
+          {
+            "definition": {
+              "type": "timeseries",
+              "requests": [
+                {
+                  "q": "p95:trace.servlet.request.duration{service:ledger-service,env:local}",
+                  "display_type": "line",
+                  "style": {
+                    "palette": "cool",
+                    "line_type": "solid",
+                    "line_width": "normal"
+                  },
+                  "metadata": {
+                    "alias_name": "P95 Latency"
+                  }
+                },
+                {
+                  "q": "p50:trace.servlet.request.duration{service:ledger-service,env:local}",
+                  "display_type": "line",
+                  "style": {
+                    "palette": "warm",
+                    "line_type": "dashed",
+                    "line_width": "thin"
+                  },
+                  "metadata": {
+                    "alias_name": "Median Latency"
+                  }
+                }
+              ],
+              "title": "Latency (P95 vs Median)",
+              "show_legend": true,
+              "yaxis": {
+                "include_zero": true,
+                "scale": "linear",
+                "label": "seconds"
+              }
+            }
+          },
+          {
+            "definition": {
+              "type": "timeseries",
+              "requests": [
+                {
+                  "q": "sum:trace.servlet.request.errors{service:ledger-service,env:local}.as_count()",
+                  "display_type": "bars",
+                  "style": {
+                    "palette": "red",
+                    "line_type": "solid",
+                    "line_width": "normal"
+                  }
+                }
+              ],
+              "title": "Error Rate (5xx)",
+              "show_legend": false
+            }
+          }
+        ]
+      }
+    },
+    {
+      "definition": {
+        "type": "group",
+        "layout_type": "ordered",
+        "title": "🔥 Database & Connection Pool (The Bottleneck)",
+        "widgets": [
+          {
+            "definition": {
+              "type": "timeseries",
+              "requests": [
+                {
+                  "q": "avg:hikaricp.connections.active{service:ledger-service,env:local}",
+                  "display_type": "area",
+                  "style": {
+                    "palette": "orange",
+                    "line_type": "solid",
+                    "line_width": "normal"
+                  },
+                  "metadata": {
+                    "alias_name": "Active Connections"
+                  }
+                },
+                {
+                  "q": "avg:hikaricp.connections.max{service:ledger-service,env:local}",
+                  "display_type": "line",
+                  "style": {
+                    "palette": "grey",
+                    "line_type": "dashed",
+                    "line_width": "thin"
+                  },
+                  "metadata": {
+                    "alias_name": "Max Pool Size"
+                  }
+                }
+              ],
+              "title": "HikariCP Pool Saturation",
+              "show_legend": true
+            }
+          },
+          {
+            "definition": {
+              "type": "timeseries",
+              "requests": [
+                {
+                  "q": "max:hikaricp.connections.acquire_seconds.max{service:ledger-service,env:local}",
+                  "display_type": "line",
+                  "style": {
+                    "palette": "red",
+                    "line_type": "solid",
+                    "line_width": "thick"
+                  },
+                  "metadata": {
+                    "alias_name": "Max Wait Time"
+                  }
+                },
+                {
+                  "q": "avg:hikaricp.connections.acquire_seconds.sum{service:ledger-service,env:local} / avg:hikaricp.connections.acquire_seconds.count{service:ledger-service,env:local}",
+                  "display_type": "line",
+                  "style": {
+                    "palette": "yellow",
+                    "line_type": "solid",
+                    "line_width": "normal"
+                  },
+                  "metadata": {
+                    "alias_name": "Avg Wait Time"
+                  }
+                }
+              ],
+              "title": "Connection Acquire Latency (Critical)",
+              "show_legend": true
+            }
+          },
+          {
+            "definition": {
+              "type": "timeseries",
+              "requests": [
+                {
+                  "q": "avg:hikaricp.connections.pending{service:ledger-service,env:local}",
+                  "display_type": "bars",
+                  "style": {
+                    "palette": "purple",
+                    "line_type": "solid",
+                    "line_width": "normal"
+                  }
+                }
+              ],
+              "title": "Threads Waiting for Connection",
+              "show_legend": false
+            }
+          }
+        ]
+      }
+    },
+    {
+      "definition": {
+        "type": "group",
+        "layout_type": "ordered",
+        "title": "☕ JVM & Garbage Collection",
+        "widgets": [
+          {
+            "definition": {
+              "type": "timeseries",
+              "requests": [
+                {
+                  "q": "avg:jvm.memory.heap.used{service:ledger-service,env:local}",
+                  "display_type": "area",
+                  "style": {
+                    "palette": "blue",
+                    "line_type": "solid",
+                    "line_width": "normal"
+                  },
+                  "metadata": {
+                    "alias_name": "Heap Used"
+                  }
+                },
+                {
+                  "q": "avg:jvm.memory.heap.max{service:ledger-service,env:local}",
+                  "display_type": "line",
+                  "style": {
+                    "palette": "grey",
+                    "line_type": "dashed",
+                    "line_width": "thin"
+                  },
+                  "metadata": {
+                    "alias_name": "Max Heap"
+                  }
+                }
+              ],
+              "title": "Heap Memory Usage",
+              "show_legend": true
+            }
+          },
+          {
+            "definition": {
+              "type": "timeseries",
+              "requests": [
+                {
+                  "q": "max:jvm.gc.pause{service:ledger-service,env:local}",
+                  "display_type": "bars",
+                  "style": {
+                    "palette": "pink",
+                    "line_type": "solid",
+                    "line_width": "normal"
+                  }
+                }
+              ],
+              "title": "GC Pause Duration (Stop-the-world)",
+              "show_legend": false
+            }
+          },
+          {
+            "definition": {
+              "type": "timeseries",
+              "requests": [
+                {
+                  "q": "avg:jvm.thread_count{service:ledger-service,env:local}",
+                  "display_type": "line",
+                  "style": {
+                    "palette": "green",
+                    "line_type": "solid",
+                    "line_width": "normal"
+                  }
+                }
+              ],
+              "title": "Live Threads",
+              "show_legend": false
+            }
+          }
+        ]
+      }
+    },
+    {
+      "definition": {
+        "type": "group",
+        "layout_type": "ordered",
+        "title": "📨 Kafka & Async Processing",
+        "widgets": [
+          {
+            "definition": {
+              "type": "timeseries",
+              "requests": [
+                {
+                  "q": "sum:kafka.producer.record_send_rate{service:ledger-service,env:local}",
+                  "display_type": "line",
+                  "style": {
+                    "palette": "cool",
+                    "line_type": "solid",
+                    "line_width": "normal"
+                  }
+                }
+              ],
+              "title": "Kafka Producer Rate",
+              "show_legend": false
+            }
+          },
+          {
+            "definition": {
+              "type": "timeseries",
+              "requests": [
+                {
+                  "q": "sum:kafka.consumer_lag{service:ledger-service,env:local}",
+                  "display_type": "area",
+                  "style": {
+                    "palette": "red",
+                    "line_type": "solid",
+                    "line_width": "normal"
+                  }
+                }
+              ],
+              "title": "Consumer Lag (Backlog)",
+              "show_legend": false
+            }
+          }
+        ]
+      }
+    }
+  ],
+  "template_variables": [
+    {
+      "name": "env",
+      "prefix": "env",
+      "default": "local"
+    },
+    {
+      "name": "service",
+      "prefix": "service",
+      "default": "ledger-service"
+    }
+  ],
+  "layout_type": "ordered"
+}

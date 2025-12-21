@@ -1,20 +1,21 @@
 package com.astropay.application.dto.response.user;
 
+import com.astropay.application.util.AppConstants;
 import com.astropay.domain.model.user.Role;
 import com.astropay.domain.model.user.UserStatus;
 import com.fasterxml.jackson.annotation.JsonFormat;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonRootName;
-import org.springframework.hateoas.Link;
+import org.springframework.hateoas.RepresentationModel;
 import org.springframework.hateoas.server.core.Relation;
 
 import java.time.LocalDateTime;
-import java.util.List;
+import java.util.Objects;
 
 @JsonRootName(value = "user")
 @Relation(collectionRelation = "users")
 @JsonInclude(JsonInclude.Include.NON_NULL)
-public class UserResponse {
+public class UserResponse extends RepresentationModel<UserResponse> {
 
     private Long id;
     private String name;
@@ -23,13 +24,11 @@ public class UserResponse {
     private UserStatus status;
     private Role role;
 
-    @JsonFormat(pattern = "MM/dd/yyyy HH:mm:ss.SSS")
+    @JsonFormat(pattern = AppConstants.DATE_TIME_FORMAT)
     private LocalDateTime createdAt;
 
-    @JsonFormat(pattern = "MM/dd/yyyy HH:mm:ss.SSS")
+    @JsonFormat(pattern = AppConstants.DATE_TIME_FORMAT)
     private LocalDateTime updatedAt;
-
-    private List<Link> links;
 
     public UserResponse() {
     }
@@ -44,6 +43,10 @@ public class UserResponse {
         this.role = role;
         this.createdAt = createdAt;
         this.updatedAt = updatedAt;
+    }
+
+    public static Builder builder() {
+        return new Builder();
     }
 
     // Getters e Setters
@@ -63,6 +66,49 @@ public class UserResponse {
     public void setCreatedAt(LocalDateTime createdAt) { this.createdAt = createdAt; }
     public LocalDateTime getUpdatedAt() { return updatedAt; }
     public void setUpdatedAt(LocalDateTime updatedAt) { this.updatedAt = updatedAt; }
-    public List<Link> getLinks() { return links; }
-    public void setLinks(List<Link> links) { this.links = links; }
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (o == null || getClass() != o.getClass()) return false;
+        if (!super.equals(o)) return false;
+        UserResponse that = (UserResponse) o;
+        return Objects.equals(id, that.id) &&
+                Objects.equals(name, that.name) &&
+                Objects.equals(document, that.document) &&
+                Objects.equals(email, that.email) &&
+                status == that.status &&
+                role == that.role &&
+                Objects.equals(createdAt, that.createdAt) &&
+                Objects.equals(updatedAt, that.updatedAt);
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(super.hashCode(), id, name, document, email, status, role, createdAt, updatedAt);
+    }
+
+    public static class Builder {
+        private Long id;
+        private String name;
+        private String document;
+        private String email;
+        private UserStatus status;
+        private Role role;
+        private LocalDateTime createdAt;
+        private LocalDateTime updatedAt;
+
+        public Builder id(Long id) { this.id = id; return this; }
+        public Builder name(String name) { this.name = name; return this; }
+        public Builder document(String document) { this.document = document; return this; }
+        public Builder email(String email) { this.email = email; return this; }
+        public Builder status(UserStatus status) { this.status = status; return this; }
+        public Builder role(Role role) { this.role = role; return this; }
+        public Builder createdAt(LocalDateTime createdAt) { this.createdAt = createdAt; return this; }
+        public Builder updatedAt(LocalDateTime updatedAt) { this.updatedAt = updatedAt; return this; }
+
+        public UserResponse build() {
+            return new UserResponse(id, name, document, email, status, role, createdAt, updatedAt);
+        }
+    }
 }

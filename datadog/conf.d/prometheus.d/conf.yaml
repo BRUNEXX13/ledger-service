@@ -1,7 +1,19 @@
-init_config:
+# Configuração para o Datadog Agent coletar métricas do Prometheus
+# da aplicação ledger-service
 
+# Habilita a descoberta automática de serviços baseada em labels do Docker
+ad_identifiers:
+  - ledger-service
+
+# Configuração da instância do check do Prometheus
 instances:
   - prometheus_url: http://host.docker.internal:8082/api/v1/actuator/prometheus
-    namespace: ledgerservice_local
+    # Namespace para todas as métricas coletadas por esta instância
+    namespace: ledger_service
+    # Mapeamento de métricas do Prometheus para métricas do Datadog
     metrics:
-      - "*"
+      - "*" # Coleta todas as métricas
+    # Tags que serão adicionadas a todas as métricas
+    tags:
+      - "app:ledger-service"
+      - "env:local"
