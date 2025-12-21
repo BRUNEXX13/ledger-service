@@ -22,7 +22,8 @@ import java.util.concurrent.CompletableFuture;
 public class OutboxEventScheduler {
 
     private static final Logger log = LoggerFactory.getLogger(OutboxEventScheduler.class);
-    private static final int BATCH_SIZE = 100;
+    // TUNING: Aumentado para 500 para acompanhar a vazão de 5000 RPS
+    private static final int BATCH_SIZE = 500;
     private static final int MAX_RETRIES = 5;
     private static final List<String> NOTIFICATION_EVENT_TYPES = List.of("TransactionCompleted", "TransactionFailed");
 
@@ -38,7 +39,8 @@ public class OutboxEventScheduler {
         this.objectMapper = objectMapper;
     }
 
-    @Scheduled(fixedDelay = 3000)
+    // TUNING: Reduzido de 3000ms para 50ms para evitar backlog massivo
+    @Scheduled(fixedDelay = 50)
     @Transactional
     public void processNotificationEvents() {
         LocalDateTime lockTimeout = LocalDateTime.now().minusMinutes(1);
@@ -53,7 +55,11 @@ public class OutboxEventScheduler {
             return;
         }
 
-        log.info("[Notifications] Found {} events to process.", events.size());
+        // Log apenas se houver um volume considerável para evitar spam no log em baixa carga
+        if (events.size() > 50) {
+            log.info("[Notifications] Found {} events to process.", events.size());
+        }
+        
         LocalDateTime newLockTime = LocalDateTime.now();
         for (OutboxEvent event : events) {
             event.setStatus(OutboxEventStatus.PROCESSING);
@@ -87,7 +93,6 @@ public class OutboxEventScheduler {
 
         if (!processedEvents.isEmpty()) {
             outboxEventRepository.deleteAllInBatch(processedEvents);
-            log.info("[Notifications] Successfully processed and deleted {} events.", processedEvents.size());
         }
         if (!failedEvents.isEmpty()) {
             outboxEventRepository.saveAll(failedEvents);
@@ -95,7 +100,6 @@ public class OutboxEventScheduler {
         }
         if (!eventsToRetry.isEmpty()) {
             outboxEventRepository.saveAll(eventsToRetry);
-            log.info("[Notifications] Marked {} events for retry.", eventsToRetry.size());
         }
     }
 

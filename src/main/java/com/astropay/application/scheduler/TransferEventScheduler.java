@@ -20,11 +20,11 @@ import java.util.concurrent.atomic.AtomicInteger;
 public class TransferEventScheduler {
 
     private static final Logger log = LoggerFactory.getLogger(TransferEventScheduler.class);
-    private static final int MIN_BATCH_SIZE = 10;
-    private static final int MAX_BATCH_SIZE = 500;
+    private static final int MIN_BATCH_SIZE = 50; // Aumentado o mínimo para evitar fragmentação excessiva
+    private static final int MAX_BATCH_SIZE = 1000; // Aumentado para permitir maior vazão em picos
     private static final double HIKARI_SATURATION_THRESHOLD = 0.90;
 
-    private final AtomicInteger currentBatchSize = new AtomicInteger(100);
+    private final AtomicInteger currentBatchSize = new AtomicInteger(200); // Start mais agressivo
 
     private final OutboxEventRepository outboxEventRepository;
     private final TransferBatchProcessor batchProcessor;
@@ -38,7 +38,8 @@ public class TransferEventScheduler {
         this.meterRegistry = meterRegistry;
     }
 
-    @Scheduled(fixedDelay = 50) 
+    // TUNING: Reduzido para 20ms para processamento quase em tempo real
+    @Scheduled(fixedDelay = 20) 
     public void scheduleProcessTransferEvents() {
         if (isDatabaseOverloaded()) {
             return; 
@@ -113,14 +114,16 @@ public class TransferEventScheduler {
     }
 
     private void adjustBatchSize(long durationMillis, int processedCount, int batchSize) {
-        long targetDuration = 1000;
+        long targetDuration = 500; // Meta mais agressiva de 500ms por lote
         
         if (durationMillis > targetDuration * 1.5) {
             currentBatchSize.updateAndGet(current -> Math.max(MIN_BATCH_SIZE, (int) (current * 0.8)));
-            log.info("Batch processing too slow ({}ms). Decreasing batch size to {}.", durationMillis, currentBatchSize.get());
+            // Log apenas se a mudança for significativa para evitar ruído
+            if (currentBatchSize.get() < batchSize) {
+                log.info("Batch processing too slow ({}ms). Decreasing batch size to {}.", durationMillis, currentBatchSize.get());
+            }
         } else if (durationMillis < targetDuration * 0.5 && processedCount == batchSize) {
             currentBatchSize.updateAndGet(current -> Math.min(MAX_BATCH_SIZE, (int) (current * 1.2)));
-            log.info("Batch processing fast ({}ms). Increasing batch size to {}.", durationMillis, currentBatchSize.get());
         }
     }
 }
