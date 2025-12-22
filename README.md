@@ -249,10 +249,13 @@ transfer_stress_test ✓ [======================================] 0000/2576 VUs 
 ├── docker-compose.yml              # Local infrastructure orchestration
 ├── insomnia_collection_ledger.json # Insomnia request collection
 ├── pom.xml                         # Project dependencies and build
-└── README.md                       # This file
+├── README.md                       # This file
+└── Why was it used?                # Detailed architectural decisions
 ```
 
 ## 🔄 Important Business Flows
+
+For a detailed explanation of the architectural decisions and flows, please refer to **[Why was it used?](Why%20was%20it%20used?)**.
 
 ### 1. User Creation
 
