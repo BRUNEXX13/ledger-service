@@ -1,0 +1,72 @@
+As an expert in high-performance software architecture, I will detail the flows and technical decisions of this `Ledger Service` project. This system is not just a CRUD; it is a reference implementation for resilient and scalable financial systems.
+
+### 1. Base Architecture: Hexagonal (Ports & Adapters)
+
+**Why was it used?**
+To isolate the **Domain** (financial business rules) from the **Infrastructure** (database, Kafka, Web). This allows you to swap the database or messaging framework without touching the logic for balance calculations or transfers.
+
+*   **Core/Domain:** Where entities like `Account`, `Transaction` and rules like "balance cannot be negative" reside.
+*   **Ports:** Interfaces that define *what* the system needs (e.g., `LoadAccountPort`, `PublishEventPort`).
+*   **Adapters:** Real implementations (e.g., `AccountRepository` with JPA, `KafkaProducer`).
+
+---
+
+### 2. User Creation Flow (Synchronous + Event)
+
+This flow ensures that every user has an account immediately, but notifies external systems in a decoupled manner.
+
+1.  **Input (REST):** The client calls `POST /users`.
+2.  **Processing (Service):** The `UserService` validates and saves the user in **PostgreSQL**.
+3.  **Orchestration:** Within the same transaction, the service calls `AccountService` to create an account with an initial balance (if applicable).
+4.  **Domain Event:** After the database commit, an `AccountCreatedEvent` is published to **Kafka**.
+5.  **Consumption (Listener):** A listener listens to this topic to send a welcome email (simulated).
+
+**Why this way?**
+*   **Strong Consistency:** User and Account are created atomically in the database (ACID transaction). If one fails, everything fails.
+*   **Decoupling:** Sending the email does not block the API response. If the email server goes down, the user is still successfully created.
+
+---
+
+### 3. Financial Transfer Flow (Asynchronous / Outbox Pattern)
+
+This is the most critical and complex flow, designed for **High Throughput** and **resilience**.
+
+1.  **Request (REST):** The client sends `POST /transfers`.
+2.  **Capture (Outbox):**
+    *   The API **does not** process the transfer immediately.
+    *   It saves a record in the `tb_outbox` table (represented by the `TransferRequestedEvent` record you are editing) and returns `202 Accepted` immediately.
+    *   **Why?** To release the HTTP connection in milliseconds (low latency) and not hold the user while the database processes locks.
+3.  **Processing (Batch/Scheduler):**
+    *   A scheduled job (Spring Scheduler) runs every X seconds.
+    *   It reads pending events from `tb_outbox`.
+    *   For each event, it opens a transaction, debits Account A, credits Account B, and marks the event as processed.
+4.  **Notification (Kafka):**
+    *   After the banking transaction succeeds, a `TransactionCompletedEvent` is sent to Kafka.
+
+**Why the Transactional Outbox Pattern?**
+*   **Dual-Write Problem:** In distributed systems, it is dangerous to save to the database and post to Kafka at the same time. If the database commits and Kafka fails (or vice versa), you have financial inconsistency.
+*   **Solution:** The Outbox ensures that the transfer intent is saved in the same database as the account (atomicity). The asynchronous processor ensures it will be executed ("At-Least-Once delivery").
+
+---
+
+### 4. Technologies and Decisions
+
+*   **Java 21 + Virtual Threads:**
+    *   **Why?** The project uses `spring.threads.virtual.enabled=true`. In I/O Bound applications (which wait a lot for Database/Kafka), Virtual Threads allow handling thousands of concurrent requests with very little memory usage, outperforming the traditional thread-per-request model.
+
+*   **PostgreSQL:**
+    *   **Why?** Strict ACID compliance. For money, we need secure relational transactions, constraints (`CHECK balance >= 0`), and referential integrity.
+
+*   **Redis:**
+    *   **Why?** Used as a cache for reading balances or user data. Reduces the load on PostgreSQL during frequent read operations (Read-Heavy workloads).
+
+*   **Kafka:**
+    *   **Why?** For asynchronous communication between domains. Allows the system to scale horizontally and handle traffic spikes (Backpressure), processing messages at its own pace without crashing the database.
+
+*   **Docker & Docker Compose:**
+    *   **Why?** Ensures the development environment (with Postgres, Redis, Kafka, Zookeeper, Grafana) is identical for all developers, eliminating "it works on my machine" issues.
+
+*   **Spring Batch (Conceptual):**
+    *   Although the project uses a custom Scheduler (based on the description), the concept is Batch processing to fetch records from the Outbox and process them, optimizing database connection usage.
+
+This project is a classic example of sacrificing a bit of initial simplicity (direct CRUD) to gain **robustness, scalability, and reliability** in the long run.

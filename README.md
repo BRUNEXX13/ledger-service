@@ -121,14 +121,16 @@ To achieve maximum performance and throughput when running locally (especially f
 Add these to your IDE's Run Configuration or pass them via command line:
 
 ```
--server -Xms4g -Xmx8g -XX:+UseG1GC -XX:MaxGCPauseMillis=100 -XX:+UnlockExperimentalVMOptions -XX:+EnableJVMCI -XX:+UseJVMCICompiler -Dspring.output.ansi.enabled=always -Dcom.sun.management.jmxremote -Dspring.jmx.enabled=true -Dspring.liveBeansView.mbeanDomain -Dspring.application.admin.enabled=true
+-javaagent:dd-java-agent.jar -Ddd.logs.injection=true -server -Xms2g -Xmx4g -XX:+UseG1GC -XX:MaxGCPauseMillis=200 -XX:+UnlockExperimentalVMOptions -XX:+EnableJVMCI -XX:+UseJVMCICompiler -Dspring.output.ansi.enabled=always -Dcom.sun.management.jmxremote -Dspring.jmx.enabled=true -Dspring.liveBeansView.mbeanDomain -Dspring.application.admin.enabled=true
 ```
 
 **Explanation:**
+*   `-javaagent:dd-java-agent.jar`: Enables the Datadog Agent for APM and Profiling.
+*   `-Ddd.logs.injection=true`: Injects Trace IDs into logs for correlation.
 *   `-server`: Enables the C2 compiler for long-running performance.
-*   `-Xms4g -Xmx8g`: Allocates a generous Heap (4GB min, 8GB max) to avoid frequent GCs under load.
+*   `-Xms2g -Xmx4g`: Allocates a generous Heap (2GB min, 4GB max) to avoid frequent GCs under load.
 *   `-XX:+UseG1GC`: Uses the G1 Garbage Collector, optimized for large heaps and low latency.
-*   `-XX:MaxGCPauseMillis=100`: Instructs G1 to aim for pause times under 100ms.
+*   `-XX:MaxGCPauseMillis=200`: Instructs G1 to aim for pause times under 200ms.
 *   `-XX:+UseJVMCICompiler`: Enables the Graal JIT compiler (if available) for further optimization.
 
 ### 4. Accessing Auxiliary Services
@@ -304,10 +306,13 @@ transfer_stress_test ✓ [======================================] 0000/2576 VUs 
 ├── docker-compose.yml              # Local infrastructure orchestration
 ├── insomnia_collection_ledger.json # Insomnia request collection
 ├── pom.xml                         # Project dependencies and build
-└── README.md                       # This file
+├── README.md                       # This file
+└── Why was it used?                # Detailed architectural decisions
 ```
 
 ## 🔄 Important Business Flows
+
+For a detailed explanation of the architectural decisions and flows, please refer to **[Why was it used?](Why%20was%20it%20used?)**.
 
 ### 1. User Creation
 
