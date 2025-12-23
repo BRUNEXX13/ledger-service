@@ -12,7 +12,8 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
-import java.time.LocalDateTime;
+import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
 
@@ -64,12 +65,12 @@ public class TransferEventScheduler {
     }
 
     private List<OutboxEvent> findAndLockEvents(int batchSize) {
-        LocalDateTime lockTimeout = LocalDateTime.now().minusMinutes(1);
+        Instant lockTimeout = Instant.now().minus(1, ChronoUnit.MINUTES);
         List<OutboxEvent> events = outboxEventRepository.findAndLockUnprocessedEvents(
                 OutboxEventStatus.UNPROCESSED, "TransferRequested", lockTimeout, PageRequest.of(0, batchSize));
 
         if (!events.isEmpty()) {
-            LocalDateTime newLockTime = LocalDateTime.now();
+            Instant newLockTime = Instant.now();
             events.forEach(event -> {
                 event.setStatus(OutboxEventStatus.PROCESSING);
                 event.setLockedAt(newLockTime);

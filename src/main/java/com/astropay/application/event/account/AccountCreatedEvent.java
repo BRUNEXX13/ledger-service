@@ -1,6 +1,6 @@
 package com.astropay.application.event.account;
 
-import java.time.LocalDateTime;
+import java.time.Instant;
 
 public class AccountCreatedEvent {
 
@@ -8,12 +8,12 @@ public class AccountCreatedEvent {
     private Long userId;
     private String userName;
     private String userEmail;
-    private LocalDateTime createdAt;
+    private Instant createdAt;
 
     public AccountCreatedEvent() {
     }
 
-    public AccountCreatedEvent(Long accountId, Long userId, String userName, String userEmail, LocalDateTime createdAt) {
+    public AccountCreatedEvent(Long accountId, Long userId, String userName, String userEmail, Instant createdAt) {
         this.accountId = accountId;
         this.userId = userId;
         this.userName = userName;
@@ -53,11 +53,11 @@ public class AccountCreatedEvent {
         this.userEmail = userEmail;
     }
 
-    public LocalDateTime getCreatedAt() {
+    public Instant getCreatedAt() {
         return createdAt;
     }
 
-    public void setCreatedAt(LocalDateTime createdAt) {
+    public void setCreatedAt(Instant createdAt) {
         this.createdAt = createdAt;
     }
 }

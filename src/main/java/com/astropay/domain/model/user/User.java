@@ -10,7 +10,7 @@ import org.springframework.data.annotation.LastModifiedDate;
 import org.springframework.data.jpa.domain.support.AuditingEntityListener;
 
 import java.io.Serializable;
-import java.time.LocalDateTime;
+import java.time.Instant;
 import java.util.Objects;
 
 @Entity
@@ -49,14 +49,14 @@ public class User implements Serializable {
     private Role role;
 
     @CreatedDate
-    @JsonFormat(pattern = AppConstants.DATE_TIME_FORMAT)
+    @JsonFormat(pattern = AppConstants.DATE_TIME_FORMAT, timezone = "UTC")
     @Column(nullable = false, updatable = false)
-    private LocalDateTime createdAt;
+    private Instant createdAt;
 
     @LastModifiedDate
-    @JsonFormat(pattern = AppConstants.DATE_TIME_FORMAT)
+    @JsonFormat(pattern = AppConstants.DATE_TIME_FORMAT, timezone = "UTC")
     @Column(nullable = false)
-    private LocalDateTime updatedAt;
+    private Instant updatedAt;
 
     protected User() {}
 
@@ -80,8 +80,8 @@ public class User implements Serializable {
     public String getEmail() { return email; }
     public UserStatus getStatus() { return status; }
     public Role getRole() { return role; }
-    public LocalDateTime getCreatedAt() { return createdAt; }
-    public LocalDateTime getUpdatedAt() { return updatedAt; }
+    public Instant getCreatedAt() { return createdAt; }
+    public Instant getUpdatedAt() { return updatedAt; }
 
     // Business methods
     public void block() { this.status = UserStatus.BLOCKED; }
@@ -109,16 +109,16 @@ public class User implements Serializable {
     @PrePersist
     public void prePersist() {
         if (this.createdAt == null) {
-            this.createdAt = LocalDateTime.now();
+            this.createdAt = Instant.now();
         }
         if (this.updatedAt == null) {
-            this.updatedAt = LocalDateTime.now();
+            this.updatedAt = Instant.now();
         }
     }
 
     @PreUpdate
     public void preUpdate() {
-        this.updatedAt = LocalDateTime.now();
+        this.updatedAt = Instant.now();
     }
 
     @Override

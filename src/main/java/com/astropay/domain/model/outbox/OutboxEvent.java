@@ -4,7 +4,7 @@ import jakarta.persistence.*;
 import org.springframework.data.annotation.CreatedDate;
 import org.springframework.data.jpa.domain.support.AuditingEntityListener;
 
-import java.time.LocalDateTime;
+import java.time.Instant;
 import java.util.UUID;
 
 @Entity
@@ -33,14 +33,14 @@ public class OutboxEvent {
     private OutboxEventStatus status = OutboxEventStatus.UNPROCESSED;
 
     @Column
-    private LocalDateTime lockedAt;
+    private Instant lockedAt;
 
     @Column(nullable = false)
     private int retryCount = 0;
 
     @CreatedDate
     @Column(nullable = false, updatable = false)
-    private LocalDateTime createdAt;
+    private Instant createdAt;
 
 
     protected OutboxEvent() {}
@@ -50,7 +50,7 @@ public class OutboxEvent {
         this.aggregateId = aggregateId;
         this.eventType = eventType;
         this.payload = payload;
-        this.createdAt = LocalDateTime.now();
+        this.createdAt = Instant.now();
     }
 
     // Getters
@@ -60,13 +60,13 @@ public class OutboxEvent {
     public String getEventType() { return eventType; }
     public String getPayload() { return payload; }
     public OutboxEventStatus getStatus() { return status; }
-    public LocalDateTime getLockedAt() { return lockedAt; }
+    public Instant getLockedAt() { return lockedAt; }
     public int getRetryCount() { return retryCount; }
-    public LocalDateTime getCreatedAt() { return createdAt; }
+    public Instant getCreatedAt() { return createdAt; }
 
     // Setters
     public void setStatus(OutboxEventStatus status) { this.status = status; }
-    public void setLockedAt(LocalDateTime lockedAt) { this.lockedAt = lockedAt; }
+    public void setLockedAt(Instant lockedAt) { this.lockedAt = lockedAt; }
     public void incrementRetryCount() { this.retryCount++; }
     
     // Setter for testing purposes
@@ -75,7 +75,7 @@ public class OutboxEvent {
     @PrePersist
     public void prePersist() {
         if (this.createdAt == null) {
-            this.createdAt = LocalDateTime.now();
+            this.createdAt = Instant.now();
         }
     }
 }

@@ -8,7 +8,8 @@ import com.astropay.domain.model.user.UserStatus;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
-import java.time.LocalDateTime;
+import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -48,8 +49,8 @@ class UserMapperTest {
         when(user.getEmail()).thenReturn("jane.doe@example.com");
         when(user.getStatus()).thenReturn(UserStatus.ACTIVE);
         when(user.getRole()).thenReturn(Role.ROLE_ADMIN);
-        when(user.getCreatedAt()).thenReturn(LocalDateTime.now().minusDays(1));
-        when(user.getUpdatedAt()).thenReturn(LocalDateTime.now());
+        when(user.getCreatedAt()).thenReturn(Instant.now().minus(1, ChronoUnit.DAYS));
+        when(user.getUpdatedAt()).thenReturn(Instant.now());
 
         // Act
         UserResponse response = mapper.toUserResponse(user);

@@ -3,7 +3,7 @@ package com.astropay.application.dto.response.transaction;
 import com.astropay.domain.model.transaction.Transaction;
 import com.astropay.domain.model.user.User;
 
-import java.time.LocalDateTime;
+import java.time.Instant;
 import java.util.UUID;
 
 public class TransactionUserResponse {
@@ -13,7 +13,7 @@ public class TransactionUserResponse {
     private String senderName;
     private String senderEmail;
     private String senderDocument;
-    private LocalDateTime transactionDate;
+    private Instant transactionDate;
 
     public TransactionUserResponse() {
     }
@@ -29,7 +29,7 @@ public class TransactionUserResponse {
         this.transactionDate = transaction.getCreatedAt();
     }
 
-    public TransactionUserResponse(UUID transactionIdempotencyKey, Long transactionId, String senderName, String senderEmail, String senderDocument, LocalDateTime transactionDate) {
+    public TransactionUserResponse(UUID transactionIdempotencyKey, Long transactionId, String senderName, String senderEmail, String senderDocument, Instant transactionDate) {
         this.transactionIdempotencyKey = transactionIdempotencyKey;
         this.transactionId = transactionId;
         this.senderName = senderName;
@@ -58,7 +58,7 @@ public class TransactionUserResponse {
         return senderDocument;
     }
 
-    public LocalDateTime getTransactionDate() {
+    public Instant getTransactionDate() {
         return transactionDate;
     }
 }

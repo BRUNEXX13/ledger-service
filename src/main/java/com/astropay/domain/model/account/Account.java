@@ -14,7 +14,7 @@ import org.springframework.data.jpa.domain.support.AuditingEntityListener;
 import java.io.Serial;
 import java.io.Serializable;
 import java.math.BigDecimal;
-import java.time.LocalDateTime;
+import java.time.Instant;
 import java.util.Objects;
 
 @Entity
@@ -47,14 +47,14 @@ public class Account implements Serializable {
     private AccountStatus status;
 
     @CreatedDate
-    @JsonFormat(pattern = AppConstants.DATE_TIME_FORMAT)
+    @JsonFormat(pattern = AppConstants.DATE_TIME_FORMAT, timezone = "UTC")
     @Column(nullable = false, updatable = false)
-    private LocalDateTime createdAt;
+    private Instant createdAt;
 
     @LastModifiedDate
-    @JsonFormat(pattern = AppConstants.DATE_TIME_FORMAT)
+    @JsonFormat(pattern = AppConstants.DATE_TIME_FORMAT, timezone = "UTC")
     @Column(nullable = false)
-    private LocalDateTime updatedAt;
+    private Instant updatedAt;
 
 
     protected Account() {}
@@ -71,8 +71,8 @@ public class Account implements Serializable {
     public User getUser() { return user; }
     public BigDecimal getBalance() { return balance; }
     public AccountStatus getStatus() { return status; }
-    public LocalDateTime getCreatedAt() { return createdAt; }
-    public LocalDateTime getUpdatedAt() { return updatedAt; }
+    public Instant getCreatedAt() { return createdAt; }
+    public Instant getUpdatedAt() { return updatedAt; }
 
     // Business methods
     public void deposit(BigDecimal amount) {
@@ -123,16 +123,16 @@ public class Account implements Serializable {
     @PrePersist
     public void prePersist() {
         if (this.createdAt == null) {
-            this.createdAt = LocalDateTime.now();
+            this.createdAt = Instant.now();
         }
         if (this.updatedAt == null) {
-            this.updatedAt = LocalDateTime.now();
+            this.updatedAt = Instant.now();
         }
     }
 
     @PreUpdate
     public void preUpdate() {
-        this.updatedAt = LocalDateTime.now();
+        this.updatedAt = Instant.now();
     }
 
     @Override

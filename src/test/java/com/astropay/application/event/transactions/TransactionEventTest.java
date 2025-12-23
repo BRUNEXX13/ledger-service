@@ -4,7 +4,7 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 import java.math.BigDecimal;
-import java.time.LocalDateTime;
+import java.time.Instant;
 import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -20,7 +20,7 @@ class TransactionEventTest {
         Long senderAccountId = 10L;
         Long receiverAccountId = 20L;
         BigDecimal amount = new BigDecimal("100.50");
-        LocalDateTime timestamp = LocalDateTime.now();
+        Instant timestamp = Instant.now();
         UUID idempotencyKey = UUID.randomUUID();
 
         // Act
@@ -44,7 +44,7 @@ class TransactionEventTest {
         Long senderAccountId = 10L;
         Long receiverAccountId = 20L;
         BigDecimal amount = new BigDecimal("100.50");
-        LocalDateTime timestamp = LocalDateTime.now();
+        Instant timestamp = Instant.now();
         UUID idempotencyKey = UUID.randomUUID();
 
         // Act

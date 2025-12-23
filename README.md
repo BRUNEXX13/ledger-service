@@ -11,7 +11,7 @@ This project implements a robust and scalable Ledger service to manage user acco
 The project uses a modern and complete technology stack:
 
 ### Backend & Frameworks
-*   **Java 21:** Base language, leveraging the latest performance and syntax features.
+*   **Java 23:** Base language, leveraging the latest performance and syntax features.
 *   **Spring Boot 3:** Main framework for dependency injection, configuration, and execution.
 *   **Spring Data JPA / Hibernate:** Persistence layer and ORM.
 *   **Spring Web:** Building the RESTful API. 5 Levels of Richardson Maturity Model.
@@ -83,7 +83,7 @@ For a complete technical overview, including architecture, design patterns, and 
 
 ### Prerequisites
 
--   Java 21+
+-   Java 23+
 -   Maven 3.8+
 -   Docker and Docker Compose
 

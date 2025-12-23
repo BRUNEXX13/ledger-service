@@ -9,7 +9,7 @@ import org.springframework.hateoas.RepresentationModel;
 import org.springframework.hateoas.server.core.Relation;
 
 import java.math.BigDecimal;
-import java.time.LocalDateTime;
+import java.time.Instant;
 import java.util.Objects;
 
 @JsonRootName(value = "account")
@@ -22,11 +22,11 @@ public class AccountResponse extends RepresentationModel<AccountResponse> {
     private BigDecimal balance;
     private AccountStatus status;
 
-    @JsonFormat(pattern = AppConstants.DATE_TIME_FORMAT)
-    private LocalDateTime createdAt;
+    @JsonFormat(pattern = AppConstants.DATE_TIME_FORMAT, timezone = "UTC")
+    private Instant createdAt;
 
-    @JsonFormat(pattern = AppConstants.DATE_TIME_FORMAT)
-    private LocalDateTime updatedAt;
+    @JsonFormat(pattern = AppConstants.DATE_TIME_FORMAT, timezone = "UTC")
+    private Instant updatedAt;
 
     /**
      * Construtor padrão exigido por frameworks como Jackson para deserialização.
@@ -36,7 +36,7 @@ public class AccountResponse extends RepresentationModel<AccountResponse> {
     public AccountResponse() {
     }
 
-    public AccountResponse(Long id, Long userId, BigDecimal balance, AccountStatus status, LocalDateTime createdAt, LocalDateTime updatedAt) {
+    public AccountResponse(Long id, Long userId, BigDecimal balance, AccountStatus status, Instant createdAt, Instant updatedAt) {
         this.id = id;
         this.userId = userId;
         this.balance = balance;
@@ -53,7 +53,7 @@ public class AccountResponse extends RepresentationModel<AccountResponse> {
     public void setBalance(BigDecimal balance) { this.balance = balance; }
     public AccountStatus getStatus() { return status; }
     public void setStatus(AccountStatus status) { this.status = status; }
-    public LocalDateTime getCreatedAt() { return createdAt; }
+    public Instant getCreatedAt() { return createdAt; }
 
     @Override
     public boolean equals(Object o) {

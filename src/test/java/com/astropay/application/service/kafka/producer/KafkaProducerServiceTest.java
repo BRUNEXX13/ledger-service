@@ -14,7 +14,7 @@ import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.kafka.support.SendResult;
 
 import java.math.BigDecimal;
-import java.time.LocalDateTime;
+import java.time.Instant;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 
@@ -48,7 +48,7 @@ class KafkaProducerServiceTest {
     @DisplayName("sendTransactionEvent should call kafkaTemplate and return future")
     void sendTransactionEvent_shouldCallKafkaTemplateCorrectly() {
         // Arrange
-        TransactionEvent event = new TransactionEvent(1L, 10L, 20L, BigDecimal.TEN, LocalDateTime.now(), UUID.randomUUID());
+        TransactionEvent event = new TransactionEvent(1L, 10L, 20L, BigDecimal.TEN, Instant.now(), UUID.randomUUID());
         when(kafkaTemplate.send(eq("transactions"), any(TransactionEvent.class))).thenReturn(future);
 
         // Act
@@ -63,7 +63,7 @@ class KafkaProducerServiceTest {
     @DisplayName("sendTransactionEvent should handle success callback")
     void sendTransactionEvent_shouldHandleSuccessCallback() {
         // Arrange
-        TransactionEvent event = new TransactionEvent(1L, 10L, 20L, BigDecimal.TEN, LocalDateTime.now(), UUID.randomUUID());
+        TransactionEvent event = new TransactionEvent(1L, 10L, 20L, BigDecimal.TEN, Instant.now(), UUID.randomUUID());
         when(kafkaTemplate.send(eq("transactions"), any(TransactionEvent.class))).thenReturn(future);
         
         SendResult<String, Object> sendResult = mock(SendResult.class);
@@ -85,7 +85,7 @@ class KafkaProducerServiceTest {
     @DisplayName("sendTransactionEvent should handle failure callback")
     void sendTransactionEvent_shouldHandleFailureCallback() {
         // Arrange
-        TransactionEvent event = new TransactionEvent(1L, 10L, 20L, BigDecimal.TEN, LocalDateTime.now(), UUID.randomUUID());
+        TransactionEvent event = new TransactionEvent(1L, 10L, 20L, BigDecimal.TEN, Instant.now(), UUID.randomUUID());
         when(kafkaTemplate.send(eq("transactions"), any(TransactionEvent.class))).thenReturn(future);
 
         // Act
@@ -110,7 +110,7 @@ class KafkaProducerServiceTest {
     @DisplayName("sendAccountCreatedEvent should call kafkaTemplate and return future")
     void sendAccountCreatedEvent_shouldCallKafkaTemplateCorrectly() {
         // Arrange
-        AccountCreatedEvent event = new AccountCreatedEvent(1L, 10L, "John Doe", "john.doe@example.com", LocalDateTime.now());
+        AccountCreatedEvent event = new AccountCreatedEvent(1L, 10L, "John Doe", "john.doe@example.com", Instant.now());
         when(kafkaTemplate.send(eq("accounts"), any(AccountCreatedEvent.class))).thenReturn(future);
 
         // Act

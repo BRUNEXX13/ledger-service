@@ -10,7 +10,7 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
-import java.time.LocalDateTime;
+import java.time.Instant;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -41,7 +41,7 @@ class AccountCreatedEventListenerTest {
                 1L,
                 "John Doe",
                 "john.doe@example.com",
-                LocalDateTime.now()
+                Instant.now()
         );
 
         // Act
@@ -69,7 +69,7 @@ class AccountCreatedEventListenerTest {
                 1L,
                 "John Doe",
                 "john.doe@example.com",
-                LocalDateTime.now()
+                Instant.now()
         );
 
         // Mock the email service to throw an exception

@@ -27,7 +27,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import java.math.BigDecimal;
-import java.time.LocalDateTime;
+import java.time.Instant;
 import java.util.Collections;
 import java.util.Optional;
 
@@ -123,7 +123,7 @@ class AccountServiceImplTest {
         CreateAccountRequest request = new CreateAccountRequest(user.getId(), BigDecimal.TEN);
         Account savedAccount = new Account(user, BigDecimal.TEN);
         ReflectionTestUtils.setField(savedAccount, "id", 1L); // Set ID for the saved object
-        AccountResponse expectedResponse = new AccountResponse(1L, user.getId(), BigDecimal.TEN, AccountStatus.ACTIVE, LocalDateTime.now(), LocalDateTime.now());
+        AccountResponse expectedResponse = new AccountResponse(1L, user.getId(), BigDecimal.TEN, AccountStatus.ACTIVE, Instant.now(), Instant.now());
 
         when(userRepository.findById(user.getId())).thenReturn(Optional.of(user));
         when(accountRepository.findByUser_Id(user.getId())).thenReturn(Optional.empty());
@@ -159,7 +159,7 @@ class AccountServiceImplTest {
     void findAccountById_shouldReturnAccount() {
         // Arrange
         Account account = new Account(user, BigDecimal.TEN);
-        AccountResponse response = new AccountResponse(1L, user.getId(), BigDecimal.TEN, AccountStatus.ACTIVE, LocalDateTime.now(), LocalDateTime.now());
+        AccountResponse response = new AccountResponse(1L, user.getId(), BigDecimal.TEN, AccountStatus.ACTIVE, Instant.now(), Instant.now());
         
         when(accountRepository.findById(1L)).thenReturn(Optional.of(account));
         when(accountMapper.toAccountResponse(account)).thenReturn(response);
@@ -192,7 +192,7 @@ class AccountServiceImplTest {
         Pageable pageable = PageRequest.of(0, 10);
         Account account = new Account(user, BigDecimal.TEN);
         Page<Account> accountPage = new PageImpl<>(Collections.singletonList(account), pageable, 1);
-        AccountResponse response = new AccountResponse(1L, user.getId(), BigDecimal.TEN, AccountStatus.ACTIVE, LocalDateTime.now(), LocalDateTime.now());
+        AccountResponse response = new AccountResponse(1L, user.getId(), BigDecimal.TEN, AccountStatus.ACTIVE, Instant.now(), Instant.now());
 
         when(accountRepository.findAll(pageable)).thenReturn(accountPage);
         when(accountMapper.toAccountResponse(any(Account.class))).thenReturn(response);
@@ -219,7 +219,7 @@ class AccountServiceImplTest {
         Account originalAccount = new Account(user, new BigDecimal("100.00"));
         Account spyAccount = spy(originalAccount); // Spy to verify method calls on the object
 
-        AccountResponse response = new AccountResponse(accountId, user.getId(), newBalance, AccountStatus.ACTIVE, LocalDateTime.now(), LocalDateTime.now());
+        AccountResponse response = new AccountResponse(accountId, user.getId(), newBalance, AccountStatus.ACTIVE, Instant.now(), Instant.now());
 
         when(accountRepository.findById(accountId)).thenReturn(Optional.of(spyAccount));
         when(accountRepository.save(any(Account.class))).thenReturn(spyAccount);

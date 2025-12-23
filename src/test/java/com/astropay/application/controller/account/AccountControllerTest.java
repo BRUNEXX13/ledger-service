@@ -23,7 +23,7 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
 import java.math.BigDecimal;
-import java.time.LocalDateTime;
+import java.time.Instant;
 import java.util.Collections;
 
 import static org.mockito.ArgumentMatchers.any;
@@ -61,7 +61,7 @@ class AccountControllerTest {
     @DisplayName("GET /accounts/{id} - Should return 200 OK for existing account")
     void shouldGetAccountById() throws Exception {
         Long accountId = 1L;
-        AccountResponse response = new AccountResponse(accountId, 1L, new BigDecimal("100.00"), AccountStatus.ACTIVE, LocalDateTime.now(), LocalDateTime.now());
+        AccountResponse response = new AccountResponse(accountId, 1L, new BigDecimal("100.00"), AccountStatus.ACTIVE, Instant.now(), Instant.now());
         when(accountService.findAccountById(accountId)).thenReturn(response);
 
         mockMvc.perform(get("/accounts/{id}", accountId))
@@ -84,7 +84,7 @@ class AccountControllerTest {
     void shouldUpdateAccount() throws Exception {
         Long accountId = 1L;
         UpdateAccountRequest request = new UpdateAccountRequest(new BigDecimal("200.00"));
-        AccountResponse response = new AccountResponse(accountId, 1L, new BigDecimal("200.00"), AccountStatus.ACTIVE, LocalDateTime.now(), LocalDateTime.now());
+        AccountResponse response = new AccountResponse(accountId, 1L, new BigDecimal("200.00"), AccountStatus.ACTIVE, Instant.now(), Instant.now());
         when(accountService.updateAccount(any(Long.class), any(UpdateAccountRequest.class))).thenReturn(response);
 
         mockMvc.perform(put("/accounts/{id}", accountId)

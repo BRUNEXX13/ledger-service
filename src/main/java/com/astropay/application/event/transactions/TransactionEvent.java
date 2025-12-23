@@ -1,7 +1,7 @@
 package com.astropay.application.event.transactions;
 
 import java.math.BigDecimal;
-import java.time.LocalDateTime;
+import java.time.Instant;
 import java.util.UUID;
 
 public class TransactionEvent {
@@ -10,7 +10,7 @@ public class TransactionEvent {
     private Long senderAccountId;
     private Long receiverAccountId;
     private BigDecimal amount;
-    private LocalDateTime timestamp;
+    private Instant timestamp;
     private UUID idempotencyKey;
 
     /**
@@ -19,7 +19,7 @@ public class TransactionEvent {
     public TransactionEvent() {
     }
 
-    public TransactionEvent(Long transactionId, Long senderAccountId, Long receiverAccountId, BigDecimal amount, LocalDateTime timestamp, UUID idempotencyKey) {
+    public TransactionEvent(Long transactionId, Long senderAccountId, Long receiverAccountId, BigDecimal amount, Instant timestamp, UUID idempotencyKey) {
         this.transactionId = transactionId;
         this.senderAccountId = senderAccountId;
         this.receiverAccountId = receiverAccountId;
@@ -61,11 +61,11 @@ public class TransactionEvent {
         this.amount = amount;
     }
 
-    public LocalDateTime getTimestamp() {
+    public Instant getTimestamp() {
         return timestamp;
     }
 
-    public void setTimestamp(LocalDateTime timestamp) {
+    public void setTimestamp(Instant timestamp) {
         this.timestamp = timestamp;
     }
 

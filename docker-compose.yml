@@ -122,7 +122,7 @@ services:
     container_name: datadog-agent
     environment:
       # Substitua pela sua API Key e Site (ex: datadoghq.com, datadoghq.eu)
-      - DD_API_KEY=YOUR_API_KEY
+      - DD_API_KEY=5f99ec1cb952e5be2249d123ae83a7ce
       - DD_SITE=datadoghq.com
       - DD_ENV=local
       - DD_SERVICE=ledger-service

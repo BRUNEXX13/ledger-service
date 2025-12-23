@@ -8,7 +8,7 @@ import org.springframework.hateoas.RepresentationModel;
 import org.springframework.hateoas.server.core.Relation;
 
 import java.math.BigDecimal;
-import java.time.LocalDateTime;
+import java.time.Instant;
 import java.util.Objects;
 import java.util.UUID;
 
@@ -25,8 +25,8 @@ public class TransactionResponse extends RepresentationModel<TransactionResponse
     private String failureReason; // Adicionado
     private UUID idempotencyKey;
 
-    @JsonFormat(pattern = AppConstants.DATE_TIME_FORMAT)
-    private LocalDateTime createdAt;
+    @JsonFormat(pattern = AppConstants.DATE_TIME_FORMAT, timezone = "UTC")
+    private Instant createdAt;
 
     public TransactionResponse() {
     }
@@ -57,8 +57,8 @@ public class TransactionResponse extends RepresentationModel<TransactionResponse
     public void setFailureReason(String failureReason) { this.failureReason = failureReason; }
     public UUID getIdempotencyKey() { return idempotencyKey; }
     public void setIdempotencyKey(UUID idempotencyKey) { this.idempotencyKey = idempotencyKey; }
-    public LocalDateTime getCreatedAt() { return createdAt; }
-    public void setCreatedAt(LocalDateTime createdAt) { this.createdAt = createdAt; }
+    public Instant getCreatedAt() { return createdAt; }
+    public void setCreatedAt(Instant createdAt) { this.createdAt = createdAt; }
 
     @Override
     public boolean equals(Object o) {

@@ -24,7 +24,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import java.math.BigDecimal;
-import java.time.LocalDateTime;
+import java.time.Instant;
 import java.util.Collections;
 import java.util.Optional;
 
@@ -97,7 +97,7 @@ class UserServiceImplTest {
     void findUserById_shouldReturnUserResponseWhenFound() {
         // Arrange
         Long userId = 1L;
-        UserResponse expectedResponse = new UserResponse(userId, "John Doe", "12345678900", "john.doe@example.com", UserStatus.ACTIVE, Role.ROLE_EMPLOYEE, LocalDateTime.now(), LocalDateTime.now());
+        UserResponse expectedResponse = new UserResponse(userId, "John Doe", "12345678900", "john.doe@example.com", UserStatus.ACTIVE, Role.ROLE_EMPLOYEE, Instant.now(), Instant.now());
         
         when(userRepository.findById(userId)).thenReturn(Optional.of(user));
         when(userMapper.toUserResponse(user)).thenReturn(expectedResponse);
