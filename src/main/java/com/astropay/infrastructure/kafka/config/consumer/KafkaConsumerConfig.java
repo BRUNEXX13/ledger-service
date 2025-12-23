@@ -1,20 +1,29 @@
 package com.astropay.infrastructure.kafka.config.consumer;
 
 import org.apache.kafka.clients.consumer.ConsumerConfig;
+import org.apache.kafka.common.TopicPartition;
 import org.apache.kafka.common.serialization.StringDeserializer;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.kafka.config.ConcurrentKafkaListenerContainerFactory;
 import org.springframework.kafka.core.ConsumerFactory;
 import org.springframework.kafka.core.DefaultKafkaConsumerFactory;
+import org.springframework.kafka.core.KafkaTemplate;
+import org.springframework.kafka.listener.DeadLetterPublishingRecoverer;
+import org.springframework.kafka.listener.DefaultErrorHandler;
 import org.springframework.kafka.support.serializer.JsonDeserializer;
+import org.springframework.util.backoff.FixedBackOff;
 
 import java.util.HashMap;
 import java.util.Map;
 
 @Configuration
 public class KafkaConsumerConfig {
+
+    private static final Logger log = LoggerFactory.getLogger(KafkaConsumerConfig.class);
 
     @Value("${spring.kafka.bootstrap-servers}")
     private String bootstrapServers;
@@ -37,7 +46,6 @@ public class KafkaConsumerConfig {
         props.put(JsonDeserializer.USE_TYPE_INFO_HEADERS, "true");
 
         // Explicit type mapping to ensure correct deserialization
-        // This maps the simple class name (or whatever is in the header) to the full class path
         props.put(JsonDeserializer.TYPE_MAPPINGS, 
             "com.astropay.application.event.transactions.TransactionEvent:com.astropay.application.event.transactions.TransactionEvent," +
             "com.astropay.application.event.account.AccountCreatedEvent:com.astropay.application.event.account.AccountCreatedEvent"
@@ -46,10 +54,37 @@ public class KafkaConsumerConfig {
         return new DefaultKafkaConsumerFactory<>(props);
     }
 
+    /**
+     * Configures the Error Handler with Dead Letter Queue (DLQ) support.
+     * If processing fails after retries, the message is sent to a topic named original-topic.DLT
+     */
     @Bean
-    public ConcurrentKafkaListenerContainerFactory<String, Object> kafkaListenerContainerFactory() {
+    public DefaultErrorHandler errorHandler(KafkaTemplate<String, Object> kafkaTemplate) {
+        // Recoverer that sends the failed message to the DLT (Dead Letter Topic)
+        DeadLetterPublishingRecoverer recoverer = new DeadLetterPublishingRecoverer(kafkaTemplate,
+                (r, e) -> {
+                    log.error("Message failed after retries. Sending to DLQ. Topic: {}, Partition: {}, Offset: {}, Error: {}",
+                            r.topic(), r.partition(), r.offset(), e.getMessage());
+                    return new TopicPartition(r.topic() + ".DLT", r.partition());
+                });
+
+        // BackOff strategy: Retry 3 times with 1 second interval
+        FixedBackOff backOff = new FixedBackOff(1000L, 3);
+
+        return new DefaultErrorHandler(recoverer, backOff);
+    }
+
+    @Bean
+    public ConcurrentKafkaListenerContainerFactory<String, Object> kafkaListenerContainerFactory(
+            ConsumerFactory<String, Object> consumerFactory,
+            DefaultErrorHandler errorHandler) {
+        
         ConcurrentKafkaListenerContainerFactory<String, Object> factory = new ConcurrentKafkaListenerContainerFactory<>();
-        factory.setConsumerFactory(consumerFactory());
+        factory.setConsumerFactory(consumerFactory);
+        
+        // Set the error handler with DLQ support
+        factory.setCommonErrorHandler(errorHandler);
+
         return factory;
     }
 }
