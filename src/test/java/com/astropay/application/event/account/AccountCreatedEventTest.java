@@ -3,7 +3,7 @@ package com.astropay.application.event.account;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
-import java.time.LocalDateTime;
+import java.time.Instant;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -18,7 +18,7 @@ class AccountCreatedEventTest {
         Long userId = 2L;
         String userName = "John Doe";
         String userEmail = "john.doe@example.com";
-        LocalDateTime createdAt = LocalDateTime.now();
+        Instant createdAt = Instant.now();
 
         // Act
         AccountCreatedEvent event = new AccountCreatedEvent(accountId, userId, userName, userEmail, createdAt);
@@ -40,7 +40,7 @@ class AccountCreatedEventTest {
         Long userId = 2L;
         String userName = "John Doe";
         String userEmail = "john.doe@example.com";
-        LocalDateTime createdAt = LocalDateTime.now();
+        Instant createdAt = Instant.now();
 
         // Act
         AccountCreatedEvent event = new AccountCreatedEvent();

@@ -6,7 +6,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
-import java.time.LocalDateTime;
+import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
 
@@ -17,7 +17,7 @@ public interface OutboxEventRepository extends JpaRepository<OutboxEvent, UUID> 
     @Query(value = "SELECT * FROM tb_outbox_event e WHERE e.status = :#{#status.ordinal()} AND e.event_type = :eventType AND (e.locked_at IS NULL OR e.locked_at < :lockTimeout) ORDER BY e.created_at ASC FOR UPDATE SKIP LOCKED", nativeQuery = true)
     List<OutboxEvent> findAndLockUnprocessedEvents(@Param("status") OutboxEventStatus status,
                                                    @Param("eventType") String eventType,
-                                                   @Param("lockTimeout") LocalDateTime lockTimeout,
+                                                   @Param("lockTimeout") Instant lockTimeout,
                                                    Pageable pageable);
 
     List<OutboxEvent> findByEventType(String eventType);

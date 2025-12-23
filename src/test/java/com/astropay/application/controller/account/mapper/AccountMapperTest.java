@@ -8,7 +8,8 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 import java.math.BigDecimal;
-import java.time.LocalDateTime;
+import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -31,8 +32,8 @@ class AccountMapperTest {
         when(account.getUser()).thenReturn(user);
         when(account.getBalance()).thenReturn(new BigDecimal("123.45"));
         when(account.getStatus()).thenReturn(AccountStatus.ACTIVE);
-        when(account.getCreatedAt()).thenReturn(LocalDateTime.now().minusDays(1));
-        when(account.getUpdatedAt()).thenReturn(LocalDateTime.now());
+        when(account.getCreatedAt()).thenReturn(Instant.now().minus(1, ChronoUnit.DAYS));
+        when(account.getUpdatedAt()).thenReturn(Instant.now());
 
         // Act
         AccountResponse response = mapper.toAccountResponse(account);

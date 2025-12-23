@@ -6,7 +6,7 @@ import org.springframework.data.annotation.CreatedDate;
 import org.springframework.data.jpa.domain.support.AuditingEntityListener;
 
 import java.math.BigDecimal;
-import java.time.LocalDateTime;
+import java.time.Instant;
 import java.util.Objects;
 import java.util.UUID;
 
@@ -45,7 +45,7 @@ public class Transaction {
 
     @CreatedDate
     @Column(nullable = false, updatable = false)
-    private LocalDateTime createdAt;
+    private Instant createdAt;
 
     @Column(nullable = false, unique = true)
     private UUID idempotencyKey;
@@ -77,13 +77,13 @@ public class Transaction {
     public BigDecimal getAmount() { return amount; }
     public TransactionStatus getStatus() { return status; }
     public String getFailureReason() { return failureReason; }
-    public LocalDateTime getCreatedAt() { return createdAt; }
+    public Instant getCreatedAt() { return createdAt; }
     public UUID getIdempotencyKey() { return idempotencyKey; }
 
     @PrePersist
     public void prePersist() {
         if (this.createdAt == null) {
-            this.createdAt = LocalDateTime.now();
+            this.createdAt = Instant.now();
         }
     }
 

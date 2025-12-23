@@ -23,7 +23,7 @@ import org.mockito.junit.jupiter.MockitoSettings;
 import org.mockito.quality.Strictness;
 
 import java.math.BigDecimal;
-import java.time.LocalDateTime;
+import java.time.Instant;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -69,7 +69,7 @@ class TransactionAuditServiceImplTest {
         when(transaction.getSender()).thenReturn(sender);
         when(transaction.getReceiver()).thenReturn(receiver);
         when(transaction.getAmount()).thenReturn(BigDecimal.TEN);
-        when(transaction.getCreatedAt()).thenReturn(LocalDateTime.now());
+        when(transaction.getCreatedAt()).thenReturn(Instant.now());
         when(transaction.getIdempotencyKey()).thenReturn(UUID.randomUUID());
     }
 

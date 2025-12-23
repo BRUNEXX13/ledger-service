@@ -9,7 +9,7 @@ import com.fasterxml.jackson.annotation.JsonRootName;
 import org.springframework.hateoas.RepresentationModel;
 import org.springframework.hateoas.server.core.Relation;
 
-import java.time.LocalDateTime;
+import java.time.Instant;
 import java.util.Objects;
 
 @JsonRootName(value = "user")
@@ -24,17 +24,17 @@ public class UserResponse extends RepresentationModel<UserResponse> {
     private UserStatus status;
     private Role role;
 
-    @JsonFormat(pattern = AppConstants.DATE_TIME_FORMAT)
-    private LocalDateTime createdAt;
+    @JsonFormat(pattern = AppConstants.DATE_TIME_FORMAT, timezone = "UTC")
+    private Instant createdAt;
 
-    @JsonFormat(pattern = AppConstants.DATE_TIME_FORMAT)
-    private LocalDateTime updatedAt;
+    @JsonFormat(pattern = AppConstants.DATE_TIME_FORMAT, timezone = "UTC")
+    private Instant updatedAt;
 
     public UserResponse() {
     }
 
     // Construtor, Getters e Setters
-    public UserResponse(Long id, String name, String document, String email, UserStatus status, Role role, LocalDateTime createdAt, LocalDateTime updatedAt) {
+    public UserResponse(Long id, String name, String document, String email, UserStatus status, Role role, Instant createdAt, Instant updatedAt) {
         this.id = id;
         this.name = name;
         this.document = document;
@@ -62,10 +62,10 @@ public class UserResponse extends RepresentationModel<UserResponse> {
     public void setStatus(UserStatus status) { this.status = status; }
     public Role getRole() { return role; }
     public void setRole(Role role) { this.role = role; }
-    public LocalDateTime getCreatedAt() { return createdAt; }
-    public void setCreatedAt(LocalDateTime createdAt) { this.createdAt = createdAt; }
-    public LocalDateTime getUpdatedAt() { return updatedAt; }
-    public void setUpdatedAt(LocalDateTime updatedAt) { this.updatedAt = updatedAt; }
+    public Instant getCreatedAt() { return createdAt; }
+    public void setCreatedAt(Instant createdAt) { this.createdAt = createdAt; }
+    public Instant getUpdatedAt() { return updatedAt; }
+    public void setUpdatedAt(Instant updatedAt) { this.updatedAt = updatedAt; }
 
     @Override
     public boolean equals(Object o) {
@@ -95,8 +95,8 @@ public class UserResponse extends RepresentationModel<UserResponse> {
         private String email;
         private UserStatus status;
         private Role role;
-        private LocalDateTime createdAt;
-        private LocalDateTime updatedAt;
+        private Instant createdAt;
+        private Instant updatedAt;
 
         public Builder id(Long id) { this.id = id; return this; }
         public Builder name(String name) { this.name = name; return this; }
@@ -104,8 +104,8 @@ public class UserResponse extends RepresentationModel<UserResponse> {
         public Builder email(String email) { this.email = email; return this; }
         public Builder status(UserStatus status) { this.status = status; return this; }
         public Builder role(Role role) { this.role = role; return this; }
-        public Builder createdAt(LocalDateTime createdAt) { this.createdAt = createdAt; return this; }
-        public Builder updatedAt(LocalDateTime updatedAt) { this.updatedAt = updatedAt; return this; }
+        public Builder createdAt(Instant createdAt) { this.createdAt = createdAt; return this; }
+        public Builder updatedAt(Instant updatedAt) { this.updatedAt = updatedAt; return this; }
 
         public UserResponse build() {
             return new UserResponse(id, name, document, email, status, role, createdAt, updatedAt);

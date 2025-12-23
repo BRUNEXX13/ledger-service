@@ -13,7 +13,8 @@ import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.time.LocalDateTime;
+import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
@@ -43,7 +44,7 @@ public class OutboxEventScheduler {
     @Scheduled(fixedDelay = 50)
     @Transactional
     public void processNotificationEvents() {
-        LocalDateTime lockTimeout = LocalDateTime.now().minusMinutes(1);
+        Instant lockTimeout = Instant.now().minus(1, ChronoUnit.MINUTES);
         
         List<OutboxEvent> events = new ArrayList<>();
         for (String eventType : NOTIFICATION_EVENT_TYPES) {
@@ -60,7 +61,7 @@ public class OutboxEventScheduler {
             log.info("[Notifications] Found {} events to process.", events.size());
         }
         
-        LocalDateTime newLockTime = LocalDateTime.now();
+        Instant newLockTime = Instant.now();
         for (OutboxEvent event : events) {
             event.setStatus(OutboxEventStatus.PROCESSING);
             event.setLockedAt(newLockTime);

@@ -21,7 +21,7 @@ import org.mockito.quality.Strictness;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.kafka.support.SendResult;
 
-import java.time.LocalDateTime;
+import java.time.Instant;
 import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
@@ -66,11 +66,11 @@ class OutboxEventSchedulerTest {
         OutboxEvent event = new OutboxEvent("Transaction", "1", eventType, "{}");
         
         when(outboxEventRepository.findAndLockUnprocessedEvents(
-                eq(OutboxEventStatus.UNPROCESSED), anyString(), any(LocalDateTime.class), any(PageRequest.class)))
+                eq(OutboxEventStatus.UNPROCESSED), anyString(), any(Instant.class), any(PageRequest.class)))
                 .thenReturn(Collections.emptyList());
 
         when(outboxEventRepository.findAndLockUnprocessedEvents(
-                eq(OutboxEventStatus.UNPROCESSED), eq(eventType), any(LocalDateTime.class), any(PageRequest.class)))
+                eq(OutboxEventStatus.UNPROCESSED), eq(eventType), any(Instant.class), any(PageRequest.class)))
                 .thenReturn(List.of(event));
 
         // Mock Kafka success

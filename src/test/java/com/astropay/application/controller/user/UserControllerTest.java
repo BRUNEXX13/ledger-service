@@ -25,7 +25,7 @@ import org.springframework.test.context.ContextConfiguration;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
-import java.time.LocalDateTime;
+import java.time.Instant;
 import java.util.Collections;
 
 import static org.mockito.ArgumentMatchers.any;
@@ -66,7 +66,7 @@ class UserControllerTest {
     @DisplayName("POST /users - Should return 201 Created for valid request")
     void shouldCreateUser() throws Exception {
         CreateUserRequest request = new CreateUserRequest("John Doe", "12345678900", "john.doe@example.com");
-        UserResponse response = new UserResponse(1L, "John Doe", "12345678900", "john.doe@example.com", UserStatus.ACTIVE, Role.ROLE_EMPLOYEE, LocalDateTime.now(), LocalDateTime.now());
+        UserResponse response = new UserResponse(1L, "John Doe", "12345678900", "john.doe@example.com", UserStatus.ACTIVE, Role.ROLE_EMPLOYEE, Instant.now(), Instant.now());
         when(userService.createUser(any(CreateUserRequest.class))).thenReturn(response);
 
         mockMvc.perform(post("/users")
@@ -80,7 +80,7 @@ class UserControllerTest {
     @DisplayName("GET /users/{id} - Should return 200 OK for existing user")
     void shouldGetUserById() throws Exception {
         Long userId = 1L;
-        UserResponse response = new UserResponse(userId, "John Doe", "12345678900", "john.doe@example.com", UserStatus.ACTIVE, Role.ROLE_EMPLOYEE, LocalDateTime.now(), LocalDateTime.now());
+        UserResponse response = new UserResponse(userId, "John Doe", "12345678900", "john.doe@example.com", UserStatus.ACTIVE, Role.ROLE_EMPLOYEE, Instant.now(), Instant.now());
         when(userService.findUserById(userId)).thenReturn(response);
 
         mockMvc.perform(get("/users/{id}", userId))
@@ -104,7 +104,7 @@ class UserControllerTest {
         Long userId = 1L;
         Long executorId = 99L;
         UpdateUserRequest request = new UpdateUserRequest("John Doe Updated", "john.doe.updated@example.com", Role.ROLE_MANAGER);
-        UserResponse response = new UserResponse(userId, "John Doe Updated", "12345678900", "john.doe.updated@example.com", UserStatus.ACTIVE, Role.ROLE_MANAGER, LocalDateTime.now(), LocalDateTime.now());
+        UserResponse response = new UserResponse(userId, "John Doe Updated", "12345678900", "john.doe.updated@example.com", UserStatus.ACTIVE, Role.ROLE_MANAGER, Instant.now(), Instant.now());
         when(userService.updateUser(eq(userId), any(UpdateUserRequest.class), eq(executorId))).thenReturn(response);
 
         mockMvc.perform(put("/users/{id}", userId)
@@ -131,7 +131,7 @@ class UserControllerTest {
         Long userId = 1L;
         Long executorId = 99L;
         PatchUserRequest request = new PatchUserRequest("John Doe Patched", null, null, null);
-        UserResponse response = new UserResponse(userId, "John Doe Patched", "12345678900", "john.doe@example.com", UserStatus.ACTIVE, Role.ROLE_EMPLOYEE, LocalDateTime.now(), LocalDateTime.now());
+        UserResponse response = new UserResponse(userId, "John Doe Patched", "12345678900", "john.doe@example.com", UserStatus.ACTIVE, Role.ROLE_EMPLOYEE, Instant.now(), Instant.now());
         when(userService.patchUser(eq(userId), any(PatchUserRequest.class), eq(executorId))).thenReturn(response);
 
         mockMvc.perform(patch("/users/{id}", userId)

@@ -15,7 +15,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import java.math.BigDecimal;
-import java.time.LocalDateTime;
+import java.time.Instant;
 import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
@@ -54,7 +54,7 @@ class TransactionEventListenerTest {
         receiver = new User("Receiver Name", "222", "receiver@example.com", Role.ROLE_EMPLOYEE);
         ReflectionTestUtils.setField(receiver, "id", 20L);
 
-        transactionEvent = new TransactionEvent(1L, 10L, 20L, new BigDecimal("100.50"), LocalDateTime.now(), UUID.randomUUID());
+        transactionEvent = new TransactionEvent(1L, 10L, 20L, new BigDecimal("100.50"), Instant.now(), UUID.randomUUID());
     }
 
     @Test
