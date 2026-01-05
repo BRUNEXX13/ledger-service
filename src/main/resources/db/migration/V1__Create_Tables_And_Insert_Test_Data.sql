@@ -73,7 +73,7 @@ INSERT INTO tb_user (name, document, email, status, role, created_at, updated_at
 SELECT
     'Test User ' || i,
     '999999' || LPAD(i::text, 6, '0'),
-    'testuser' || i || '@astropay.com',
+    'testuser' || i || '@gmail.com',
     0, -- ACTIVE
     0, -- ROLE_EMPLOYEE
     CURRENT_TIMESTAMP,
