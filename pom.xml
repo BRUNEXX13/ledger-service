@@ -8,7 +8,7 @@
         <version>3.5.8</version>
         <relativePath/>
     </parent>
-    <groupId>com.astropay</groupId>
+    <groupId>com.bss</groupId>
     <artifactId>ledger-service</artifactId>
     <version>0.0.1-SNAPSHOT</version>
     <name>ledger-service</name>
@@ -210,16 +210,16 @@
                         <configuration>
                             <excludes>
                                 <!-- Exclui a classe principal da aplicação -->
-                                <exclude>com/astropay/LedgerServiceApplication.class</exclude>
+                                <exclude>com.bss/LedgerServiceApplication.class</exclude>
                                 <!-- Exclui todas as classes de configuração -->
-                                <exclude>com/astropay/application/config/**/*</exclude>
-                                <exclude>com/astropay/infrastructure/**/*</exclude>
+                                <exclude>com.bss/application/config/**/*</exclude>
+                                <exclude>com.bss/infrastructure/**/*</exclude>
                                 <!-- Exclui todos os DTOs -->
-                                <exclude>com/astropay/application/dto/**/*</exclude>
+                                <exclude>com.bss/application/dto/**/*</exclude>
                                 <!-- Exclui todas as exceções customizadas -->
-                                <exclude>com/astropay/application/exception/**/*</exclude>
+                                <exclude>com.bss/application/exception/**/*</exclude>
                                 <!-- Exclui todo o pacote de domínio (incluindo models, enums, etc.) -->
-                                <exclude>com/astropay/domain/**/*</exclude>
+                                <exclude>com.bss/domain/**/*</exclude>
                             </excludes>
                         </configuration>
                     </execution>

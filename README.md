@@ -271,7 +271,7 @@ transfer_stress_test ✓ [======================================] 0000/2576 VUs 
 .
 ├── src
 │   ├── main
-│   │   ├── java/com/astropay
+│   │   ├── java/com.bss
 │   │   │   ├── application         # Use Cases, DTOs, Services (Application Layer)
 │   │   │   ├── domain              # Entities, Business Rules (Domain Layer)
 │   │   │   └── infrastructure      # Configurations, Adapters (Infrastructure Layer)
