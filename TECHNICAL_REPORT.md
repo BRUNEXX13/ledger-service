@@ -60,10 +60,10 @@ The architecture was validated through extensive load testing using **k6**, simu
 ### Key Performance Metrics:
 | Metric | Result | Interpretation |
 | :--- | :--- | :--- |
-| **Throughput** | **~6,356 RPS** | Sustained near-target load on local hardware. |
+| **Throughput** | **~6,492 RPS** | Sustained near-target load on local hardware. |
 | **Error Rate** | **0.00%** | Flawless reliability under saturation. |
-| **Median Latency (p50)** | **2.24 ms** | Exceptional responsiveness for the majority of requests. |
-| **95th Percentile Latency (p95)** | **675 ms** | Acceptable queueing under hardware saturation (CPU/IO limit). |
+| **Median Latency (p50)** | **1.68 ms** | Exceptional responsiveness for the majority of requests. |
+| **95th Percentile Latency (p95)** | **13.27 ms** | Excellent low latency even under high load. |
 
 These results concretely demonstrate the effectiveness of the architectural choices and performance tuning, proving the system's capability to operate in demanding, large-scale production environments.
 
