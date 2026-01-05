@@ -15,7 +15,6 @@ import com.bss.domain.user.UserRepository;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.CachePut;
 import org.springframework.cache.annotation.Cacheable;
-import org.springframework.cache.annotation.Caching;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
@@ -68,6 +67,7 @@ public class AccountServiceImpl implements AccountService {
     }
 
     @Override
+    @CachePut(value = "accounts", key = "#result.id")
     public AccountResponse createAccount(CreateAccountRequest request) {
         User user = userRepository.findById(request.userId())
             .orElseThrow(() -> new ResourceNotFoundException(USER_NOT_FOUND_ID + request.userId()));
@@ -110,12 +110,7 @@ public class AccountServiceImpl implements AccountService {
     }
 
     @Override
-    @Caching(
-        evict = {
-            @CacheEvict(value = "accounts", key = "#id"),
-            @CacheEvict(value = "accounts", key = "'user:' + #result.user.id", condition = "#result.user != null")
-        }
-    )
+    @CacheEvict(value = "accounts", key = "#id")
     public void inactivateAccount(Long id) {
         Account account = accountRepository.findById(id)
             .orElseThrow(() -> new ResourceNotFoundException(ACCOUNT_NOT_FOUND_ID + id));
@@ -126,6 +121,7 @@ public class AccountServiceImpl implements AccountService {
     }
 
     @Override
+    @CacheEvict(value = "accounts", key = "#id")
     public void deleteAccount(Long id) {
         Account account = accountRepository.findById(id)
             .orElseThrow(() -> new ResourceNotFoundException(ACCOUNT_NOT_FOUND_ID + id));

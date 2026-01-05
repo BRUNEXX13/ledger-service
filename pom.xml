@@ -14,7 +14,7 @@
     <name>ledger-service</name>
     <description>ledger-service</description>
     <properties>
-        <java.version>21</java.version>
+        <java.version>23</java.version>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
         <resilience4j.version>2.2.0</resilience4j.version>
@@ -177,8 +177,8 @@
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-compiler-plugin</artifactId>
                 <configuration>
-                    <source>21</source>
-                    <target>21</target>
+                    <source>23</source>
+                    <target>23</target>
                 </configuration>
             </plugin>
             <plugin>
@@ -214,11 +214,11 @@
                                 <!-- Exclui todas as classes de configuração -->
                                 <exclude>com.bss/application/config/**/*</exclude>
                                 <exclude>com.bss/infrastructure/**/*</exclude>
-                                <!-- Exclui todos os DTOs -->
+                                <!-- Exclude todos os DTOs -->
                                 <exclude>com.bss/application/dto/**/*</exclude>
-                                <!-- Exclui todas as exceções customizadas -->
+                                <!-- Exclude todas as exceptions customs -->
                                 <exclude>com.bss/application/exception/**/*</exclude>
-                                <!-- Exclui todo o pacote de domínio (incluindo models, enums, etc.) -->
+                                <!-- Exclude package de domain ( models, enums, etc.) -->
                                 <exclude>com.bss/domain/**/*</exclude>
                             </excludes>
                         </configuration>
