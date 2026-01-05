@@ -11,7 +11,7 @@ This project implements a robust and scalable Ledger service to manage user acco
 The project uses a modern and complete technology stack:
 
 ### Backend & Frameworks
-*   **Java 21:** Base language, leveraging the latest performance and syntax features.
+*   **Java 23:** Base language, leveraging the latest performance and syntax features.
 *   **Spring Boot 3:** Main framework for dependency injection, configuration, and execution.
 *   **Spring Data JPA / Hibernate:** Persistence layer and ORM.
 *   **Spring Web:** Building the RESTful API. 5 Levels of Richardson Maturity Model.
@@ -83,7 +83,7 @@ For a complete technical overview, including architecture, design patterns, and 
 
 ### Prerequisites
 
--   Java 21+
+-   Java 23+
 -   Maven 3.8+
 -   Docker and Docker Compose
 
@@ -168,7 +168,7 @@ The project includes a simple load test script using k6.
 2.  **Run the test:**
 
     ```sh
-    k6 run load-test-650RPS.js
+    k6 run load-test-6500RPS.js
     ```
 
 
@@ -238,7 +238,7 @@ This will simulate multiple users creating accounts and making transfers, helpin
  / __________ \  |_|\_\  \_____/ 
 
      execution: local
-        script: load-test-650RPS.js
+        script: load-test-6500RPS.js
         output: -
 
      scenarios: (100.00%) 1 scenario, 5000 max VUs, 5m30s max duration (incl. graceful stop):
@@ -295,7 +295,7 @@ transfer_stress_test ✓ [======================================] 0000/2576 VUs 
 .
 ├── src
 │   ├── main
-│   │   ├── java/com/astropay
+│   │   ├── java/com.bss
 │   │   │   ├── application         # Use Cases, DTOs, Services (Application Layer)
 │   │   │   ├── domain              # Entities, Business Rules (Domain Layer)
 │   │   │   └── infrastructure      # Configurations, Adapters (Infrastructure Layer)

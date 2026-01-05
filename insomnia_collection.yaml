@@ -224,7 +224,7 @@ collection:
             {
             	"name": "Admin User",
             	"document": "0231",
-            	"email": "432@astropay.com"
+            	"email": "432@gmail.com"
             }
         headers:
           - name: Content-Type
