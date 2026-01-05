@@ -9,18 +9,18 @@ export const options = {
       executor: 'constant-arrival-rate',
       rate: 5000, // 5000 RPS
       timeUnit: '1s',
-      duration: '5m', // Duração aumentada para 5 minutos (Soak Test)
+      duration: '5m', // Duration increased to 5 minutes (Soak Test)
       preAllocatedVUs: 1000,
       maxVUs: 5000,
     },
   },
   thresholds: {
-    http_req_failed: ['rate<0.01'], // Erros abaixo de 1%
-    http_req_duration: ['p(95)<500'], // Meta de 500ms
+    http_req_failed: ['rate<0.01'], // Errors below 1%
+    http_req_duration: ['p(95)<500'], // Target of 500ms
   },
 };
 
-// Pega a URL da variável de ambiente ou usa localhost como padrão
+// Gets the URL from the environment variable or uses localhost as default
 const BASE_URL = __ENV.API_URL || 'http://localhost:8082/api/v1';
 const HEADERS = { 'Content-Type': 'application/json' };
 

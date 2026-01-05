@@ -11,15 +11,12 @@ import org.springframework.data.domain.Pageable;
 import java.math.BigDecimal;
 
 public interface AccountService {
-
-    // Alterado de void para Account para permitir reutilização eficiente
+    // Changed from void to Account to allow efficient reuse
     Account createAccountForUser(User user, BigDecimal initialBalance);
-
+    
     AccountResponse createAccount(CreateAccountRequest request);
     AccountResponse findAccountById(Long id);
-    
     Page<AccountResponse> findAllAccounts(Pageable pageable);
-    
     AccountResponse updateAccount(Long id, UpdateAccountRequest request);
     void inactivateAccount(Long id);
     void deleteAccount(Long id);

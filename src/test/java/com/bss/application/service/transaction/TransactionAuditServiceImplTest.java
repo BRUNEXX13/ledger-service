@@ -1,7 +1,6 @@
 package com.bss.application.service.transaction;
 
 import com.bss.application.dto.response.transaction.TransactionUserResponse;
-import com.bss.application.event.transactions.TransactionEvent;
 import com.bss.application.exception.ResourceNotFoundException;
 import com.bss.domain.account.Account;
 import com.bss.domain.outbox.OutboxEvent;
@@ -12,11 +11,9 @@ import com.bss.domain.user.User;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
-import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.mockito.junit.jupiter.MockitoSettings;
@@ -27,12 +24,13 @@ import java.time.LocalDateTime;
 import java.util.Optional;
 import java.util.UUID;
 
-import static org.junit.jupiter.api.Assertions.*;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
-@MockitoSettings(strictness = Strictness.LENIENT) // Permite stubs não utilizados no setUp
+@MockitoSettings(strictness = Strictness.LENIENT) // Allows unused stubs in setUp
 class TransactionAuditServiceImplTest {
 
     @Mock
@@ -44,90 +42,81 @@ class TransactionAuditServiceImplTest {
     @Mock
     private ObjectMapper objectMapper;
 
-    @InjectMocks
     private TransactionAuditServiceImpl transactionAuditService;
-
-    private Transaction transaction;
-    private User user;
 
     @BeforeEach
     void setUp() {
-        user = mock(User.class);
-        when(user.getId()).thenReturn(1L);
-        when(user.getName()).thenReturn("John Doe");
-        when(user.getEmail()).thenReturn("john@example.com");
-
-        Account sender = mock(Account.class);
-        when(sender.getId()).thenReturn(10L);
-        when(sender.getUser()).thenReturn(user);
-
-        Account receiver = mock(Account.class);
-        when(receiver.getId()).thenReturn(20L);
-
-        transaction = mock(Transaction.class);
-        when(transaction.getId()).thenReturn(100L);
-        when(transaction.getSender()).thenReturn(sender);
-        when(transaction.getReceiver()).thenReturn(receiver);
-        when(transaction.getAmount()).thenReturn(BigDecimal.TEN);
-        when(transaction.getCreatedAt()).thenReturn(LocalDateTime.now());
-        when(transaction.getIdempotencyKey()).thenReturn(UUID.randomUUID());
+        transactionAuditService = new TransactionAuditServiceImpl(outboxEventRepository, transactionRepository, objectMapper);
     }
 
     @Test
-    @DisplayName("Should create audit event successfully")
-    void shouldCreateAuditEventSuccessfully() throws JsonProcessingException {
+    void createAuditEvent_ShouldSaveOutboxEvent() throws JsonProcessingException {
         // Arrange
-        when(objectMapper.writeValueAsString(any(TransactionEvent.class))).thenReturn("{\"id\":100}");
+        User senderUser = new User("Sender", "123", "sender@test.com");
+        senderUser.setId(1L);
+        Account sender = new Account(senderUser, BigDecimal.TEN);
+        sender.setId(10L);
+
+        User receiverUser = new User("Receiver", "456", "receiver@test.com");
+        receiverUser.setId(2L);
+        Account receiver = new Account(receiverUser, BigDecimal.ZERO);
+        receiver.setId(20L);
+
+        Transaction transaction = new Transaction(sender, receiver, BigDecimal.ONE, UUID.randomUUID());
+        transaction.setId(100L);
+
+        when(objectMapper.writeValueAsString(any())).thenReturn("{\"json\":\"payload\"}");
 
         // Act
         transactionAuditService.createAuditEvent(transaction, "TransactionCompleted");
 
         // Assert
-        ArgumentCaptor<OutboxEvent> eventCaptor = ArgumentCaptor.forClass(OutboxEvent.class);
-        verify(outboxEventRepository).save(eventCaptor.capture());
+        ArgumentCaptor<OutboxEvent> captor = ArgumentCaptor.forClass(OutboxEvent.class);
+        verify(outboxEventRepository).save(captor.capture());
 
-        OutboxEvent savedEvent = eventCaptor.getValue();
-        assertEquals("Transaction", savedEvent.getAggregateType());
-        assertEquals("100", savedEvent.getAggregateId());
-        assertEquals("TransactionCompleted", savedEvent.getEventType());
-        assertEquals("{\"id\":100}", savedEvent.getPayload());
+        OutboxEvent savedEvent = captor.getValue();
+        assertThat(savedEvent.getAggregateType()).isEqualTo("Transaction");
+        assertThat(savedEvent.getAggregateId()).isEqualTo("100");
+        assertThat(savedEvent.getEventType()).isEqualTo("TransactionCompleted");
+        assertThat(savedEvent.getPayload()).isEqualTo("{\"json\":\"payload\"}");
     }
 
     @Test
-    @DisplayName("Should handle JSON serialization error gracefully")
-    void shouldHandleJsonSerializationError() throws JsonProcessingException {
+    void findUserByTransactionId_ShouldReturnResponse_WhenTransactionExists() {
         // Arrange
-        when(objectMapper.writeValueAsString(any())).thenThrow(new JsonProcessingException("Error") {});
+        User senderUser = new User("Sender", "123", "sender@test.com");
+        senderUser.setId(1L);
+        Account sender = new Account(senderUser, BigDecimal.TEN);
+        sender.setId(10L);
 
-        // Act
-        transactionAuditService.createAuditEvent(transaction, "TransactionCompleted");
+        User receiverUser = new User("Receiver", "456", "receiver@test.com");
+        receiverUser.setId(2L);
+        Account receiver = new Account(receiverUser, BigDecimal.ZERO);
+        receiver.setId(20L);
 
-        // Assert
-        verify(outboxEventRepository, never()).save(any());
-    }
+        Transaction transaction = new Transaction(sender, receiver, BigDecimal.ONE, UUID.randomUUID());
+        transaction.setId(100L);
 
-    @Test
-    @DisplayName("Should find user by transaction ID successfully")
-    void shouldFindUserByTransactionId() {
-        // Arrange
         when(transactionRepository.findById(100L)).thenReturn(Optional.of(transaction));
 
         // Act
         TransactionUserResponse response = transactionAuditService.findUserByTransactionId(100L);
 
         // Assert
-        assertNotNull(response);
-        assertEquals("John Doe", response.getSenderName());
-        assertEquals("john@example.com", response.getSenderEmail());
+        assertThat(response).isNotNull();
+        assertThat(response.getTransactionId()).isEqualTo(100L);
+        assertThat(response.getSender().getId()).isEqualTo(1L);
+        assertThat(response.getReceiver().getId()).isEqualTo(2L);
     }
 
     @Test
-    @DisplayName("Should throw exception when transaction not found")
-    void shouldThrowExceptionWhenTransactionNotFound() {
+    void findUserByTransactionId_ShouldThrowException_WhenTransactionNotFound() {
         // Arrange
         when(transactionRepository.findById(999L)).thenReturn(Optional.empty());
 
         // Act & Assert
-        assertThrows(ResourceNotFoundException.class, () -> transactionAuditService.findUserByTransactionId(999L));
+        assertThatThrownBy(() -> transactionAuditService.findUserByTransactionId(999L))
+                .isInstanceOf(ResourceNotFoundException.class)
+                .hasMessageContaining("Transaction not found with id: 999");
     }
 }

@@ -62,7 +62,7 @@ public class OutboxEventScheduler {
 
         List<OutboxEvent> processedEvents = new ArrayList<>();
         List<OutboxEvent> failedEvents = new ArrayList<>();
-        List<OutboxEvent> eventsToRetry = new ArrayList<>(); // Nova lista
+        List<OutboxEvent> eventsToRetry = new ArrayList<>(); // New list for retries
 
         for (OutboxEvent event : events) {
             try {
@@ -77,7 +77,7 @@ public class OutboxEventScheduler {
                     failedEvents.add(event);
                 } else {
                     event.setStatus(OutboxEventStatus.UNPROCESSED);
-                    eventsToRetry.add(event); // Adiciona à lista de retentativa
+                    eventsToRetry.add(event); // Adds to retry list
                 }
             }
         }
@@ -91,7 +91,7 @@ public class OutboxEventScheduler {
             log.warn("[Notifications] Marked {} events as FAILED after multiple retries.", failedEvents.size());
         }
         if (!eventsToRetry.isEmpty()) {
-            outboxEventRepository.saveAll(eventsToRetry); // Salva os eventos para retentativa
+            outboxEventRepository.saveAll(eventsToRetry); // Saves events for retry
             log.info("[Notifications] Marked {} events for retry.", eventsToRetry.size());
         }
     }
