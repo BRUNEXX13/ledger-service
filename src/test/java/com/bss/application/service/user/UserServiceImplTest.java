@@ -7,6 +7,7 @@ import com.bss.application.dto.request.user.UpdateUserRequest;
 import com.bss.application.dto.response.user.UserResponse;
 import com.bss.application.exception.UserNotFoundException;
 import com.bss.application.service.account.port.in.AccountService;
+import com.bss.application.service.user.UserServiceImpl;
 import com.bss.domain.user.Role;
 import com.bss.domain.user.User;
 import com.bss.domain.user.UserRepository;

@@ -4,11 +4,11 @@ import com.bss.application.dto.response.transaction.TransactionResponse;
 import com.bss.application.dto.response.transaction.TransactionUserResponse;
 import com.bss.application.service.transaction.TransactionAuditService;
 import com.bss.application.service.transaction.port.in.TransactionService;
-import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
-import org.springframework.data.web.PagedResourcesAssembler;
+import org.springframework.data.domain.Slice;
+import org.springframework.data.web.SlicedResourcesAssembler;
 import org.springframework.hateoas.EntityModel;
-import org.springframework.hateoas.PagedModel;
+import org.springframework.hateoas.SlicedModel;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -24,23 +24,23 @@ public class TransactionController {
 
     private final TransactionService transactionService;
     private final TransactionAuditService transactionAuditService;
-    private final PagedResourcesAssembler<TransactionResponse> pagedResourcesAssembler;
+    private final SlicedResourcesAssembler<TransactionResponse> slicedResourcesAssembler;
 
-    public TransactionController(TransactionService transactionService, TransactionAuditService transactionAuditService, PagedResourcesAssembler<TransactionResponse> pagedResourcesAssembler) {
+    public TransactionController(TransactionService transactionService, TransactionAuditService transactionAuditService, SlicedResourcesAssembler<TransactionResponse> slicedResourcesAssembler) {
         this.transactionService = transactionService;
         this.transactionAuditService = transactionAuditService;
-        this.pagedResourcesAssembler = pagedResourcesAssembler;
+        this.slicedResourcesAssembler = slicedResourcesAssembler;
     }
 
     @GetMapping
-    public ResponseEntity<PagedModel<EntityModel<TransactionResponse>>> getAllTransactions(Pageable pageable) {
-        Page<TransactionResponse> transactionPage = transactionService.findAllTransactions(pageable);
+    public ResponseEntity<SlicedModel<EntityModel<TransactionResponse>>> getAllTransactions(Pageable pageable) {
+        Slice<TransactionResponse> transactionSlice = transactionService.findAllTransactions(pageable);
         
-        transactionPage.forEach(tx -> tx.add(linkTo(methodOn(TransactionController.class).getTransactionById(tx.getId())).withSelfRel()));
+        transactionSlice.forEach(tx -> tx.add(linkTo(methodOn(TransactionController.class).getTransactionById(tx.getId())).withSelfRel()));
         
-        PagedModel<EntityModel<TransactionResponse>> pagedModel = pagedResourcesAssembler.toModel(transactionPage);
+        SlicedModel<EntityModel<TransactionResponse>> slicedModel = slicedResourcesAssembler.toModel(transactionSlice);
         
-        return ResponseEntity.ok(pagedModel);
+        return ResponseEntity.ok(slicedModel);
     }
 
     @GetMapping("/{id}")

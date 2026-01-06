@@ -1,5 +1,6 @@
 package com.bss.application.controller.transfer.mapper;
 
+import com.bss.application.controller.transfer.mapper.TransferMapper;
 import com.bss.application.dto.request.transfer.TransferRequest;
 import com.bss.domain.transfer.Transfer;
 import org.junit.jupiter.api.DisplayName;

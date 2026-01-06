@@ -43,9 +43,17 @@ public class OutboxEventScheduler {
         LocalDateTime lockTimeout = LocalDateTime.now().minusMinutes(1);
         
         List<OutboxEvent> events = new ArrayList<>();
+        int remainingBatchSize = BATCH_SIZE;
+
         for (String eventType : NOTIFICATION_EVENT_TYPES) {
-            events.addAll(outboxEventRepository.findAndLockUnprocessedEvents(
-                    OutboxEventStatus.UNPROCESSED, eventType, lockTimeout, PageRequest.of(0, BATCH_SIZE)));
+            if (remainingBatchSize <= 0) {
+                break;
+            }
+            List<OutboxEvent> typeEvents = outboxEventRepository.findAndLockUnprocessedEvents(
+                    OutboxEventStatus.UNPROCESSED, eventType, lockTimeout, PageRequest.of(0, remainingBatchSize));
+            
+            events.addAll(typeEvents);
+            remainingBatchSize -= typeEvents.size();
         }
 
         if (events.isEmpty()) {

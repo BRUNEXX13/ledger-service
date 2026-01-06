@@ -3,6 +3,7 @@ package com.bss.application.service.transaction;
 import com.bss.application.controller.transaction.mapper.TransactionMapper;
 import com.bss.application.dto.response.transaction.TransactionResponse;
 import com.bss.application.exception.ResourceNotFoundException;
+import com.bss.application.service.transaction.TransactionServiceImpl;
 import com.bss.domain.transaction.Transaction;
 import com.bss.domain.transaction.TransactionRepository;
 import org.junit.jupiter.api.DisplayName;
@@ -15,6 +16,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Slice;
 
 import java.util.Collections;
 import java.util.Optional;
@@ -79,11 +81,11 @@ class TransactionServiceImplTest {
         when(transactionMapper.toTransactionResponse(any(Transaction.class))).thenReturn(response);
 
         // Act
-        Page<TransactionResponse> result = transactionService.findAllTransactions(pageable);
+        Slice<TransactionResponse> result = transactionService.findAllTransactions(pageable);
 
         // Assert
         assertNotNull(result);
-        assertEquals(1, result.getTotalElements());
+        assertEquals(1, result.getNumberOfElements());
         assertEquals(response, result.getContent().get(0));
     }
 }

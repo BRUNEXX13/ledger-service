@@ -9,13 +9,18 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.autoconfigure.EnableAutoConfiguration;
+import org.springframework.boot.autoconfigure.flyway.FlywayAutoConfiguration;
+import org.springframework.boot.autoconfigure.jdbc.DataSourceAutoConfiguration;
+import org.springframework.boot.autoconfigure.orm.jpa.HibernateJpaAutoConfiguration;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Import;
-import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
-import org.springframework.data.web.PagedResourcesAssembler;
+import org.springframework.data.domain.Slice;
+import org.springframework.data.web.SlicedResourcesAssembler;
+import org.springframework.hateoas.EntityModel;
+import org.springframework.hateoas.SlicedModel;
 import org.springframework.test.context.ContextConfiguration;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
@@ -36,7 +41,11 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 class TransactionControllerTest {
 
     @Configuration
-    @EnableAutoConfiguration
+    @EnableAutoConfiguration(exclude = {
+        DataSourceAutoConfiguration.class,
+        HibernateJpaAutoConfiguration.class,
+        FlywayAutoConfiguration.class
+    })
     @Import({TransactionController.class, RestExceptionHandler.class})
     static class TestConfig {
     }
@@ -51,7 +60,7 @@ class TransactionControllerTest {
     private TransactionAuditService transactionAuditService;
     
     @MockitoBean
-    private PagedResourcesAssembler<TransactionResponse> pagedResourcesAssembler;
+    private SlicedResourcesAssembler<TransactionResponse> slicedResourcesAssembler;
 
     @Test
     @DisplayName("GET /transactions/{id} - Should return 200 OK for existing transaction")
@@ -67,12 +76,20 @@ class TransactionControllerTest {
     }
 
     @Test
-    @DisplayName("GET /transactions - Should return 200 OK with a page of transactions")
+    @DisplayName("GET /transactions - Should return 200 OK with a slice of transactions")
     void shouldGetAllTransactions() throws Exception {
         TransactionResponse response = new TransactionResponse(1L, 1L, 2L, BigDecimal.TEN, "SUCCESS", null, UUID.randomUUID());
         response.setCreatedAt(LocalDateTime.now());
-        Page<TransactionResponse> page = new PageImpl<>(Collections.singletonList(response));
-        when(transactionService.findAllTransactions(any(Pageable.class))).thenReturn(page);
+        Slice<TransactionResponse> slice = new PageImpl<>(Collections.singletonList(response));
+        
+        when(transactionService.findAllTransactions(any(Pageable.class))).thenReturn(slice);
+        
+        // Mock the assembler to return a simple SlicedModel
+        SlicedModel<EntityModel<TransactionResponse>> slicedModel = SlicedModel.of(
+            Collections.singletonList(EntityModel.of(response)), 
+            new SlicedModel.SliceMetadata(10, 0)
+        );
+        when(slicedResourcesAssembler.toModel(any(Slice.class))).thenReturn(slicedModel);
 
         mockMvc.perform(get("/transactions"))
                 .andExpect(status().isOk());

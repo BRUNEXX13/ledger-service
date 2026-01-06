@@ -1,5 +1,6 @@
 package com.bss.application.controller.user.mapper;
 
+import com.bss.application.controller.user.mapper.UserMapper;
 import com.bss.application.dto.request.user.CreateUserRequest;
 import com.bss.application.dto.response.user.UserResponse;
 import com.bss.domain.user.Role;

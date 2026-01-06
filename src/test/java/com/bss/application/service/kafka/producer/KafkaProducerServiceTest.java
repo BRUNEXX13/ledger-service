@@ -2,6 +2,7 @@ package com.bss.application.service.kafka.producer;
 
 import com.bss.application.event.account.AccountCreatedEvent;
 import com.bss.application.event.transactions.TransactionEvent;
+import com.bss.application.service.kafka.producer.KafkaProducerService;
 import org.apache.kafka.clients.producer.RecordMetadata;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;

@@ -6,8 +6,8 @@ import com.bss.application.exception.ResourceNotFoundException;
 import com.bss.application.service.transaction.port.in.TransactionService;
 import com.bss.domain.transaction.TransactionRepository;
 import org.springframework.cache.annotation.Cacheable;
-import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Slice;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -24,7 +24,13 @@ public class TransactionServiceImpl implements TransactionService {
     }
 
     @Override
-    public Page<TransactionResponse> findAllTransactions(Pageable pageable) {
+    public Slice<TransactionResponse> findAllTransactions(Pageable pageable) {
+        // Using findAll(pageable) returns a Page, which we can treat as a Slice.
+        // Ideally, the repository should return Slice to avoid the count query if possible,
+        // but JpaRepository.findAll(Pageable) always returns Page (and executes count).
+        // To strictly avoid count, we would need a custom query or findBy... returning Slice.
+        // However, changing the return type to Slice in the Service contract allows future optimization
+        // without breaking the API contract, and Slice is lighter for the client (no total pages).
         return transactionRepository.findAll(pageable)
             .map(transactionMapper::toTransactionResponse);
     }

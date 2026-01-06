@@ -1,5 +1,7 @@
 package com.bss.application.event.transactions;
 
+import com.bss.application.event.transactions.TransactionEvent;
+import com.bss.application.event.transactions.TransactionEventListener;
 import com.bss.application.service.notification.EmailService;
 import com.bss.domain.user.Role;
 import com.bss.domain.user.User;

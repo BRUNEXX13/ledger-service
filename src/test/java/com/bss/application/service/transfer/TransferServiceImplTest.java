@@ -1,6 +1,7 @@
 package com.bss.application.service.transfer;
 
 import com.bss.application.exception.JsonSerializationException;
+import com.bss.application.service.transfer.TransferServiceImpl;
 import com.bss.domain.outbox.OutboxEvent;
 import com.bss.domain.outbox.OutboxEventRepository;
 import com.bss.domain.transfer.Transfer;

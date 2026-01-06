@@ -1,5 +1,6 @@
 package com.bss.application.service.notification;
 
+import com.bss.application.service.notification.EmailServiceImpl;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 

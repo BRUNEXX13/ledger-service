@@ -56,4 +56,11 @@
         </root>
     </springProfile>
 
+    <!-- Configuração para o perfil de Teste -->
+    <springProfile name="test">
+        <root level="INFO">
+            <appender-ref ref="CONSOLE"/>
+        </root>
+    </springProfile>
+
 </configuration>

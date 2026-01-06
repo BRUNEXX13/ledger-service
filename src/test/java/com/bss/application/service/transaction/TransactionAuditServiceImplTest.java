@@ -2,11 +2,13 @@ package com.bss.application.service.transaction;
 
 import com.bss.application.dto.response.transaction.TransactionUserResponse;
 import com.bss.application.exception.ResourceNotFoundException;
+import com.bss.application.service.transaction.TransactionAuditServiceImpl;
 import com.bss.domain.account.Account;
 import com.bss.domain.outbox.OutboxEvent;
 import com.bss.domain.outbox.OutboxEventRepository;
 import com.bss.domain.transaction.Transaction;
 import com.bss.domain.transaction.TransactionRepository;
+import com.bss.domain.user.Role;
 import com.bss.domain.user.User;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -18,9 +20,10 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.mockito.junit.jupiter.MockitoSettings;
 import org.mockito.quality.Strictness;
+import org.springframework.util.ReflectionUtils;
 
+import java.lang.reflect.Field;
 import java.math.BigDecimal;
-import java.time.LocalDateTime;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -49,21 +52,51 @@ class TransactionAuditServiceImplTest {
         transactionAuditService = new TransactionAuditServiceImpl(outboxEventRepository, transactionRepository, objectMapper);
     }
 
+    private void setUserId(User user, Long id) {
+        try {
+            Field idField = User.class.getDeclaredField("id");
+            idField.setAccessible(true);
+            ReflectionUtils.setField(idField, user, id);
+        } catch (NoSuchFieldException e) {
+            throw new RuntimeException(e);
+        }
+    }
+    
+    private void setAccountId(Account account, Long id) {
+        try {
+            Field idField = Account.class.getDeclaredField("id");
+            idField.setAccessible(true);
+            ReflectionUtils.setField(idField, account, id);
+        } catch (NoSuchFieldException e) {
+            throw new RuntimeException(e);
+        }
+    }
+    
+    private void setTransactionId(Transaction transaction) {
+        try {
+            Field idField = Transaction.class.getDeclaredField("id");
+            idField.setAccessible(true);
+            ReflectionUtils.setField(idField, transaction, 100L);
+        } catch (NoSuchFieldException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
     @Test
     void createAuditEvent_ShouldSaveOutboxEvent() throws JsonProcessingException {
         // Arrange
-        User senderUser = new User("Sender", "123", "sender@test.com");
-        senderUser.setId(1L);
+        User senderUser = new User("Sender", "123", "sender@test.com", Role.ROLE_EMPLOYEE);
+        setUserId(senderUser, 1L);
         Account sender = new Account(senderUser, BigDecimal.TEN);
-        sender.setId(10L);
+        setAccountId(sender, 10L);
 
-        User receiverUser = new User("Receiver", "456", "receiver@test.com");
-        receiverUser.setId(2L);
+        User receiverUser = new User("Receiver", "456", "receiver@test.com", Role.ROLE_EMPLOYEE);
+        setUserId(receiverUser, 2L);
         Account receiver = new Account(receiverUser, BigDecimal.ZERO);
-        receiver.setId(20L);
+        setAccountId(receiver, 20L);
 
         Transaction transaction = new Transaction(sender, receiver, BigDecimal.ONE, UUID.randomUUID());
-        transaction.setId(100L);
+        setTransactionId(transaction);
 
         when(objectMapper.writeValueAsString(any())).thenReturn("{\"json\":\"payload\"}");
 
@@ -84,18 +117,18 @@ class TransactionAuditServiceImplTest {
     @Test
     void findUserByTransactionId_ShouldReturnResponse_WhenTransactionExists() {
         // Arrange
-        User senderUser = new User("Sender", "123", "sender@test.com");
-        senderUser.setId(1L);
+        User senderUser = new User("Sender", "123", "sender@test.com", Role.ROLE_EMPLOYEE);
+        setUserId(senderUser, 1L);
         Account sender = new Account(senderUser, BigDecimal.TEN);
-        sender.setId(10L);
+        setAccountId(sender, 10L);
 
-        User receiverUser = new User("Receiver", "456", "receiver@test.com");
-        receiverUser.setId(2L);
+        User receiverUser = new User("Receiver", "456", "receiver@test.com", Role.ROLE_EMPLOYEE);
+        setUserId(receiverUser, 2L);
         Account receiver = new Account(receiverUser, BigDecimal.ZERO);
-        receiver.setId(20L);
+        setAccountId(receiver, 20L);
 
         Transaction transaction = new Transaction(sender, receiver, BigDecimal.ONE, UUID.randomUUID());
-        transaction.setId(100L);
+        setTransactionId(transaction);
 
         when(transactionRepository.findById(100L)).thenReturn(Optional.of(transaction));
 
@@ -105,8 +138,9 @@ class TransactionAuditServiceImplTest {
         // Assert
         assertThat(response).isNotNull();
         assertThat(response.getTransactionId()).isEqualTo(100L);
-        assertThat(response.getSender().getId()).isEqualTo(1L);
-        assertThat(response.getReceiver().getId()).isEqualTo(2L);
+        assertThat(response.getSenderName()).isEqualTo("Sender");
+        assertThat(response.getSenderEmail()).isEqualTo("sender@test.com");
+        assertThat(response.getSenderDocument()).isEqualTo("123");
     }
 
     @Test
