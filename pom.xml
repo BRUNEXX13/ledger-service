@@ -222,11 +222,27 @@
                     <target>21</target>
                 </configuration>
             </plugin>
+
+            <!-- Configuração do Failsafe Plugin para Testes de Integração -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-failsafe-plugin</artifactId>
+                <executions>
+                    <execution>
+                        <goals>
+                            <goal>integration-test</goal>
+                            <goal>verify</goal>
+                        </goals>
+                    </execution>
+                </executions>
+            </plugin>
+
             <plugin>
                 <groupId>org.jacoco</groupId>
                 <artifactId>jacoco-maven-plugin</artifactId>
                 <version>${jacoco.version}</version>
                 <executions>
+                    <!-- Prepara o agente para testes unitários -->
                     <execution>
                         <id>prepare-agent</id>
                         <goals>
@@ -235,13 +251,28 @@
                         <configuration>
                             <excludes>
                                 <exclude>jdk.internal.*</exclude>
-                                <!-- Exclui classes geradas dinamicamente pelo Mockito/CGLIB -->
                                 <exclude>*MockitoMock*</exclude>
-                                <!-- Exclui classes internas do ByteBuddy -->
                                 <exclude>net.bytebuddy.*</exclude>
                             </excludes>
                         </configuration>
                     </execution>
+
+                    <!-- Prepara o agente para testes de integração -->
+                    <execution>
+                        <id>prepare-agent-integration</id>
+                        <goals>
+                            <goal>prepare-agent-integration</goal>
+                        </goals>
+                        <configuration>
+                            <excludes>
+                                <exclude>jdk.internal.*</exclude>
+                                <exclude>*MockitoMock*</exclude>
+                                <exclude>net.bytebuddy.*</exclude>
+                            </excludes>
+                        </configuration>
+                    </execution>
+
+                    <!-- Relatório de Testes Unitários -->
                     <execution>
                         <id>report</id>
                         <phase>test</phase>
@@ -249,19 +280,17 @@
                             <goal>report</goal>
                         </goals>
                         <configuration>
-                            <excludes>
-                                <!-- Exclui a classe principal da aplicação -->
-                                <exclude>com.bss/LedgerServiceApplication.class</exclude>
-                                <!-- Exclui todas as classes de configuração -->
-                                <exclude>com.bss/application/config/**/*</exclude>
-                                <exclude>com.bss/infrastructure/**/*</exclude>
-                                <!-- Exclude todos os DTOs -->
-                                <exclude>com.bss/application/dto/**/*</exclude>
-                                <!-- Exclude todas as exceptions customs -->
-                                <exclude>com.bss/application/exception/**/*</exclude>
-                                <!-- Exclude package de domain ( models, enums, etc.) -->
-                                <exclude>com.bss/domain/**/*</exclude>
-                            </excludes>
+                        </configuration>
+                    </execution>
+
+                    <!-- Relatório de Testes de Integração -->
+                    <execution>
+                        <id>report-integration</id>
+                        <phase>verify</phase>
+                        <goals>
+                            <goal>report-integration</goal>
+                        </goals>
+                        <configuration>
                         </configuration>
                     </execution>
                 </executions>

@@ -1,6 +1,5 @@
 package com.bss.application.scheduler;
 
-import com.bss.application.scheduler.TransferEventScheduler;
 import com.bss.application.service.transaction.TransactionAuditService;
 import com.bss.domain.account.Account;
 import com.bss.domain.account.AccountRepository;
@@ -25,6 +24,7 @@ import org.mockito.Mock;
 import org.mockito.Mockito;
 import org.mockito.Spy;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.test.util.ReflectionTestUtils;
 
@@ -32,6 +32,7 @@ import java.math.BigDecimal;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicReference;
 
@@ -106,7 +107,7 @@ class TransferEventSchedulerTest {
 
         scheduler.processTransferEvents();
 
-        verify(accountRepository, never()).findByIds(any());
+        verify(accountRepository, never()).findByIdForUpdate(any());
         verify(outboxEventRepository, never()).deleteAllInBatch(any());
     }
 
@@ -117,7 +118,10 @@ class TransferEventSchedulerTest {
         senderAccount.adjustBalance(new BigDecimal("50.00"));
         when(outboxEventRepository.findAndLockUnprocessedEvents(any(), any(), any(), any(PageRequest.class)))
                 .thenReturn(Collections.singletonList(outboxEvent));
-        when(accountRepository.findByIds(anyList())).thenReturn(List.of(senderAccount, receiverAccount));
+        
+        // Mock findByIdForUpdate instead of findByIds
+        when(accountRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(senderAccount));
+        when(accountRepository.findByIdForUpdate(2L)).thenReturn(Optional.of(receiverAccount));
 
         final AtomicReference<TransactionStatus> statusOnFirstSave = new AtomicReference<>();
 
@@ -156,7 +160,9 @@ class TransferEventSchedulerTest {
         // Arrange
         when(outboxEventRepository.findAndLockUnprocessedEvents(any(), any(), any(), any(PageRequest.class)))
                 .thenReturn(Collections.singletonList(outboxEvent));
-        when(accountRepository.findByIds(anyList())).thenReturn(List.of(senderAccount, receiverAccount));
+        
+        when(accountRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(senderAccount));
+        when(accountRepository.findByIdForUpdate(2L)).thenReturn(Optional.of(receiverAccount));
         
         doThrow(new RuntimeException("Audit service unavailable")).when(transactionAuditService).createAuditEvent(any(), any());
 
@@ -176,7 +182,9 @@ class TransferEventSchedulerTest {
         outboxEvent.setRetryCount(4);
         when(outboxEventRepository.findAndLockUnprocessedEvents(any(), any(), any(), any(PageRequest.class)))
                 .thenReturn(Collections.singletonList(outboxEvent));
-        when(accountRepository.findByIds(anyList())).thenReturn(List.of(senderAccount, receiverAccount));
+        
+        when(accountRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(senderAccount));
+        when(accountRepository.findByIdForUpdate(2L)).thenReturn(Optional.of(receiverAccount));
         
         doThrow(new RuntimeException("Audit service unavailable")).when(transactionAuditService).createAuditEvent(any(), any());
 
@@ -192,5 +200,38 @@ class TransferEventSchedulerTest {
 
         List<OutboxEvent> failedEvents = captor.getAllValues().get(1);
         assertTrue(failedEvents.stream().anyMatch(e -> e.getStatus() == OutboxEventStatus.FAILED));
+    }
+
+    @Test
+    @DisplayName("Should handle DataIntegrityViolationException as idempotent success (mark as FAILED/PROCESSED)")
+    void shouldHandleDataIntegrityViolation() {
+        // Arrange
+        when(outboxEventRepository.findAndLockUnprocessedEvents(any(), any(), any(), any(PageRequest.class)))
+                .thenReturn(Collections.singletonList(outboxEvent));
+        
+        when(accountRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(senderAccount));
+        when(accountRepository.findByIdForUpdate(2L)).thenReturn(Optional.of(receiverAccount));
+        
+        // Simulate duplicate key error during processing (e.g. audit log unique constraint or similar)
+        // Or simulate it during the first saveAll if we were testing that block, but here we test the loop.
+        // Let's simulate it in createAuditEvent to trigger the catch block in processTransactionAndHandleErrors
+        doThrow(new DataIntegrityViolationException("Duplicate key")).when(transactionAuditService).createAuditEvent(any(), any());
+
+        // Act
+        scheduler.processTransferEvents();
+
+        // Assert
+        // Should NOT increment retry count for normal retry logic
+        // Should mark as FAILED (which in our logic means "Stop Retrying")
+        verify(outboxEvent).setStatus(OutboxEventStatus.FAILED);
+        verify(outboxEvent).setRetryCount(5); // MAX_RETRIES
+        
+        // Verify it was added to failedEvents list which is then saved
+        ArgumentCaptor<List<OutboxEvent>> captor = ArgumentCaptor.forClass(List.class);
+        verify(outboxEventRepository, times(2)).saveAll(captor.capture()); // 1st: lock, 2nd: save failed
+        
+        List<OutboxEvent> savedEvents = captor.getAllValues().get(1);
+        assertTrue(savedEvents.contains(outboxEvent));
+        assertEquals(OutboxEventStatus.FAILED, outboxEvent.getStatus());
     }
 }

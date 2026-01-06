@@ -41,11 +41,6 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 class TransactionControllerTest {
 
     @Configuration
-    @EnableAutoConfiguration(exclude = {
-        DataSourceAutoConfiguration.class,
-        HibernateJpaAutoConfiguration.class,
-        FlywayAutoConfiguration.class
-    })
     @Import({TransactionController.class, RestExceptionHandler.class})
     static class TestConfig {
     }

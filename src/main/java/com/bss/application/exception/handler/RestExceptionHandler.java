@@ -5,6 +5,7 @@ import com.bss.domain.account.InsufficientBalanceException;
 import io.github.resilience4j.ratelimiter.RequestNotPermitted;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.HttpStatusCode;
@@ -68,6 +69,13 @@ public class RestExceptionHandler extends ResponseEntityExceptionHandler {
     protected ResponseEntity<Object> handleSecurityException(SecurityException ex, WebRequest request) {
         log.warn("Security check failed: {}", ex.getMessage());
         return new ResponseEntity<>(Map.of("error", "Access Denied: " + ex.getMessage()), HttpStatus.FORBIDDEN);
+    }
+
+    @ExceptionHandler(DataIntegrityViolationException.class)
+    protected ResponseEntity<Object> handleDataIntegrityViolation(DataIntegrityViolationException ex, WebRequest request) {
+        log.warn("Data integrity violation: {}", ex.getMessage());
+        // We return 409 Conflict because this usually means a unique constraint violation (e.g. duplicate email/document)
+        return new ResponseEntity<>(Map.of("error", "Data conflict: The resource you are trying to create or update violates a unique constraint (e.g., duplicate email, document, or ID)."), HttpStatus.CONFLICT);
     }
 
     @ExceptionHandler(Exception.class)

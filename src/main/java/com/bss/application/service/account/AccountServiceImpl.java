@@ -5,16 +5,19 @@ import com.bss.application.dto.request.account.CreateAccountRequest;
 import com.bss.application.dto.request.account.UpdateAccountRequest;
 import com.bss.application.dto.response.account.AccountResponse;
 import com.bss.application.event.account.AccountCreatedEvent;
+import com.bss.application.exception.JsonSerializationException;
 import com.bss.application.exception.ResourceNotFoundException;
 import com.bss.application.service.account.port.in.AccountService;
-import com.bss.application.service.kafka.producer.KafkaProducerService;
 import com.bss.domain.account.Account;
 import com.bss.domain.account.AccountRepository;
+import com.bss.domain.outbox.OutboxEvent;
+import com.bss.domain.outbox.OutboxEventRepository;
 import com.bss.domain.user.User;
 import com.bss.domain.user.UserRepository;
-import org.springframework.cache.annotation.CacheEvict;
-import org.springframework.cache.annotation.CachePut;
-import org.springframework.cache.annotation.Cacheable;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
@@ -26,19 +29,22 @@ import java.math.BigDecimal;
 @Transactional
 public class AccountServiceImpl implements AccountService {
 
+    private static final Logger log = LoggerFactory.getLogger(AccountServiceImpl.class);
     private static final String ACCOUNT_NOT_FOUND_ID = "Account not found with id: ";
     private static final String USER_NOT_FOUND_ID = "User not found with id: ";
 
     private final AccountRepository accountRepository;
     private final UserRepository userRepository;
     private final AccountMapper accountMapper;
-    private final KafkaProducerService kafkaProducerService;
+    private final OutboxEventRepository outboxEventRepository;
+    private final ObjectMapper objectMapper;
 
-    public AccountServiceImpl(AccountRepository accountRepository, UserRepository userRepository, AccountMapper accountMapper, KafkaProducerService kafkaProducerService) {
+    public AccountServiceImpl(AccountRepository accountRepository, UserRepository userRepository, AccountMapper accountMapper, OutboxEventRepository outboxEventRepository, ObjectMapper objectMapper) {
         this.accountRepository = accountRepository;
         this.userRepository = userRepository;
         this.accountMapper = accountMapper;
-        this.kafkaProducerService = kafkaProducerService;
+        this.outboxEventRepository = outboxEventRepository;
+        this.objectMapper = objectMapper;
     }
 
     @Override
@@ -53,21 +59,39 @@ public class AccountServiceImpl implements AccountService {
         Account newAccount = new Account(user, initialBalance);
         Account savedAccount = accountRepository.save(newAccount);
 
-        // Centralized event dispatching
-        AccountCreatedEvent event = new AccountCreatedEvent(
-            savedAccount.getId(),
-            user.getId(),
-            user.getName(),
-            user.getEmail(),
-            savedAccount.getCreatedAt()
-        );
-        kafkaProducerService.sendAccountCreatedEvent(event);
+        // Use Outbox Pattern instead of direct Kafka call
+        createOutboxEvent(savedAccount, user);
 
         return savedAccount;
     }
 
+    private void createOutboxEvent(Account account, User user) {
+        AccountCreatedEvent event = new AccountCreatedEvent(
+            account.getId(),
+            user.getId(),
+            user.getName(),
+            user.getEmail(),
+            account.getCreatedAt()
+        );
+
+        String payload;
+        try {
+            payload = objectMapper.writeValueAsString(event);
+        } catch (JsonProcessingException e) {
+            throw new JsonSerializationException("Failed to serialize account created event to JSON", e);
+        }
+
+        OutboxEvent outboxEvent = new OutboxEvent(
+            "Account",
+            account.getId().toString(),
+            "AccountCreated",
+            payload
+        );
+        outboxEventRepository.save(outboxEvent);
+        log.info("Outbox event 'AccountCreated' created for account {}.", account.getId());
+    }
+
     @Override
-    @CachePut(value = "accounts", key = "#result.id")
     public AccountResponse createAccount(CreateAccountRequest request) {
         User user = userRepository.findById(request.userId())
             .orElseThrow(() -> new ResourceNotFoundException(USER_NOT_FOUND_ID + request.userId()));
@@ -83,7 +107,6 @@ public class AccountServiceImpl implements AccountService {
 
     @Override
     @Transactional(readOnly = true)
-    @Cacheable(value = "accounts", key = "#id")
     public AccountResponse findAccountById(Long id) {
         return accountRepository.findById(id)
             .map(accountMapper::toAccountResponse)
@@ -98,7 +121,6 @@ public class AccountServiceImpl implements AccountService {
     }
 
     @Override
-    @CachePut(value = "accounts", key = "#id")
     public AccountResponse updateAccount(Long id, UpdateAccountRequest request) {
         Account account = accountRepository.findById(id)
             .orElseThrow(() -> new ResourceNotFoundException(ACCOUNT_NOT_FOUND_ID + id));
@@ -110,7 +132,6 @@ public class AccountServiceImpl implements AccountService {
     }
 
     @Override
-    @CacheEvict(value = "accounts", key = "#id")
     public void inactivateAccount(Long id) {
         Account account = accountRepository.findById(id)
             .orElseThrow(() -> new ResourceNotFoundException(ACCOUNT_NOT_FOUND_ID + id));
@@ -121,7 +142,6 @@ public class AccountServiceImpl implements AccountService {
     }
 
     @Override
-    @CacheEvict(value = "accounts", key = "#id")
     public void deleteAccount(Long id) {
         Account account = accountRepository.findById(id)
             .orElseThrow(() -> new ResourceNotFoundException(ACCOUNT_NOT_FOUND_ID + id));

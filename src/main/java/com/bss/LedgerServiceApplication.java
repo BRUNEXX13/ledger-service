@@ -5,7 +5,7 @@ import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.context.annotation.ComponentScan;
 
 @SpringBootApplication
-@ComponentScan(basePackages = {"com.bss.application", "com.bss.domain", "com.bss.infrastructure"})
+@ComponentScan(basePackages = {"com.bss"})
 public class LedgerServiceApplication {
 
     public static void main(String[] args) {

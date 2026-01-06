@@ -5,20 +5,22 @@ import com.bss.application.dto.request.account.CreateAccountRequest;
 import com.bss.application.dto.request.account.UpdateAccountRequest;
 import com.bss.application.dto.response.account.AccountResponse;
 import com.bss.application.exception.ResourceNotFoundException;
-import com.bss.application.service.account.AccountServiceImpl;
-import com.bss.application.service.kafka.producer.KafkaProducerService;
 import com.bss.domain.account.Account;
 import com.bss.domain.account.AccountRepository;
 import com.bss.domain.account.AccountStatus;
+import com.bss.domain.outbox.OutboxEvent;
+import com.bss.domain.outbox.OutboxEventRepository;
 import com.bss.domain.user.Role;
 import com.bss.domain.user.User;
 import com.bss.domain.user.UserRepository;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
+import org.mockito.Spy;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
@@ -45,7 +47,9 @@ class AccountServiceImplTest {
     @Mock
     private AccountMapper accountMapper;
     @Mock
-    private KafkaProducerService kafkaProducerService;
+    private OutboxEventRepository outboxEventRepository;
+    @Spy
+    private ObjectMapper objectMapper = new ObjectMapper();
 
     @InjectMocks
     private AccountServiceImpl accountService;
@@ -60,10 +64,12 @@ class AccountServiceImplTest {
 
     // Tests for createAccountForUser
     @Test
-    @DisplayName("createAccountForUser should create account, send event, and return account")
+    @DisplayName("createAccountForUser should create account, save outbox event, and return account")
     void createAccountForUser_shouldCreateAndSaveAccount() {
         // Arrange
         Account savedAccount = new Account(user, BigDecimal.TEN);
+        ReflectionTestUtils.setField(savedAccount, "id", 100L); // Ensure ID is set for OutboxEvent creation
+        
         when(accountRepository.findByUser_Id(user.getId())).thenReturn(Optional.empty());
         when(accountRepository.save(any(Account.class))).thenReturn(savedAccount);
 
@@ -73,7 +79,9 @@ class AccountServiceImplTest {
         // Assert
         assertNotNull(result);
         verify(accountRepository).save(any(Account.class));
-        verify(kafkaProducerService).sendAccountCreatedEvent(any());
+        
+        // Verify Outbox Event is saved instead of direct Kafka call
+        verify(outboxEventRepository).save(any(OutboxEvent.class));
     }
 
     @Test
@@ -120,7 +128,7 @@ class AccountServiceImplTest {
         // Assert
         assertNotNull(actualResponse);
         verify(accountRepository).save(any(Account.class));
-        verify(kafkaProducerService).sendAccountCreatedEvent(any());
+        verify(outboxEventRepository).save(any(OutboxEvent.class)); // Verify Outbox
         verify(accountMapper).toAccountResponse(savedAccount);
     }
 

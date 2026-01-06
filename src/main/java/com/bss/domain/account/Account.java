@@ -3,8 +3,6 @@ package com.bss.domain.account;
 import com.bss.domain.user.User;
 import com.fasterxml.jackson.annotation.JsonFormat;
 import jakarta.persistence.*;
-import org.hibernate.annotations.Cache;
-import org.hibernate.annotations.CacheConcurrencyStrategy;
 import org.hibernate.annotations.Check;
 import org.springframework.data.annotation.CreatedDate;
 import org.springframework.data.annotation.LastModifiedDate;
@@ -19,8 +17,6 @@ import java.util.Objects;
 @Table(name = "tb_account")
 @EntityListeners(AuditingEntityListener.class)
 @Check(constraints = "balance >= 0")
-@Cacheable
-@Cache(usage = CacheConcurrencyStrategy.READ_WRITE)
 public class Account implements Serializable {
 
     private static final long serialVersionUID = 1L;

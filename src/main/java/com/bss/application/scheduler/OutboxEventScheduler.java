@@ -1,5 +1,6 @@
 package com.bss.application.scheduler;
 
+import com.bss.application.event.account.AccountCreatedEvent;
 import com.bss.application.event.transactions.TransactionEvent;
 import com.bss.application.service.kafka.producer.KafkaProducerService;
 import com.bss.domain.outbox.OutboxEvent;
@@ -23,7 +24,7 @@ public class OutboxEventScheduler {
     private static final Logger log = LoggerFactory.getLogger(OutboxEventScheduler.class);
     private static final int BATCH_SIZE = 100;
     private static final int MAX_RETRIES = 5;
-    private static final List<String> NOTIFICATION_EVENT_TYPES = List.of("TransactionCompleted", "TransactionFailed");
+    private static final List<String> NOTIFICATION_EVENT_TYPES = List.of("TransactionCompleted", "TransactionFailed", "AccountCreated");
 
     private final OutboxEventRepository outboxEventRepository;
     private final KafkaProducerService kafkaProducerService;
@@ -70,12 +71,17 @@ public class OutboxEventScheduler {
 
         List<OutboxEvent> processedEvents = new ArrayList<>();
         List<OutboxEvent> failedEvents = new ArrayList<>();
-        List<OutboxEvent> eventsToRetry = new ArrayList<>(); // New list for retries
+        List<OutboxEvent> eventsToRetry = new ArrayList<>();
 
         for (OutboxEvent event : events) {
             try {
-                TransactionEvent transactionEvent = objectMapper.readValue(event.getPayload(), TransactionEvent.class);
-                kafkaProducerService.sendTransactionEvent(transactionEvent);
+                if ("AccountCreated".equals(event.getEventType())) {
+                    AccountCreatedEvent accountEvent = objectMapper.readValue(event.getPayload(), AccountCreatedEvent.class);
+                    kafkaProducerService.sendAccountCreatedEvent(accountEvent);
+                } else {
+                    TransactionEvent transactionEvent = objectMapper.readValue(event.getPayload(), TransactionEvent.class);
+                    kafkaProducerService.sendTransactionEvent(transactionEvent);
+                }
                 processedEvents.add(event);
             } catch (Exception e) {
                 log.error("[Notifications] Failed to send event to Kafka for outbox event id: {}. Will retry or mark as FAILED.", event.getId(), e);
@@ -85,7 +91,7 @@ public class OutboxEventScheduler {
                     failedEvents.add(event);
                 } else {
                     event.setStatus(OutboxEventStatus.UNPROCESSED);
-                    eventsToRetry.add(event); // Adds to retry list
+                    eventsToRetry.add(event);
                 }
             }
         }
@@ -99,7 +105,7 @@ public class OutboxEventScheduler {
             log.warn("[Notifications] Marked {} events as FAILED after multiple retries.", failedEvents.size());
         }
         if (!eventsToRetry.isEmpty()) {
-            outboxEventRepository.saveAll(eventsToRetry); // Saves events for retry
+            outboxEventRepository.saveAll(eventsToRetry);
             log.info("[Notifications] Marked {} events for retry.", eventsToRetry.size());
         }
     }

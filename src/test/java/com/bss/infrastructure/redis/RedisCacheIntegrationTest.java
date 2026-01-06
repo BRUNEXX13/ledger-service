@@ -2,7 +2,6 @@ package com.bss.infrastructure.redis;
 
 import com.bss.application.dto.response.account.AccountResponse;
 import com.bss.domain.account.AccountStatus;
-import com.bss.infrastructure.redis.CacheConfig;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -41,7 +40,22 @@ class RedisCacheIntegrationTest {
         // Disable JPA and Flyway for this slice test
         registry.add("spring.jpa.hibernate.ddl-auto", () -> "none");
         registry.add("spring.flyway.enabled", () -> "false");
-        registry.add("spring.autoconfigure.exclude", () -> "org.springframework.boot.autoconfigure.jdbc.DataSourceAutoConfiguration,org.springframework.boot.autoconfigure.orm.jpa.HibernateJpaAutoConfiguration,org.springframework.boot.autoconfigure.flyway.FlywayAutoConfiguration");
+        // REMOVED: registry.add("spring.autoconfigure.exclude", ...);
+        // This property was leaking into other tests via System properties or shared context logic in some environments,
+        // although @DynamicPropertySource should be local.
+        // However, the error log showed exclusions:
+        // Exclusions:
+        // -----------
+        //    org.springframework.boot.autoconfigure.jdbc.DataSourceAutoConfiguration
+        //    org.springframework.boot.autoconfigure.orm.jpa.HibernateJpaAutoConfiguration
+        //    org.springframework.boot.autoconfigure.flyway.FlywayAutoConfiguration
+        //
+        // This strongly suggests that this configuration is affecting the main application test.
+        // To fix this in a robust way for the whole suite, we should ensure tests don't pollute the global state.
+        // But for now, let's remove the explicit exclusion here if it's not strictly needed or rename the property key if it's being picked up globally.
+        // Actually, for a slice test like this using @ContextConfiguration, we don't need to exclude auto-configurations via property if we are explicit about classes.
+        // But RedisAutoConfiguration might trigger others? No.
+        // The issue is likely that "spring.autoconfigure.exclude" is a special Boot property.
     }
 
     @Autowired
