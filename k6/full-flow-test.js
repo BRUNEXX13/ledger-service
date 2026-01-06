@@ -26,19 +26,26 @@ const BASE_URL = __ENV.API_URL || 'http://localhost:8082/api/v1';
 const HEADERS = { 'Content-Type': 'application/json' };
 
 // Função auxiliar para gerar CPF/CNPJ fictício (apenas números para evitar colisão de unique constraint)
-function generateDocument() {
-  const n = Math.floor(Math.random() * 100000000000);
-  return n.toString().padStart(11, '0');
+function generateDocument(isReceiver = false) {
+  // Gera um número determinístico e único para o teste
+  // Base: 10 bilhões (garante 11 dígitos)
+  // Offset VU: Garante que cada VU tenha sua faixa de números
+  // Offset Iter * 2: Cria espaço para dois documentos por iteração
+  // isReceiver: Adiciona +1 para ímpares (Receiver), 0 para pares (Sender)
+  const base = 10000000000;
+  const uniqueNum = base + (__VU * 1000000) + (__ITER * 2) + (isReceiver ? 1 : 0);
+  return uniqueNum.toString();
 }
 
 export default function () {
-  const uniqueId = uuidv4().substring(0, 8);
+  // Usa o UUID completo para garantir unicidade absoluta no e-mail/nome
+  const uniqueId = uuidv4();
 
   // --- 1. Criação do Usuário Remetente (Sender) ---
   // Assume-se que a criação já define um saldo inicial ou cria a conta
   const senderPayload = JSON.stringify({
     name: `Sender ${uniqueId}`,
-    document: generateDocument(),
+    document: generateDocument(false),
     email: `sender.${uniqueId}@test.com`,
     password: 'password123',
     balance: 1000.00, // Saldo suficiente para transferir
@@ -61,7 +68,7 @@ export default function () {
   // --- 2. Criação do Usuário Destinatário (Receiver) ---
   const receiverPayload = JSON.stringify({
     name: `Receiver ${uniqueId}`,
-    document: generateDocument(),
+    document: generateDocument(true),
     email: `receiver.${uniqueId}@test.com`,
     password: 'password123',
     balance: 0.00,
