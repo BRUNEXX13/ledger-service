@@ -119,7 +119,6 @@ class TransferEventSchedulerTest {
         when(outboxEventRepository.findAndLockUnprocessedEvents(any(), any(), any(), any(PageRequest.class)))
                 .thenReturn(Collections.singletonList(outboxEvent));
         
-        // Mock findByIdForUpdate instead of findByIds
         when(accountRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(senderAccount));
         when(accountRepository.findByIdForUpdate(2L)).thenReturn(Optional.of(receiverAccount));
 
@@ -212,26 +211,42 @@ class TransferEventSchedulerTest {
         when(accountRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(senderAccount));
         when(accountRepository.findByIdForUpdate(2L)).thenReturn(Optional.of(receiverAccount));
         
-        // Simulate duplicate key error during processing (e.g. audit log unique constraint or similar)
-        // Or simulate it during the first saveAll if we were testing that block, but here we test the loop.
-        // Let's simulate it in createAuditEvent to trigger the catch block in processTransactionAndHandleErrors
         doThrow(new DataIntegrityViolationException("Duplicate key")).when(transactionAuditService).createAuditEvent(any(), any());
 
         // Act
         scheduler.processTransferEvents();
 
         // Assert
-        // Should NOT increment retry count for normal retry logic
-        // Should mark as FAILED (which in our logic means "Stop Retrying")
         verify(outboxEvent).setStatus(OutboxEventStatus.FAILED);
         verify(outboxEvent).setRetryCount(5); // MAX_RETRIES
         
-        // Verify it was added to failedEvents list which is then saved
         ArgumentCaptor<List<OutboxEvent>> captor = ArgumentCaptor.forClass(List.class);
-        verify(outboxEventRepository, times(2)).saveAll(captor.capture()); // 1st: lock, 2nd: save failed
+        verify(outboxEventRepository, times(2)).saveAll(captor.capture());
         
         List<OutboxEvent> savedEvents = captor.getAllValues().get(1);
         assertTrue(savedEvents.contains(outboxEvent));
         assertEquals(OutboxEventStatus.FAILED, outboxEvent.getStatus());
+    }
+
+    @Test
+    @DisplayName("Should process successful transfer")
+    void shouldProcessSuccessfulTransfer() {
+        // Arrange
+        when(outboxEventRepository.findAndLockUnprocessedEvents(any(), any(), any(), any(PageRequest.class)))
+                .thenReturn(Collections.singletonList(outboxEvent));
+        
+        when(accountRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(senderAccount));
+        when(accountRepository.findByIdForUpdate(2L)).thenReturn(Optional.of(receiverAccount));
+
+        // Act
+        scheduler.processTransferEvents();
+
+        // Assert
+        assertEquals(new BigDecimal("100.00"), senderAccount.getBalance()); // 200 - 100
+        assertEquals(new BigDecimal("150.00"), receiverAccount.getBalance()); // 50 + 100
+        
+        verify(transactionRepository, times(2)).saveAll(any()); // 1: PENDING, 2: SUCCESS
+        verify(transactionAuditService).createAuditEvent(any(Transaction.class), eq("TransactionCompleted"));
+        verify(outboxEventRepository).deleteAllInBatch(anyList());
     }
 }

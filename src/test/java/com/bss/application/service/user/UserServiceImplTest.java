@@ -250,7 +250,7 @@ class UserServiceImplTest {
     void deleteUser_shouldThrowExceptionWhenUserDoesNotExist() {
         when(userRepository.existsById(1L)).thenReturn(false);
 
-        assertThrows(RuntimeException.class, () -> userService.deleteUser(1L));
+        assertThrows(UserNotFoundException.class, () -> userService.deleteUser(1L));
         verify(userRepository, never()).deleteById(anyLong());
     }
 

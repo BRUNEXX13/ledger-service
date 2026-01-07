@@ -5,6 +5,7 @@ import com.bss.domain.user.User;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.springframework.test.util.ReflectionTestUtils;
 
 import java.math.BigDecimal;
 
@@ -150,5 +151,97 @@ class AccountTest {
         account.block();
 
         assertEquals(AccountStatus.BLOCKED, account.getStatus());
+    }
+
+    // Equals and HashCode tests
+    @Test
+    @DisplayName("Equals should return true for same object")
+    void equals_ShouldReturnTrueForSameObject() {
+        Account account = new Account(user, BigDecimal.TEN);
+        assertEquals(account, account);
+    }
+
+    @Test
+    @DisplayName("Equals should return false for null")
+    void equals_ShouldReturnFalseForNull() {
+        Account account = new Account(user, BigDecimal.TEN);
+        assertNotEquals(null, account);
+    }
+
+    @Test
+    @DisplayName("Equals should return false for different class")
+    void equals_ShouldReturnFalseForDifferentClass() {
+        Account account = new Account(user, BigDecimal.TEN);
+        assertNotEquals(new Object(), account);
+    }
+
+    @Test
+    @DisplayName("Equals should return true for same ID")
+    void equals_ShouldReturnTrueForSameId() {
+        Account a1 = new Account(user, BigDecimal.TEN);
+        ReflectionTestUtils.setField(a1, "id", 1L);
+
+        Account a2 = new Account(user, BigDecimal.ZERO);
+        ReflectionTestUtils.setField(a2, "id", 1L);
+
+        assertEquals(a1, a2);
+    }
+
+    @Test
+    @DisplayName("Equals should return false for different ID")
+    void equals_ShouldReturnFalseForDifferentId() {
+        Account a1 = new Account(user, BigDecimal.TEN);
+        ReflectionTestUtils.setField(a1, "id", 1L);
+
+        Account a2 = new Account(user, BigDecimal.TEN);
+        ReflectionTestUtils.setField(a2, "id", 2L);
+
+        assertNotEquals(a1, a2);
+    }
+
+    @Test
+    @DisplayName("Equals should return false when one ID is null")
+    void equals_ShouldReturnFalseWhenOneIdIsNull() {
+        Account a1 = new Account(user, BigDecimal.TEN);
+        ReflectionTestUtils.setField(a1, "id", 1L);
+
+        Account a2 = new Account(user, BigDecimal.TEN);
+        // a2 id is null
+
+        assertNotEquals(a1, a2);
+        assertNotEquals(a2, a1);
+    }
+
+    @Test
+    @DisplayName("Equals should return false when both IDs are null")
+    void equals_ShouldReturnFalseWhenBothIdsAreNull() {
+        Account a1 = new Account(user, BigDecimal.TEN);
+        Account a2 = new Account(user, BigDecimal.TEN);
+
+        assertNotEquals(a1, a2);
+    }
+
+    @Test
+    @DisplayName("HashCode should be equal for same ID")
+    void hashCode_ShouldBeEqualForSameId() {
+        Account a1 = new Account(user, BigDecimal.TEN);
+        ReflectionTestUtils.setField(a1, "id", 1L);
+
+        Account a2 = new Account(user, BigDecimal.ZERO);
+        ReflectionTestUtils.setField(a2, "id", 1L);
+
+        assertEquals(a1.hashCode(), a2.hashCode());
+    }
+
+    @Test
+    @DisplayName("HashCode should be different for different ID")
+    void hashCode_ShouldBeDifferentForDifferentId() {
+        Account a1 = new Account(user, BigDecimal.TEN);
+        ReflectionTestUtils.setField(a1, "id", 1L);
+
+        Account a2 = new Account(user, BigDecimal.TEN);
+        ReflectionTestUtils.setField(a2, "id", 2L);
+
+        assertNotEquals(a1.hashCode(), a2.hashCode());
     }
 }
