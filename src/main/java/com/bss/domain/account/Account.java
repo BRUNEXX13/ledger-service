@@ -8,6 +8,7 @@ import org.springframework.data.annotation.CreatedDate;
 import org.springframework.data.annotation.LastModifiedDate;
 import org.springframework.data.jpa.domain.support.AuditingEntityListener;
 
+import java.io.Serial;
 import java.io.Serializable;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
@@ -19,6 +20,7 @@ import java.util.Objects;
 @Check(constraints = "balance >= 0")
 public class Account implements Serializable {
 
+    @Serial
     private static final long serialVersionUID = 1L;
 
     @Id
@@ -49,7 +51,6 @@ public class Account implements Serializable {
     @Column(nullable = false)
     private LocalDateTime updatedAt;
 
-    @Deprecated
     protected Account() {}
 
     public Account(User user, BigDecimal balance) {

@@ -1,5 +1,7 @@
 package com.bss.application.event.transactions;
 
+import com.bss.application.exception.ResourceNotFoundException;
+import com.bss.application.exception.TransactionEventListenerException;
 import com.bss.application.service.notification.EmailService;
 import com.bss.domain.user.User;
 import com.bss.domain.user.UserRepository;
@@ -35,10 +37,10 @@ public class TransactionEventListener {
             log.info("Evento de TRANSAÇÃO recebido para notificação. IdempotencyKey: {}", event.getIdempotencyKey());
 
             User sender = userRepository.findById(event.getSenderAccountId())
-                    .orElseThrow(() -> new RuntimeException("Usuário remetente não encontrado para o ID: " + event.getSenderAccountId()));
+                    .orElseThrow(() -> new ResourceNotFoundException("Usuário remetente não encontrado para o ID: " + event.getSenderAccountId()));
 
             User receiver = userRepository.findById(event.getReceiverAccountId())
-                    .orElseThrow(() -> new RuntimeException("Usuário destinatário não encontrado para o ID: " + event.getReceiverAccountId()));
+                    .orElseThrow(() -> new ResourceNotFoundException("Usuário destinatário não encontrado para o ID: " + event.getReceiverAccountId()));
 
             String senderSubject = "Comprovante de Transferência Enviada";
             String senderBody = String.format(
@@ -55,9 +57,9 @@ public class TransactionEventListener {
             emailService.sendTransactionNotification(receiver.getEmail(), receiverSubject, receiverBody);
 
         } catch (Exception e) {
-            log.error("Falha ao processar o evento de transação. Payload: {}", jsonPayload, e);
             // Re-throw to let the error handler manage it (e.g., move to DLT)
-            throw new RuntimeException("Falha ao desserializar ou processar o evento de transação", e);
+            // Including payload in the exception message to provide context without double logging
+            throw new TransactionEventListenerException("Falha ao desserializar ou processar o evento de transação. Payload: " + jsonPayload, e);
         }
     }
 }

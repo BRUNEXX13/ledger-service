@@ -37,7 +37,6 @@ public class OutboxEvent {
     @Column(nullable = false, updatable = false)
     private LocalDateTime createdAt;
 
-    @Deprecated
     protected OutboxEvent() {}
 
     public OutboxEvent(String aggregateType, String aggregateId, String eventType, String payload) {

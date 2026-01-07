@@ -39,7 +39,6 @@ public class AccountCreatedEventListener {
             emailService.sendTransactionNotification(event.getUserEmail(), subject, body);
 
         } catch (Exception e) {
-            log.error("Error processing ACCOUNT CREATION event. Payload: {}. Error: {}", jsonPayload, e.getMessage(), e);
             throw new AccountCreatedFailedException(String.format("Failed to process account creation event from payload: %s", jsonPayload), e);
         }
     }

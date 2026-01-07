@@ -3,6 +3,7 @@ package com.bss.application.exception.handler;
 import com.bss.application.exception.ResourceNotFoundException;
 import com.bss.domain.account.InsufficientBalanceException;
 import io.github.resilience4j.ratelimiter.RequestNotPermitted;
+import org.jspecify.annotations.NonNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.dao.DataIntegrityViolationException;
@@ -23,26 +24,29 @@ import java.util.Map;
 public class RestExceptionHandler extends ResponseEntityExceptionHandler {
 
     private static final Logger log = LoggerFactory.getLogger(RestExceptionHandler.class);
+    private static final String ERROR_KEY = "error";
 
     @ExceptionHandler(ResourceNotFoundException.class)
     public ResponseEntity<Object> handleResourceNotFound(ResourceNotFoundException ex, WebRequest request) {
         log.warn("Resource not found: {}", ex.getMessage());
         return ResponseEntity
             .status(HttpStatus.NOT_FOUND)
-            .body(Map.of("error", ex.getMessage()));
+            .body(Map.of(ERROR_KEY, ex.getMessage()));
     }
 
     @ExceptionHandler(RequestNotPermitted.class)
     public ResponseEntity<Object> handleRequestNotPermitted(RequestNotPermitted ex, WebRequest request) {
-        log.warn("Rate limit exceeded for {}: {}", request.getDescription(false), ex.getMessage());
+        if (log.isWarnEnabled()) {
+            log.warn("Rate limit exceeded for {}: {}", request.getDescription(false), ex.getMessage());
+        }
         return ResponseEntity
             .status(HttpStatus.TOO_MANY_REQUESTS)
-            .body(Map.of("error", "Too many requests. Please try again later."));
+            .body(Map.of(ERROR_KEY, "Too many requests. Please try again later."));
     }
 
     @Override
     protected ResponseEntity<Object> handleMethodArgumentNotValid(
-        MethodArgumentNotValidException ex, HttpHeaders headers, HttpStatusCode status, WebRequest request) {
+            MethodArgumentNotValidException ex, @NonNull HttpHeaders headers, HttpStatusCode status, WebRequest request) {
         
         Map<String, String> errors = new HashMap<>();
         ex.getBindingResult().getFieldErrors().forEach(error -> 
@@ -56,31 +60,31 @@ public class RestExceptionHandler extends ResponseEntityExceptionHandler {
     @ExceptionHandler(InsufficientBalanceException.class)
     protected ResponseEntity<Object> handleInsufficientBalance(InsufficientBalanceException ex, WebRequest request) {
         log.warn("Transfer rejected due to insufficient balance: {}", ex.getMessage());
-        return new ResponseEntity<>(Map.of("error", ex.getMessage()), HttpStatus.UNPROCESSABLE_ENTITY);
+        return new ResponseEntity<>(Map.of(ERROR_KEY, ex.getMessage()), HttpStatus.UNPROCESSABLE_ENTITY);
     }
 
     @ExceptionHandler(IllegalArgumentException.class)
     protected ResponseEntity<Object> handleIllegalArgument(IllegalArgumentException ex, WebRequest request) {
         log.warn("Business validation failed: {}", ex.getMessage());
-        return new ResponseEntity<>(Map.of("error", ex.getMessage()), HttpStatus.BAD_REQUEST);
+        return new ResponseEntity<>(Map.of(ERROR_KEY, ex.getMessage()), HttpStatus.BAD_REQUEST);
     }
 
     @ExceptionHandler(SecurityException.class)
     protected ResponseEntity<Object> handleSecurityException(SecurityException ex, WebRequest request) {
         log.warn("Security check failed: {}", ex.getMessage());
-        return new ResponseEntity<>(Map.of("error", "Access Denied: " + ex.getMessage()), HttpStatus.FORBIDDEN);
+        return new ResponseEntity<>(Map.of(ERROR_KEY, "Access Denied: " + ex.getMessage()), HttpStatus.FORBIDDEN);
     }
 
     @ExceptionHandler(DataIntegrityViolationException.class)
     protected ResponseEntity<Object> handleDataIntegrityViolation(DataIntegrityViolationException ex, WebRequest request) {
         log.warn("Data integrity violation: {}", ex.getMessage());
         // We return 409 Conflict because this usually means a unique constraint violation (e.g. duplicate email/document)
-        return new ResponseEntity<>(Map.of("error", "Data conflict: The resource you are trying to create or update violates a unique constraint (e.g., duplicate email, document, or ID)."), HttpStatus.CONFLICT);
+        return new ResponseEntity<>(Map.of(ERROR_KEY, "Data conflict: The resource you are trying to create or update violates a unique constraint (e.g., duplicate email, document, or ID)."), HttpStatus.CONFLICT);
     }
 
     @ExceptionHandler(Exception.class)
     protected ResponseEntity<Object> handleAllUncaughtException(Exception ex, WebRequest request) {
         log.error("An unhandled exception occurred", ex);
-        return new ResponseEntity<>(Map.of("error", "An unexpected internal server error has occurred."), HttpStatus.INTERNAL_SERVER_ERROR);
+        return new ResponseEntity<>(Map.of(ERROR_KEY, "An unexpected internal server error has occurred."), HttpStatus.INTERNAL_SERVER_ERROR);
     }
 }

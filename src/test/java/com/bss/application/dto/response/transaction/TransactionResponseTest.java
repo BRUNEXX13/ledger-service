@@ -7,6 +7,7 @@ import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.UUID;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 
@@ -62,5 +63,50 @@ class TransactionResponseTest {
         assertEquals("Insufficient funds", response.getFailureReason());
         assertEquals(uuid, response.getIdempotencyKey());
         assertEquals(now, response.getCreatedAt());
+    }
+
+    @Test
+    @DisplayName("Should have correct equals and hashCode implementations")
+    void shouldHaveCorrectEqualsAndHashCode() {
+        UUID idempotencyKey = UUID.randomUUID();
+        LocalDateTime createdAt = LocalDateTime.now();
+        
+        TransactionResponse response1 = new TransactionResponse(1L, 10L, 20L, BigDecimal.TEN, "SUCCESS", null, idempotencyKey);
+        response1.setCreatedAt(createdAt);
+
+        TransactionResponse response2 = new TransactionResponse(1L, 10L, 20L, BigDecimal.TEN, "SUCCESS", null, idempotencyKey);
+        response2.setCreatedAt(createdAt);
+
+        TransactionResponse response3 = new TransactionResponse(2L, 10L, 20L, BigDecimal.TEN, "SUCCESS", null, idempotencyKey);
+        response3.setCreatedAt(createdAt);
+
+        assertThat(response1).isEqualTo(response2);
+        assertThat(response1).hasSameHashCodeAs(response2);
+        assertThat(response1).isNotEqualTo(response3);
+    }
+
+    @Test
+    @DisplayName("Should not be equal with different fields")
+    void shouldNotBeEqualWithDifferentFields() {
+        UUID idempotencyKey = UUID.randomUUID();
+        LocalDateTime createdAt = LocalDateTime.now();
+        
+        TransactionResponse base = new TransactionResponse(1L, 10L, 20L, BigDecimal.TEN, "SUCCESS", null, idempotencyKey);
+        base.setCreatedAt(createdAt);
+
+        assertThat(base).isNotEqualTo(new TransactionResponse(2L, 10L, 20L, BigDecimal.TEN, "SUCCESS", null, idempotencyKey));
+        assertThat(base).isNotEqualTo(new TransactionResponse(1L, 30L, 20L, BigDecimal.TEN, "SUCCESS", null, idempotencyKey));
+        assertThat(base).isNotEqualTo(new TransactionResponse(1L, 10L, 40L, BigDecimal.TEN, "SUCCESS", null, idempotencyKey));
+        assertThat(base).isNotEqualTo(new TransactionResponse(1L, 10L, 20L, BigDecimal.ONE, "SUCCESS", null, idempotencyKey));
+        assertThat(base).isNotEqualTo(new TransactionResponse(1L, 10L, 20L, BigDecimal.TEN, "FAILED", null, idempotencyKey));
+        assertThat(base).isNotEqualTo(new TransactionResponse(1L, 10L, 20L, BigDecimal.TEN, "SUCCESS", "Error", idempotencyKey));
+        assertThat(base).isNotEqualTo(new TransactionResponse(1L, 10L, 20L, BigDecimal.TEN, "SUCCESS", null, UUID.randomUUID()));
+        
+        TransactionResponse differentTime = new TransactionResponse(1L, 10L, 20L, BigDecimal.TEN, "SUCCESS", null, idempotencyKey);
+        differentTime.setCreatedAt(createdAt.plusSeconds(1));
+        assertThat(base).isNotEqualTo(differentTime);
+        
+        assertThat(base).isNotEqualTo(null);
+        assertThat(base).isNotEqualTo(new Object());
     }
 }

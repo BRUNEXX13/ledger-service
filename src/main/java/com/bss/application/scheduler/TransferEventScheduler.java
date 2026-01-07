@@ -18,7 +18,6 @@ import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
-import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
@@ -37,6 +36,7 @@ public class TransferEventScheduler {
     private static final Logger log = LoggerFactory.getLogger(TransferEventScheduler.class);
     private static final int BATCH_SIZE = 100;
     private static final int MAX_RETRIES = 5;
+    private static final String IDEMPOTENCY_KEY = "idempotencyKey";
 
     private final OutboxEventRepository outboxEventRepository;
     private final TransactionRepository transactionRepository;
@@ -57,11 +57,6 @@ public class TransferEventScheduler {
     }
 
     @Scheduled(fixedDelay = 2000)
-    @Transactional(propagation = Propagation.NEVER)
-    public void scheduleProcessTransferEvents() {
-        processTransferEvents();
-    }
-
     @Transactional
     public void processTransferEvents() {
         LocalDateTime lockTimeout = LocalDateTime.now().minusMinutes(1);
@@ -73,7 +68,7 @@ public class TransferEventScheduler {
         }
 
         log.info("Found {} events to process.", events.size());
-        
+
         LocalDateTime newLockTime = LocalDateTime.now();
         events.forEach(event -> {
             event.setStatus(OutboxEventStatus.PROCESSING);
@@ -96,30 +91,9 @@ public class TransferEventScheduler {
         List<OutboxEvent> failedEvents = new ArrayList<>();
 
         prepareTransactions(events, accountsMap, transactionsToSave, failedEvents);
-        
+
         if (!transactionsToSave.isEmpty()) {
-            try {
-                transactionRepository.saveAll(transactionsToSave);
-            } catch (DataIntegrityViolationException e) {
-                log.warn("Batch save failed due to data integrity violation. Retrying individually.");
-                // Clear and retry individually to isolate the duplicate
-                transactionsToSave.clear();
-                // Re-prepare and save one by one is complex here because we need to link back to the event.
-                // For simplicity in this fix, we will let the loop below handle the "not saved" scenario 
-                // by checking if transaction has ID, or we can just fail the batch and let retry handle it (but that causes the storm).
-                
-                // Better approach: Since we can't easily isolate the duplicate in a batch save without complex logic,
-                // we will mark the events as UNPROCESSED to be picked up again, but this time we might want to process them individually?
-                // Or we can just proceed. The executeTransactions loop expects managed entities.
-                
-                // If saveAll fails, the transaction is marked for rollback? No, we are in a try-catch inside the method.
-                // But the EntityManager might be in an inconsistent state.
-                
-                // Given the constraints, let's assume we can't proceed with this batch if saveAll fails.
-                // We will throw to trigger the outer catch block which resets to UNPROCESSED.
-                // But to avoid the storm, we should probably try to identify the duplicate.
-                throw e; 
-            }
+            transactionsToSave = saveTransactionsOrRetry(transactionsToSave, events, failedEvents);
         }
 
         List<OutboxEvent> processedEvents = executeTransactions(events, transactionsToSave, failedEvents);
@@ -127,50 +101,149 @@ public class TransferEventScheduler {
         persistFinalState(accountsMap, transactionsToSave, processedEvents, failedEvents);
     }
 
-    private Map<Long, Account> fetchAccountsForEvents(List<OutboxEvent> events) {
-        List<Long> accountIds = new ArrayList<>();
-        for (OutboxEvent event : events) {
+    private List<Transaction> saveTransactionsOrRetry(List<Transaction> transactions, List<OutboxEvent> events, List<OutboxEvent> failedEvents) {
+        try {
+            return transactionRepository.saveAll(transactions);
+        } catch (DataIntegrityViolationException e) {
+            log.warn("Batch save failed due to data integrity violation. Retrying individually.");
+            return saveTransactionsIndividually(transactions, events, failedEvents);
+        }
+    }
+
+    private List<Transaction> saveTransactionsIndividually(List<Transaction> transactions, List<OutboxEvent> events, List<OutboxEvent> failedEvents) {
+        List<Transaction> savedTransactions = new ArrayList<>();
+        Map<UUID, OutboxEvent> eventMap = mapEventsByIdempotencyKey(events);
+
+        for (Transaction tx : transactions) {
             try {
-                JsonNode payload = objectMapper.readTree(event.getPayload());
-                accountIds.add(payload.get("senderAccountId").asLong());
-                accountIds.add(payload.get("receiverAccountId").asLong());
-            } catch (JsonProcessingException e) {
-                log.error("Failed to parse payload for event {}. Marking as FAILED.", event.getId(), e);
-                event.setStatus(OutboxEventStatus.FAILED);
+                savedTransactions.add(transactionRepository.save(tx));
+            } catch (DataIntegrityViolationException ex) {
+                log.error("Failed to save transaction individually. IdempotencyKey: {}", tx.getIdempotencyKey(), ex);
+                markEventAsFailed(eventMap.get(tx.getIdempotencyKey()), failedEvents);
             }
         }
-        // Use findByIdForUpdate for pessimistic locking on accounts involved in transfers
-        // Note: findByIds in repository needs to be updated or we iterate.
-        // Since we added findByIdForUpdate (singular), let's iterate to lock them.
-        // Or better, update repository to support batch locking if possible, but standard JPA doesn't support "WHERE IN ... FOR UPDATE" easily in all dialects without custom query.
-        // For now, let's just fetch them. The user asked to use PESSIMISTIC_WRITE in the repository, which we did.
-        // We should use it here.
-        
-        // However, locking multiple accounts in a batch can lead to deadlocks if not ordered.
-        // Let's sort the IDs to avoid deadlocks.
-        List<Long> sortedIds = accountIds.stream().distinct().sorted().collect(Collectors.toList());
-        
-        // We need to fetch them one by one to use the lock method we added, or add a batch lock method.
-        // Let's use the method we added: findByIdForUpdate
+        return savedTransactions;
+    }
+
+    private List<OutboxEvent> executeTransactions(List<OutboxEvent> events, List<Transaction> transactions, List<OutboxEvent> failedEvents) {
+        List<OutboxEvent> processedEvents = new ArrayList<>();
+        Map<UUID, Transaction> transactionMap = mapTransactionsByIdempotencyKey(transactions);
+
+        for (OutboxEvent event : events) {
+            processEvent(event, transactionMap, processedEvents, failedEvents);
+        }
+        return processedEvents;
+    }
+
+    private void processEvent(OutboxEvent event, Map<UUID, Transaction> transactionMap,
+                              List<OutboxEvent> processedEvents, List<OutboxEvent> failedEvents) {
+        if (shouldSkipEvent(event)) return;
+
+        UUID idempotencyKey = extractIdempotencyKey(event);
+        if (idempotencyKey == null) return;
+
+        Transaction transaction = transactionMap.get(idempotencyKey);
+        if (transaction == null) {
+            handleMissingTransaction(event, failedEvents);
+            return;
+        }
+
+        processTransactionAndHandleErrors(event, transaction, processedEvents, failedEvents);
+    }
+
+    private boolean shouldSkipEvent(OutboxEvent event) {
+        return event.getStatus() == OutboxEventStatus.FAILED;
+    }
+
+    private Map<UUID, Transaction> mapTransactionsByIdempotencyKey(List<Transaction> transactions) {
+        return transactions.stream()
+                .collect(Collectors.toMap(Transaction::getIdempotencyKey, Function.identity()));
+    }
+
+    private void handleMissingTransaction(OutboxEvent event, List<OutboxEvent> failedEvents) {
+        log.error("Transaction not found in map for event {}. Marking event as FAILED.", event.getId());
+        markEventAsFailed(event, failedEvents);
+    }
+
+    private Map<UUID, OutboxEvent> mapEventsByIdempotencyKey(List<OutboxEvent> events) {
+        return events.stream().collect(Collectors.toMap(
+                this::extractIdempotencyKey,
+                Function.identity(),
+                (existing, replacement) -> existing
+        ));
+    }
+
+    private UUID extractIdempotencyKey(OutboxEvent event) {
+        try {
+            JsonNode payload = objectMapper.readTree(event.getPayload());
+            if (payload.has(IDEMPOTENCY_KEY)) {
+                return UUID.fromString(payload.get(IDEMPOTENCY_KEY).asText());
+            }
+        } catch (JsonProcessingException | IllegalArgumentException e) {
+            // Log handled elsewhere or ignored for map creation purposes
+        }
+        return null;
+    }
+
+    private void markEventAsFailed(OutboxEvent event, List<OutboxEvent> failedEvents) {
+        if (event != null) {
+            event.setStatus(OutboxEventStatus.FAILED);
+            event.setRetryCount(MAX_RETRIES);
+            failedEvents.add(event);
+        }
+    }
+
+    private Map<Long, Account> fetchAccountsForEvents(List<OutboxEvent> events) {
+        List<Long> accountIds = extractAccountIds(events);
+        return fetchAndLockAccounts(accountIds);
+    }
+
+    private List<Long> extractAccountIds(List<OutboxEvent> events) {
+        List<Long> accountIds = new ArrayList<>();
+        for (OutboxEvent event : events) {
+            extractIdsFromEvent(event, accountIds);
+        }
+        return accountIds;
+    }
+
+    private void extractIdsFromEvent(OutboxEvent event, List<Long> accountIds) {
+        try {
+            JsonNode payload = objectMapper.readTree(event.getPayload());
+            accountIds.add(payload.get("senderAccountId").asLong());
+            accountIds.add(payload.get("receiverAccountId").asLong());
+        } catch (JsonProcessingException e) {
+            log.error("Failed to parse payload for event {}. Marking as FAILED.", event.getId(), e);
+            event.setStatus(OutboxEventStatus.FAILED);
+        }
+    }
+
+    private Map<Long, Account> fetchAndLockAccounts(List<Long> accountIds) {
+        List<Long> sortedIds = accountIds.stream().distinct().sorted().toList();
+
         return sortedIds.stream()
                 .map(id -> accountRepository.findByIdForUpdate(id).orElse(null))
                 .filter(java.util.Objects::nonNull)
                 .collect(Collectors.toMap(Account::getId, Function.identity()));
     }
 
-    private void prepareTransactions(List<OutboxEvent> events, Map<Long, Account> accountsMap, 
+    private void prepareTransactions(List<OutboxEvent> events, Map<Long, Account> accountsMap,
                                      List<Transaction> transactionsToSave, List<OutboxEvent> failedEvents) {
         for (OutboxEvent event : events) {
-            if (event.getStatus() == OutboxEventStatus.FAILED) continue;
+            prepareTransactionForEvent(event, accountsMap, transactionsToSave, failedEvents);
+        }
+    }
 
-            try {
-                Transaction transaction = createTransactionFromEvent(event, accountsMap);
-                transactionsToSave.add(transaction);
-            } catch (Exception e) {
-                log.error("Failed to prepare transaction for event {}. Marking as FAILED.", event.getId(), e);
-                event.setStatus(OutboxEventStatus.FAILED);
-                failedEvents.add(event);
-            }
+    private void prepareTransactionForEvent(OutboxEvent event, Map<Long, Account> accountsMap,
+                                            List<Transaction> transactionsToSave, List<OutboxEvent> failedEvents) {
+        if (shouldSkipEvent(event)) return;
+
+        try {
+            Transaction transaction = createTransactionFromEvent(event, accountsMap);
+            transactionsToSave.add(transaction);
+        } catch (Exception e) {
+            log.error("Failed to prepare transaction for event {}. Marking as FAILED.", event.getId(), e);
+            event.setStatus(OutboxEventStatus.FAILED);
+            failedEvents.add(event);
         }
     }
 
@@ -179,7 +252,7 @@ public class TransferEventScheduler {
         Long senderId = payload.get("senderAccountId").asLong();
         Long receiverId = payload.get("receiverAccountId").asLong();
         BigDecimal amount = new BigDecimal(payload.get("amount").asText());
-        UUID idempotencyKey = UUID.fromString(payload.get("idempotencyKey").asText());
+        UUID idempotencyKey = UUID.fromString(payload.get(IDEMPOTENCY_KEY).asText());
 
         Account sender = accountsMap.get(senderId);
         Account receiver = accountsMap.get(receiverId);
@@ -191,26 +264,7 @@ public class TransferEventScheduler {
         return new Transaction(sender, receiver, amount, idempotencyKey);
     }
 
-    private List<OutboxEvent> executeTransactions(List<OutboxEvent> events, List<Transaction> transactions, 
-                                                  List<OutboxEvent> failedEvents) {
-        List<OutboxEvent> processedEvents = new ArrayList<>();
-        int transactionIndex = 0;
-
-        for (OutboxEvent event : events) {
-            if (event.getStatus() == OutboxEventStatus.FAILED) {
-                if (!failedEvents.contains(event)) failedEvents.add(event);
-                continue;
-            }
-            
-            if (transactionIndex >= transactions.size()) break;
-
-            Transaction transaction = transactions.get(transactionIndex++);
-            processTransactionAndHandleErrors(event, transaction, processedEvents, failedEvents);
-        }
-        return processedEvents;
-    }
-
-    private void processTransactionAndHandleErrors(OutboxEvent event, Transaction transaction, 
+    private void processTransactionAndHandleErrors(OutboxEvent event, Transaction transaction,
                                                    List<OutboxEvent> processedEvents, List<OutboxEvent> failedEvents) {
         try {
             processSingleTransaction(transaction);
@@ -229,7 +283,7 @@ public class TransferEventScheduler {
 
         sender.withdraw(transaction.getAmount());
         receiver.deposit(transaction.getAmount());
-        
+
         transaction.complete();
         transactionAuditService.createAuditEvent(transaction, "TransactionCompleted");
     }
@@ -241,29 +295,38 @@ public class TransferEventScheduler {
     }
 
     private void handleUnexpectedError(OutboxEvent event, Exception e, List<OutboxEvent> failedEvents) {
-        if (e instanceof DataIntegrityViolationException || (e.getCause() != null && e.getCause() instanceof DataIntegrityViolationException)) {
-            log.warn("Duplicate transaction detected for event {}. Marking as FAILED (Idempotent).", event.getId());
-            event.setStatus(OutboxEventStatus.FAILED); 
-            event.setRetryCount(MAX_RETRIES);
-            failedEvents.add(event);
+        if (isDataIntegrityViolation(e)) {
+            handleDataIntegrityViolation(event, failedEvents);
         } else {
-            log.error("Unexpected error processing event {}. Will retry.", event.getId(), e);
-            event.incrementRetryCount();
-            if (event.getRetryCount() >= MAX_RETRIES) {
-                event.setStatus(OutboxEventStatus.FAILED);
-                failedEvents.add(event);
-            } else {
-                event.setStatus(OutboxEventStatus.UNPROCESSED);
-            }
+            handleGenericProcessingError(event, e, failedEvents);
         }
     }
 
-    private void persistFinalState(Map<Long, Account> accountsMap, List<Transaction> transactions, 
+    private boolean isDataIntegrityViolation(Exception e) {
+        return e instanceof DataIntegrityViolationException || e.getCause() instanceof DataIntegrityViolationException;
+    }
+
+    private void handleDataIntegrityViolation(OutboxEvent event, List<OutboxEvent> failedEvents) {
+        log.warn("Duplicate transaction detected for event {}. Marking as FAILED (Idempotent).", event.getId());
+        markEventAsFailed(event, failedEvents);
+    }
+
+    private void handleGenericProcessingError(OutboxEvent event, Exception e, List<OutboxEvent> failedEvents) {
+        log.error("Unexpected error processing event {}. Will retry.", event.getId(), e);
+        event.incrementRetryCount();
+        if (event.getRetryCount() >= MAX_RETRIES) {
+            markEventAsFailed(event, failedEvents);
+        } else {
+            event.setStatus(OutboxEventStatus.UNPROCESSED);
+        }
+    }
+
+    private void persistFinalState(Map<Long, Account> accountsMap, List<Transaction> transactions,
                                    List<OutboxEvent> processedEvents, List<OutboxEvent> failedEvents) {
         saveIfNotEmpty(accountsMap.values(), accountRepository::saveAll);
         saveIfNotEmpty(transactions, transactionRepository::saveAll);
         saveIfNotEmpty(failedEvents, outboxEventRepository::saveAll);
-        
+
         if (!processedEvents.isEmpty()) {
             outboxEventRepository.deleteAllInBatch(processedEvents);
         }

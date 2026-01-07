@@ -50,7 +50,7 @@ public class Transaction {
     @Column(nullable = false, unique = true)
     private UUID idempotencyKey;
 
-    @Deprecated
+
     protected Transaction() {}
 
     public Transaction(Account sender, Account receiver, BigDecimal amount, UUID idempotencyKey) {
