@@ -1,6 +1,5 @@
 package com.bss.application.controller.transfer.mapper;
 
-import com.bss.application.controller.transfer.mapper.TransferMapper;
 import com.bss.application.dto.request.transfer.TransferRequest;
 import com.bss.domain.transfer.Transfer;
 import org.junit.jupiter.api.DisplayName;
@@ -9,7 +8,9 @@ import org.junit.jupiter.api.Test;
 import java.math.BigDecimal;
 import java.util.UUID;
 
-import static org.junit.jupiter.api.Assertions.*;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 
 class TransferMapperTest {
 

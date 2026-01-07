@@ -1,6 +1,5 @@
 package com.bss.application.controller.account.mapper;
 
-import com.bss.application.controller.account.mapper.AccountMapper;
 import com.bss.application.dto.response.account.AccountResponse;
 import com.bss.domain.account.Account;
 import com.bss.domain.account.AccountStatus;

@@ -1,6 +1,5 @@
 package com.bss.application.event.account;
 
-import com.bss.application.event.account.AccountCreatedEvent;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 

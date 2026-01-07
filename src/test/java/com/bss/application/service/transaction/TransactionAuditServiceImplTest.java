@@ -2,7 +2,6 @@ package com.bss.application.service.transaction;
 
 import com.bss.application.dto.response.transaction.TransactionUserResponse;
 import com.bss.application.exception.ResourceNotFoundException;
-import com.bss.application.service.transaction.TransactionAuditServiceImpl;
 import com.bss.domain.account.Account;
 import com.bss.domain.outbox.OutboxEvent;
 import com.bss.domain.outbox.OutboxEventRepository;
@@ -30,7 +29,8 @@ import java.util.UUID;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.*;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
 @MockitoSettings(strictness = Strictness.LENIENT) // Allows unused stubs in setUp

@@ -1,6 +1,5 @@
 package com.bss.application.controller.user.mapper;
 
-import com.bss.application.controller.user.mapper.UserMapper;
 import com.bss.application.dto.request.user.CreateUserRequest;
 import com.bss.application.dto.response.user.UserResponse;
 import com.bss.domain.user.Role;
@@ -11,7 +10,9 @@ import org.junit.jupiter.api.Test;
 
 import java.time.LocalDateTime;
 
-import static org.junit.jupiter.api.Assertions.*;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 

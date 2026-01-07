@@ -1,6 +1,5 @@
 package com.bss.application.config;
 
-import com.bss.application.config.JpaConfig;
 import com.bss.domain.account.AccountRepository;
 import com.bss.domain.transaction.TransactionRepository;
 import com.bss.domain.user.UserRepository;

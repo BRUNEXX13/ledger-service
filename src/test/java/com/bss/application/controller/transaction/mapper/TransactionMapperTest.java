@@ -1,6 +1,5 @@
 package com.bss.application.controller.transaction.mapper;
 
-import com.bss.application.controller.transaction.mapper.TransactionMapper;
 import com.bss.application.dto.response.transaction.TransactionResponse;
 import com.bss.domain.account.Account;
 import com.bss.domain.transaction.Transaction;
@@ -11,7 +10,9 @@ import org.junit.jupiter.api.Test;
 import java.math.BigDecimal;
 import java.util.UUID;
 
-import static org.junit.jupiter.api.Assertions.*;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 

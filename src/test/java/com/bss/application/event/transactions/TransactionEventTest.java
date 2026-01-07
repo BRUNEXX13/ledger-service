@@ -1,6 +1,5 @@
 package com.bss.application.event.transactions;
 
-import com.bss.application.event.transactions.TransactionEvent;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 

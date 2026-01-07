@@ -1,6 +1,5 @@
 package com.bss.application.exception;
 
-import com.bss.application.exception.AccountCreatedFailedException;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
