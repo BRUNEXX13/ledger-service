@@ -7,18 +7,18 @@ export const options = {
   scenarios: {
     stress_test_10k: {
       executor: 'constant-arrival-rate',
-      rate: 10000, // Configurado para 10.000 requisições por segundo
+      rate: 10000, // Alvo: 10.000 requisições por segundo
       timeUnit: '1s',
-      duration: '5m',
+      duration: '5m', // Teste de imersão (Soak Test)
 
-      // Ajustado para ser mais leve na máquina local
-      preAllocatedVUs: 2000,
-      maxVUs: 12000, // Margem de segurança: 10k RPS * 1.2s latência
+      // Pré-alocação agressiva para suportar o arranque de 10k RPS
+      preAllocatedVUs: 5000,
+      maxVUs: 30000, // Margem de segurança alta para picos de latência
     },
   },
   thresholds: {
-    http_req_failed: ['rate<0.01'],
-    http_req_duration: ['p(95)<1000'],
+    http_req_failed: ['rate<0.01'], // Erros abaixo de 1%
+    http_req_duration: ['p(95)<1000'], // Tolerância de 1s
   },
 };
 
