@@ -1,5 +1,6 @@
 package com.bss.application.event.transactions;
 
+import com.bss.application.exception.TransactionEventListenerException;
 import com.bss.application.service.notification.EmailService;
 import com.bss.domain.user.Role;
 import com.bss.domain.user.User;
@@ -24,6 +25,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
@@ -93,10 +95,12 @@ class TransactionEventListenerTest {
         String expectedAmountString = String.format("%.2f", transactionEvent.getAmount());
 
         String senderBody = bodies.stream().filter(b -> b.contains("Você enviou")).findFirst().orElse("");
-        assertTrue(senderBody.contains(expectedAmountString) && senderBody.contains("Receiver Name"));
+        assertTrue(senderBody.contains(expectedAmountString), "Sender body should contain amount");
+        assertTrue(senderBody.contains("Receiver Name"), "Sender body should contain receiver name");
 
         String receiverBody = bodies.stream().filter(b -> b.contains("Você recebeu")).findFirst().orElse("");
-        assertTrue(receiverBody.contains(expectedAmountString) && receiverBody.contains("Sender Name"));
+        assertTrue(receiverBody.contains(expectedAmountString), "Receiver body should contain amount");
+        assertTrue(receiverBody.contains("Sender Name"), "Receiver body should contain sender name");
     }
 
     @Test
@@ -106,9 +110,9 @@ class TransactionEventListenerTest {
         when(userRepository.findById(10L)).thenReturn(Optional.empty());
 
         // Act & Assert
-        RuntimeException exception = assertThrows(RuntimeException.class, () -> eventListener.handleTransactionEvent(jsonPayload));
+        TransactionEventListenerException exception = assertThrows(TransactionEventListenerException.class, () -> eventListener.handleTransactionEvent(jsonPayload));
         assertTrue(exception.getMessage().contains("Falha ao desserializar ou processar o evento de transação"));
-        
+
         verify(emailService, never()).sendTransactionNotification(any(), any(), any());
     }
 
@@ -121,7 +125,7 @@ class TransactionEventListenerTest {
         doThrow(new RuntimeException("SMTP server down")).when(emailService).sendTransactionNotification(any(), any(), any());
 
         // Act & Assert
-        RuntimeException exception = assertThrows(RuntimeException.class, () -> eventListener.handleTransactionEvent(jsonPayload));
+        TransactionEventListenerException exception = assertThrows(TransactionEventListenerException.class, () -> eventListener.handleTransactionEvent(jsonPayload));
         assertTrue(exception.getMessage().contains("Falha ao desserializar ou processar o evento de transação"));
     }
 }

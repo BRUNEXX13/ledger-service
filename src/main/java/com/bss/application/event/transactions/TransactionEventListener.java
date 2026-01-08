@@ -33,7 +33,7 @@ public class TransactionEventListener {
     public void handleTransactionEvent(@Payload String jsonPayload) {
         try {
             TransactionEvent event = objectMapper.readValue(jsonPayload, TransactionEvent.class);
-            
+
             log.info("Evento de TRANSAÇÃO recebido para notificação. IdempotencyKey: {}", event.getIdempotencyKey());
 
             User sender = userRepository.findById(event.getSenderAccountId())
@@ -44,15 +44,15 @@ public class TransactionEventListener {
 
             String senderSubject = "Comprovante de Transferência Enviada";
             String senderBody = String.format(
-                "Olá, %s! Você enviou %.2f para %s.",
-                sender.getName(), event.getAmount(), receiver.getName()
+                    "Olá, %s! Você enviou %.2f para %s.",
+                    sender.getName(), event.getAmount(), receiver.getName()
             );
             emailService.sendTransactionNotification(sender.getEmail(), senderSubject, senderBody);
 
             String receiverSubject = "Você Recebeu uma Transferência";
             String receiverBody = String.format(
-                "Olá, %s! Você recebeu %.2f de %s.",
-                receiver.getName(), event.getAmount(), sender.getName()
+                    "Olá, %s! Você recebeu %.2f de %s.",
+                    receiver.getName(), event.getAmount(), sender.getName()
             );
             emailService.sendTransactionNotification(receiver.getEmail(), receiverSubject, receiverBody);
 
