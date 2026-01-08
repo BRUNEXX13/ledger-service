@@ -38,7 +38,7 @@ class LedgerServiceApplicationTest {
         registry.add("spring.docker.compose.enabled", () -> "false");
         registry.add("spring.flyway.enabled", () -> "true");
         registry.add("spring.datasource.driver-class-name", () -> "org.postgresql.Driver");
-        
+
         // Force clear any exclusions that might be leaking from other tests or environment
         registry.add("spring.autoconfigure.exclude", () -> "");
     }

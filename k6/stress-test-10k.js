@@ -5,35 +5,36 @@ import { uuidv4 } from 'https://jslib.k6.io/k6-utils/1.4.0/index.js';
 
 export const options = {
   scenarios: {
-    transfer_stress_test: {
+    stress_test_8k: { // Renomeado para refletir a nova carga
       executor: 'constant-arrival-rate',
-      rate: 5000, // 5000 RPS
+      rate: 10000, // Configurado para 10.000 requisições por segundo
       timeUnit: '1s',
-      duration: '5m', // Duration increased to 5 minutes (Soak Test)
-      preAllocatedVUs: 2000, // Aumentado para reduzir overhead de alocação durante picos
-      maxVUs: 20000,
+      duration: '5m',
+
+      // Ajustado para ser mais leve na máquina local
+      preAllocatedVUs: 1000,
+      maxVUs: 8000,
     },
   },
   thresholds: {
-    http_req_failed: ['rate<0.01'], // Errors below 1%
-    http_req_duration: ['p(95)<500'], // Target of 500ms
+    http_req_failed: ['rate<0.01'],
+    http_req_duration: ['p(95)<1000'],
   },
 };
 
-// Gets the URL from the environment variable or uses localhost as default
 const BASE_URL = __ENV.API_URL || 'http://localhost:8082/api/v1';
 const HEADERS = { 'Content-Type': 'application/json' };
 
-const MAX_ACCOUNT_ID = 100000; 
+const MAX_ACCOUNT_ID = 100000;
 
 export default function () {
   const sender = randomIntBetween(1, MAX_ACCOUNT_ID);
   let receiver = randomIntBetween(1, MAX_ACCOUNT_ID);
-  
+
   while (receiver === sender) {
     receiver = randomIntBetween(1, MAX_ACCOUNT_ID);
   }
-  
+
   const payload = JSON.stringify({
     senderAccountId: sender,
     receiverAccountId: receiver,

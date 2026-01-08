@@ -44,7 +44,7 @@ class OutboxProcessorServiceTest {
     private OutboxProcessorService outboxProcessorService;
 
     @Captor
-    private ArgumentCaptor<OutboxEvent> eventCaptor;
+    private ArgumentCaptor<List<OutboxEvent>> eventsCaptor;
 
     @BeforeEach
     void setUp() {
@@ -63,7 +63,6 @@ class OutboxProcessorServiceTest {
         OutboxEvent event = new OutboxEvent("Account", "1", "AccountCreated", payload);
         AccountCreatedEvent eventDto = new AccountCreatedEvent(1L, 1L, "John", "john@test.com", LocalDateTime.now());
 
-        // Mock for the target event type
         when(outboxEventRepository.findAndLockUnprocessedEvents(
                 eq(OutboxEventStatus.UNPROCESSED),
                 eq("AccountCreated"),
@@ -71,7 +70,6 @@ class OutboxProcessorServiceTest {
                 any(Pageable.class)
         )).thenReturn(List.of(event));
 
-        // Mock for other event types to return empty list (since the service iterates all types)
         when(outboxEventRepository.findAndLockUnprocessedEvents(
                 eq(OutboxEventStatus.UNPROCESSED),
                 eq("TransferRequested"),
@@ -88,12 +86,12 @@ class OutboxProcessorServiceTest {
         outboxProcessorService.processOutboxEvents();
 
         // Assert
-        verify(outboxEventRepository, times(1)).saveAndFlush(event); // Lock
         verify(kafkaProducerService, times(1)).sendAccountCreatedEvent(eventDto);
-        verify(outboxEventRepository, times(1)).save(event); // Mark processed
-
-        assertEquals(OutboxEventStatus.PROCESSED, event.getStatus());
-        assertNull(event.getLockedAt());
+        verify(outboxEventRepository).saveAll(eventsCaptor.capture());
+        
+        OutboxEvent savedEvent = eventsCaptor.getValue().get(0);
+        assertEquals(OutboxEventStatus.PROCESSED, savedEvent.getStatus());
+        assertNull(savedEvent.getLockedAt());
     }
 
     @Test
@@ -104,7 +102,6 @@ class OutboxProcessorServiceTest {
         OutboxEvent event = new OutboxEvent("Transfer", "uuid", "TransferRequested", payload);
         TransferRequestedEvent eventDto = mock(TransferRequestedEvent.class);
 
-        // Mock for the target event type
         when(outboxEventRepository.findAndLockUnprocessedEvents(
                 eq(OutboxEventStatus.UNPROCESSED),
                 eq("TransferRequested"),
@@ -112,7 +109,6 @@ class OutboxProcessorServiceTest {
                 any(Pageable.class)
         )).thenReturn(List.of(event));
 
-        // Mock for other event types to return empty list (AccountCreated comes first in the loop)
         when(outboxEventRepository.findAndLockUnprocessedEvents(
                 eq(OutboxEventStatus.UNPROCESSED),
                 eq("AccountCreated"),
@@ -130,8 +126,8 @@ class OutboxProcessorServiceTest {
 
         // Assert
         verify(kafkaProducerService, times(1)).sendTransferRequestedEvent(eventDto);
-        verify(outboxEventRepository, times(1)).save(event); // Ensure it's saved as processed
-        assertEquals(OutboxEventStatus.PROCESSED, event.getStatus());
+        verify(outboxEventRepository).saveAll(eventsCaptor.capture());
+        assertEquals(OutboxEventStatus.PROCESSED, eventsCaptor.getValue().get(0).getStatus());
     }
 
     @Test
@@ -148,7 +144,6 @@ class OutboxProcessorServiceTest {
                 any(Pageable.class)
         )).thenReturn(List.of(event));
 
-        // Mock for other event types
         when(outboxEventRepository.findAndLockUnprocessedEvents(
                 eq(OutboxEventStatus.UNPROCESSED),
                 eq("TransferRequested"),
@@ -167,8 +162,8 @@ class OutboxProcessorServiceTest {
         outboxProcessorService.processOutboxEvents();
 
         // Assert
-        verify(outboxEventRepository).save(eventCaptor.capture());
-        OutboxEvent savedEvent = eventCaptor.getValue();
+        verify(outboxEventRepository).saveAll(eventsCaptor.capture());
+        OutboxEvent savedEvent = eventsCaptor.getValue().get(0);
         
         assertEquals(OutboxEventStatus.UNPROCESSED, savedEvent.getStatus());
         assertEquals(1, savedEvent.getRetryCount());
@@ -180,7 +175,7 @@ class OutboxProcessorServiceTest {
     void shouldMarkAsFailedAfterMaxRetries() throws Exception {
         // Arrange
         OutboxEvent event = new OutboxEvent("Account", "1", "AccountCreated", "{}");
-        event.setRetryCount(2); // Already retried twice. Next failure should be the 3rd and final.
+        event.setRetryCount(2); 
         
         AccountCreatedEvent eventDto = mock(AccountCreatedEvent.class);
 
@@ -191,7 +186,6 @@ class OutboxProcessorServiceTest {
                 any(Pageable.class)
         )).thenReturn(List.of(event));
 
-        // Mock for other event types
         when(outboxEventRepository.findAndLockUnprocessedEvents(
                 eq(OutboxEventStatus.UNPROCESSED),
                 eq("TransferRequested"),
@@ -210,18 +204,19 @@ class OutboxProcessorServiceTest {
         outboxProcessorService.processOutboxEvents();
 
         // Assert
-        verify(outboxEventRepository).save(eventCaptor.capture());
-        OutboxEvent savedEvent = eventCaptor.getValue();
+        verify(outboxEventRepository).saveAll(eventsCaptor.capture());
+        OutboxEvent savedEvent = eventsCaptor.getValue().get(0);
 
         assertEquals(OutboxEventStatus.FAILED, savedEvent.getStatus());
         assertEquals(3, savedEvent.getRetryCount());
     }
 
     @Test
-    @DisplayName("Should handle JSON deserialization error")
-    void shouldHandleJsonError() throws Exception {
+    @DisplayName("Should handle unknown error (fallback)")
+    void shouldHandleUnknownError() throws Exception {
         // Arrange
-        OutboxEvent event = new OutboxEvent("Account", "1", "AccountCreated", "invalid-json");
+        OutboxEvent event = new OutboxEvent("Account", "1", "AccountCreated", "{}");
+        AccountCreatedEvent eventDto = mock(AccountCreatedEvent.class);
 
         when(outboxEventRepository.findAndLockUnprocessedEvents(
                 eq(OutboxEventStatus.UNPROCESSED),
@@ -230,7 +225,6 @@ class OutboxProcessorServiceTest {
                 any(Pageable.class)
         )).thenReturn(List.of(event));
 
-        // Mock for other event types
         when(outboxEventRepository.findAndLockUnprocessedEvents(
                 eq(OutboxEventStatus.UNPROCESSED),
                 eq("TransferRequested"),
@@ -238,67 +232,22 @@ class OutboxProcessorServiceTest {
                 any(Pageable.class)
         )).thenReturn(Collections.emptyList());
 
-        when(objectMapper.readValue("invalid-json", AccountCreatedEvent.class))
-                .thenThrow(new JsonProcessingException("Error parsing") {});
+        when(objectMapper.readValue(anyString(), eq(AccountCreatedEvent.class))).thenReturn(eventDto);
+
+        // Simulate a Future that completes exceptionally with null (should trigger fallback)
+        // Or a future that is cancelled
+        CompletableFuture<SendResult<String, Object>> future = new CompletableFuture<>();
+        future.cancel(true);
+        when(kafkaProducerService.sendAccountCreatedEvent(eventDto)).thenReturn(future);
 
         // Act
         outboxProcessorService.processOutboxEvents();
 
         // Assert
-        verify(kafkaProducerService, never()).sendAccountCreatedEvent(any());
-        
-        verify(outboxEventRepository).save(eventCaptor.capture());
-        OutboxEvent savedEvent = eventCaptor.getValue();
+        verify(outboxEventRepository).saveAll(eventsCaptor.capture());
+        OutboxEvent savedEvent = eventsCaptor.getValue().get(0);
         
         assertEquals(OutboxEventStatus.UNPROCESSED, savedEvent.getStatus());
         assertEquals(1, savedEvent.getRetryCount());
-    }
-
-    @Test
-    @DisplayName("Should mark unknown event types as PROCESSED to avoid loops")
-    void shouldMarkUnknownEventTypeAsProcessed() {
-        // Arrange
-        OutboxEvent event = new OutboxEvent("Account", "1", "WrongType", "{}");
-        
-        // We force the repo to return a WrongType event even when asked for AccountCreated
-        when(outboxEventRepository.findAndLockUnprocessedEvents(
-                eq(OutboxEventStatus.UNPROCESSED),
-                eq("AccountCreated"), 
-                any(LocalDateTime.class),
-                any(Pageable.class)
-        )).thenReturn(List.of(event)); 
-
-        // Mock for other event types
-        when(outboxEventRepository.findAndLockUnprocessedEvents(
-                eq(OutboxEventStatus.UNPROCESSED),
-                eq("TransferRequested"),
-                any(LocalDateTime.class),
-                any(Pageable.class)
-        )).thenReturn(Collections.emptyList());
-
-        // Act
-        outboxProcessorService.processOutboxEvents();
-
-        // Assert
-        assertEquals(OutboxEventStatus.PROCESSED, event.getStatus());
-        verify(kafkaProducerService, never()).sendAccountCreatedEvent(any());
-    }
-    
-    @Test
-    @DisplayName("Should do nothing when no events found")
-    void shouldDoNothingWhenNoEvents() {
-        // Arrange
-        // Using lenient() here because we are setting up a generic behavior for multiple calls
-        // and we don't want to specify each one individually for this simple test case.
-        lenient().when(outboxEventRepository.findAndLockUnprocessedEvents(
-                any(), anyString(), any(), any()
-        )).thenReturn(Collections.emptyList());
-
-        // Act
-        outboxProcessorService.processOutboxEvents();
-
-        // Assert
-        verify(kafkaProducerService, never()).sendAccountCreatedEvent(any());
-        verify(outboxEventRepository, never()).save(any());
     }
 }

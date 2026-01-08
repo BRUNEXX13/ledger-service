@@ -67,18 +67,7 @@ class KafkaIntegrationTest {
         KafkaMessageListenerContainer<String, TransactionEvent> container = new KafkaMessageListenerContainer<>(consumerFactory, containerProperties);
         container.setupMessageListener((MessageListener<String, TransactionEvent>) records::add);
         container.start();
-        
-        // FIX: The application's KafkaTopicConfig creates the 'transactions' topic with 3 partitions.
-        // The @EmbeddedKafka annotation creates it with 1 partition, but the application context loading
-        // might override or recreate it, or the test utility expects the number of partitions assigned to match.
-        // Since KafkaTopicConfig defines 3 partitions, we should expect 3 partitions here.
-        // Alternatively, we can rely on the fact that EmbeddedKafkaBroker handles this.
-        // The error "Expected 1 but got 3 partitions" suggests the topic has 3 partitions (from KafkaTopicConfig)
-        // but we are waiting for assignment on a container that might only be assigned 1 if not configured correctly,
-        // OR we passed '1' to waitForAssignment but there are 3.
-        
-        // ContainerTestUtils.waitForAssignment waits until the container has been assigned 'partitions' number of partitions.
-        // Since we have 1 consumer in the group and the topic has 3 partitions, this consumer should get all 3.
+
         ContainerTestUtils.waitForAssignment(container, 3);
 
         // 2. Send Message

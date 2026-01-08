@@ -5,7 +5,10 @@ import java.time.LocalDateTime;
 import java.util.UUID;
 
 @Entity
-@Table(name = "tb_outbox_event")
+@Table(name = "tb_outbox_event", indexes = {
+    @Index(name = "idx_outbox_status_eventtype_created", columnList = "status, eventType, createdAt"),
+    @Index(name = "idx_outbox_locked_at", columnList = "lockedAt")
+})
 public class OutboxEvent {
 
     @Id
@@ -65,4 +68,18 @@ public class OutboxEvent {
     
     // Setter for testing purposes
     public void setRetryCount(int retryCount) { this.retryCount = retryCount; }
+
+    /**
+     * Handles the failure logic, updating retry count and status based on max retries.
+     */
+    public void handleFailure(int maxRetries) {
+        this.incrementRetryCount();
+        this.lockedAt = null;
+        
+        if (this.retryCount >= maxRetries) {
+            this.status = OutboxEventStatus.FAILED;
+        } else {
+            this.status = OutboxEventStatus.UNPROCESSED;
+        }
+    }
 }

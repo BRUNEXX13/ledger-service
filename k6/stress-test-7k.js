@@ -5,22 +5,23 @@ import { uuidv4 } from 'https://jslib.k6.io/k6-utils/1.4.0/index.js';
 
 export const options = {
   scenarios: {
-    transfer_stress_test: {
+    stress_test_7k: {
       executor: 'constant-arrival-rate',
-      rate: 5000, // 5000 RPS
+      rate: 7000, // Alvo: 7000 requisições por segundo
       timeUnit: '1s',
-      duration: '5m', // Duration increased to 5 minutes (Soak Test)
-      preAllocatedVUs: 2000, // Aumentado para reduzir overhead de alocação durante picos
-      maxVUs: 20000,
+      duration: '5m', // Teste de imersão (Soak Test)
+      
+      // Aumentamos a pré-alocação para garantir arranque rápido com 7k RPS
+      preAllocatedVUs: 3000, 
+      maxVUs: 20000, // Mantemos o teto alto para segurança contra picos de latência
     },
   },
   thresholds: {
-    http_req_failed: ['rate<0.01'], // Errors below 1%
-    http_req_duration: ['p(95)<500'], // Target of 500ms
+    http_req_failed: ['rate<0.01'], // Erros abaixo de 1%
+    http_req_duration: ['p(95)<1000'], // Tolerância de 1s (considerando saturação de rede local)
   },
 };
 
-// Gets the URL from the environment variable or uses localhost as default
 const BASE_URL = __ENV.API_URL || 'http://localhost:8082/api/v1';
 const HEADERS = { 'Content-Type': 'application/json' };
 

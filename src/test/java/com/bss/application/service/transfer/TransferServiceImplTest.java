@@ -1,11 +1,7 @@
 package com.bss.application.service.transfer;
 
-import com.bss.application.exception.JsonSerializationException;
-import com.bss.domain.outbox.OutboxEvent;
-import com.bss.domain.outbox.OutboxEventRepository;
+import com.bss.application.event.transactions.TransferRequestedEvent;
 import com.bss.domain.transfer.Transfer;
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -13,7 +9,6 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
-import org.mockito.Spy;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.math.BigDecimal;
@@ -22,9 +17,7 @@ import java.util.UUID;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
@@ -33,10 +26,7 @@ import static org.mockito.Mockito.verify;
 class TransferServiceImplTest {
 
     @Mock
-    private OutboxEventRepository outboxEventRepository;
-
-    @Spy
-    private ObjectMapper objectMapper = new ObjectMapper();
+    private TransferBufferService transferBufferService;
 
     @InjectMocks
     private TransferServiceImpl transferService;
@@ -54,29 +44,23 @@ class TransferServiceImplTest {
     }
 
     @Test
-    @DisplayName("Should create and save an OutboxEvent for a valid transfer")
-    void transfer_shouldCreateAndSaveOutboxEvent_forValidTransfer() {
+    @DisplayName("Should enqueue TransferRequestedEvent for a valid transfer")
+    void transfer_shouldEnqueueEvent_forValidTransfer() {
         // Arrange
-        ArgumentCaptor<OutboxEvent> outboxEventCaptor = ArgumentCaptor.forClass(OutboxEvent.class);
+        ArgumentCaptor<TransferRequestedEvent> eventCaptor = ArgumentCaptor.forClass(TransferRequestedEvent.class);
 
         // Act
         transferService.transfer(validTransfer);
 
         // Assert
-        verify(outboxEventRepository, times(1)).save(outboxEventCaptor.capture());
+        verify(transferBufferService, times(1)).enqueue(eventCaptor.capture());
 
-        OutboxEvent capturedEvent = outboxEventCaptor.getValue();
+        TransferRequestedEvent capturedEvent = eventCaptor.getValue();
         assertNotNull(capturedEvent);
-        assertEquals("Transfer", capturedEvent.getAggregateType());
-        assertEquals("TransferRequested", capturedEvent.getEventType());
-        assertEquals(validTransfer.getIdempotencyKey().toString(), capturedEvent.getAggregateId());
-
-        // Verify payload content
-        String payload = capturedEvent.getPayload();
-        assertTrue(payload.contains("\"senderAccountId\":1"));
-        assertTrue(payload.contains("\"receiverAccountId\":2"));
-        assertTrue(payload.contains("\"amount\":100.00"));
-        assertTrue(payload.contains("\"idempotencyKey\":\"" + validTransfer.getIdempotencyKey().toString() + "\""));
+        assertEquals(validTransfer.getSenderAccountId(), capturedEvent.senderAccountId());
+        assertEquals(validTransfer.getReceiverAccountId(), capturedEvent.receiverAccountId());
+        assertEquals(validTransfer.getAmount(), capturedEvent.amount());
+        assertEquals(validTransfer.getIdempotencyKey(), capturedEvent.idempotencyKey());
     }
 
     @Test
@@ -91,24 +75,6 @@ class TransferServiceImplTest {
         });
 
         assertEquals("Sender and receiver accounts cannot be the same.", exception.getMessage());
-        verify(outboxEventRepository, never()).save(any(OutboxEvent.class));
-    }
-
-    @Test
-    @DisplayName("Should throw JsonSerializationException on JSON processing error")
-    void transfer_shouldThrowJsonSerializationException_onSerializationError() throws JsonProcessingException {
-        // Arrange
-        // Configure the spy to throw an exception when trying to serialize
-        doThrow(new JsonProcessingException("Serialization error") {}).when(objectMapper).writeValueAsString(any());
-
-        // Act & Assert
-        JsonSerializationException exception = assertThrows(JsonSerializationException.class, () -> {
-            transferService.transfer(validTransfer);
-        });
-
-        assertEquals("Failed to serialize transfer request event to JSON", exception.getMessage());
-        assertNotNull(exception.getCause());
-        assertTrue(exception.getCause() instanceof JsonProcessingException);
-        verify(outboxEventRepository, never()).save(any(OutboxEvent.class));
+        verify(transferBufferService, never()).enqueue(any());
     }
 }
