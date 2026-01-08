@@ -25,7 +25,6 @@ class LedgerServiceApplicationTest {
     static PostgreSQLContainer<?> postgres = new PostgreSQLContainer<>("postgres:15-alpine");
 
     @Container
-    @ServiceConnection
     static GenericContainer<?> redis = new GenericContainer<>(DockerImageName.parse("redis:7.0"))
             .withExposedPorts(6379);
 
@@ -35,6 +34,9 @@ class LedgerServiceApplicationTest {
 
     @DynamicPropertySource
     static void configureProperties(DynamicPropertyRegistry registry) {
+        registry.add("spring.data.redis.host", redis::getHost);
+        registry.add("spring.data.redis.port", () -> redis.getMappedPort(6379));
+
         registry.add("spring.docker.compose.enabled", () -> "false");
         registry.add("spring.flyway.enabled", () -> "true");
         registry.add("spring.datasource.driver-class-name", () -> "org.postgresql.Driver");
