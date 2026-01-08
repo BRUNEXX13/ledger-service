@@ -26,7 +26,18 @@ public class KafkaProducerConfig {
         configProps.put(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG, StringSerializer.class);
         configProps.put(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG, JsonSerializer.class);
 
-        // Add type information to the headers
+        // Robustness & Reliability Settings for Financial Transactions
+        // Ensure strong durability guarantees
+        configProps.put(ProducerConfig.ACKS_CONFIG, "all"); 
+        // Ensure exactly-once delivery semantics for the producer session
+        configProps.put(ProducerConfig.ENABLE_IDEMPOTENCE_CONFIG, true); 
+        // Retry indefinitely until delivery timeout
+        configProps.put(ProducerConfig.RETRIES_CONFIG, Integer.MAX_VALUE); 
+        // Allow parallel requests while maintaining order (guaranteed by idempotence)
+        configProps.put(ProducerConfig.MAX_IN_FLIGHT_REQUESTS_PER_CONNECTION, 5); 
+
+        // Add type information to the headers (Full class name by default)
+        // This aligns with the consumer configuration expecting full class names
         configProps.put(JsonSerializer.ADD_TYPE_INFO_HEADERS, "true");
 
         return new DefaultKafkaProducerFactory<>(configProps);

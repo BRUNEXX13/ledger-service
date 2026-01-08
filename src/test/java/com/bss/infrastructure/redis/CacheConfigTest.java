@@ -1,46 +1,91 @@
 package com.bss.infrastructure.redis;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.springframework.data.redis.cache.RedisCacheConfiguration;
+import org.springframework.data.redis.serializer.RedisSerializationContext;
 import org.springframework.hateoas.Link;
 import org.springframework.hateoas.RepresentationModel;
-import org.springframework.test.util.ReflectionTestUtils;
 
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
+import java.nio.ByteBuffer;
+import java.time.Duration;
+
+import static org.assertj.core.api.Assertions.assertThat;
 
 class CacheConfigTest {
 
+    private final CacheConfig cacheConfig = new CacheConfig();
+
     @Test
     @DisplayName("Should ignore HATEOAS links during serialization")
-    void shouldIgnoreHateoasLinks() throws Exception {
+    void shouldIgnoreHateoasLinks() {
         // Arrange
-        CacheConfig cacheConfig = new CacheConfig();
-        ObjectMapper objectMapper = ReflectionTestUtils.invokeMethod(cacheConfig, "createObjectMapper");
-        assertNotNull(objectMapper);
-
-        TestModel model = new TestModel();
-        model.add(Link.of("http://localhost/api/test", "self"));
+        RedisCacheConfiguration config = cacheConfig.cacheConfiguration();
+        RedisSerializationContext.SerializationPair<Object> serializationPair = config.getValueSerializationPair();
+        
+        // Create a sample HATEOAS model with links
+        TestModel model = new TestModel("test-content");
+        model.add(Link.of("http://localhost/self", "self"));
 
         // Act
-        String json = objectMapper.writeValueAsString(model);
+        // Use the SerializationPair directly to write (serialize) the object
+        ByteBuffer buffer = serializationPair.write(model);
+        
+        byte[] bytes = new byte[buffer.remaining()];
+        buffer.get(bytes);
+        String json = new String(bytes);
 
         // Assert
-        assertFalse(json.contains("links"), "JSON should not contain 'links' field");
-        assertFalse(json.contains("http://localhost/api/test"), "JSON should not contain link URL");
+        assertThat(json).contains("test-content");
+        // Verify links are NOT present in the JSON
+        assertThat(json).doesNotContain("links");
+        assertThat(json).doesNotContain("_links");
+        assertThat(json).doesNotContain("http://localhost/self");
+        
+        // Verify type info is present (due to activateDefaultTyping)
+        assertThat(json).contains("@class");
+        assertThat(json).contains("com.bss.infrastructure.redis.CacheConfigTest$TestModel");
     }
 
-    // Helper class extending RepresentationModel to test mixin
-    static class TestModel extends RepresentationModel<TestModel> {
-        private String name = "test";
+    @Test
+    @DisplayName("Should deserialize object correctly")
+    void shouldDeserializeObject() {
+        // Arrange
+        RedisCacheConfiguration config = cacheConfig.cacheConfiguration();
+        RedisSerializationContext.SerializationPair<Object> serializationPair = config.getValueSerializationPair();
+        
+        TestModel original = new TestModel("round-trip-content");
+        
+        // Act
+        ByteBuffer buffer = serializationPair.write(original);
+        Object deserialized = serializationPair.read(buffer);
 
-        public String getName() {
-            return name;
+        // Assert
+        assertThat(deserialized).isInstanceOf(TestModel.class);
+        TestModel result = (TestModel) deserialized;
+        assertThat(result.getContent()).isEqualTo("round-trip-content");
+    }
+
+    @Test
+    @DisplayName("Should configure default TTL correctly")
+    void shouldConfigureDefaultTtl() {
+        RedisCacheConfiguration config = cacheConfig.cacheConfiguration();
+        assertThat(config.getTtl()).isEqualTo(Duration.ofMinutes(5));
+    }
+
+    // Helper class extending RepresentationModel to simulate a DTO
+    // Must be static for Jackson to instantiate it without an enclosing instance
+    static class TestModel extends RepresentationModel<TestModel> {
+        private String content;
+
+        public TestModel() {} // For Jackson
+
+        public TestModel(String content) {
+            this.content = content;
         }
 
-        public void setName(String name) {
-            this.name = name;
+        public String getContent() {
+            return content;
         }
     }
 }

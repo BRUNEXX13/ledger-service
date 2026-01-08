@@ -26,6 +26,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.anyList;
 import static org.mockito.Mockito.anyString;
+import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
@@ -114,6 +115,13 @@ class OutboxEventSchedulerTest {
         when(outboxEventRepository.findAndLockUnprocessedEvents(
                 eq(OutboxEventStatus.UNPROCESSED), eq("TransactionCompleted"), any(LocalDateTime.class), any(Pageable.class)))
                 .thenReturn(List.of(event));
+        // Stub other calls to return empty
+        when(outboxEventRepository.findAndLockUnprocessedEvents(
+                eq(OutboxEventStatus.UNPROCESSED), eq("TransactionFailed"), any(LocalDateTime.class), any(Pageable.class)))
+                .thenReturn(Collections.emptyList());
+        when(outboxEventRepository.findAndLockUnprocessedEvents(
+                eq(OutboxEventStatus.UNPROCESSED), eq("AccountCreated"), any(LocalDateTime.class), any(Pageable.class)))
+                .thenReturn(Collections.emptyList());
         
         when(objectMapper.readValue(anyString(), eq(TransactionEvent.class))).thenThrow(new JsonProcessingException("Error") {});
 
@@ -144,6 +152,13 @@ class OutboxEventSchedulerTest {
         when(outboxEventRepository.findAndLockUnprocessedEvents(
                 eq(OutboxEventStatus.UNPROCESSED), eq("TransactionCompleted"), any(LocalDateTime.class), any(Pageable.class)))
                 .thenReturn(List.of(event));
+        // Stub other calls
+        when(outboxEventRepository.findAndLockUnprocessedEvents(
+                eq(OutboxEventStatus.UNPROCESSED), eq("TransactionFailed"), any(LocalDateTime.class), any(Pageable.class)))
+                .thenReturn(Collections.emptyList());
+        when(outboxEventRepository.findAndLockUnprocessedEvents(
+                eq(OutboxEventStatus.UNPROCESSED), eq("AccountCreated"), any(LocalDateTime.class), any(Pageable.class)))
+                .thenReturn(Collections.emptyList());
         
         doThrow(new RuntimeException("Kafka error")).when(kafkaProducerService).sendTransactionEvent(any());
         when(objectMapper.readValue(anyString(), eq(TransactionEvent.class))).thenReturn(new TransactionEvent());
@@ -171,5 +186,80 @@ class OutboxEventSchedulerTest {
         // Assert
         verify(outboxEventRepository, never()).saveAll(any());
         verify(kafkaProducerService, never()).sendTransactionEvent(any());
+    }
+
+    @Test
+    @DisplayName("Should process mixed batch with partial success")
+    void shouldProcessMixedBatchWithPartialSuccess() throws Exception {
+        // Arrange
+        OutboxEvent successEvent = new OutboxEvent("Transaction", "1", "TransactionCompleted", "{\"id\":1}");
+        OutboxEvent failEvent = new OutboxEvent("Transaction", "2", "TransactionCompleted", "{\"id\":2}");
+        
+        when(outboxEventRepository.findAndLockUnprocessedEvents(
+                eq(OutboxEventStatus.UNPROCESSED), eq("TransactionCompleted"), any(LocalDateTime.class), any(Pageable.class)))
+                .thenReturn(List.of(successEvent, failEvent));
+        // Stub other calls to return empty, as the batch is not full (2 < 100)
+        when(outboxEventRepository.findAndLockUnprocessedEvents(
+                eq(OutboxEventStatus.UNPROCESSED), eq("TransactionFailed"), any(LocalDateTime.class), any(Pageable.class)))
+                .thenReturn(Collections.emptyList());
+        when(outboxEventRepository.findAndLockUnprocessedEvents(
+                eq(OutboxEventStatus.UNPROCESSED), eq("AccountCreated"), any(LocalDateTime.class), any(Pageable.class)))
+                .thenReturn(Collections.emptyList());
+        
+        TransactionEvent dto1 = new TransactionEvent();
+        TransactionEvent dto2 = new TransactionEvent();
+        
+        when(objectMapper.readValue("{\"id\":1}", TransactionEvent.class)).thenReturn(dto1);
+        when(objectMapper.readValue("{\"id\":2}", TransactionEvent.class)).thenReturn(dto2);
+        
+        // Use doAnswer to conditionally throw exception based on the argument instance
+        doAnswer(invocation -> {
+            TransactionEvent arg = invocation.getArgument(0);
+            if (arg == dto2) {
+                throw new RuntimeException("Kafka error");
+            }
+            return null; // Success for dto1
+        }).when(kafkaProducerService).sendTransactionEvent(any(TransactionEvent.class));
+
+        // Act
+        scheduler.processNotificationEvents();
+
+        // Assert
+        // 1. Verify successEvent is deleted
+        verify(outboxEventRepository).deleteAllInBatch(List.of(successEvent));
+        
+        // 2. Verify failEvent is retried
+        ArgumentCaptor<List<OutboxEvent>> saveCaptor = ArgumentCaptor.forClass(List.class);
+        verify(outboxEventRepository, times(2)).saveAll(saveCaptor.capture());
+        
+        // Verify the retry call (second saveAll call, first was lock)
+        List<OutboxEvent> retries = saveCaptor.getAllValues().get(1);
+        assertEquals(1, retries.size());
+        assertEquals(failEvent, retries.get(0));
+        assertEquals(1, retries.get(0).getRetryCount());
+    }
+
+    @Test
+    @DisplayName("Should stop fetching when batch is full")
+    void shouldStopFetchingWhenBatchIsFull() {
+        // Arrange
+        // Use public constructor
+        List<OutboxEvent> fullBatch = Collections.nCopies(100, new OutboxEvent("Test", "1", "TestEvent", "{}"));
+        when(outboxEventRepository.findAndLockUnprocessedEvents(
+                eq(OutboxEventStatus.UNPROCESSED), eq("TransactionCompleted"), any(LocalDateTime.class), any(Pageable.class)))
+                .thenReturn(fullBatch);
+
+        // Act
+        scheduler.processNotificationEvents();
+
+        // Assert
+        // Should NOT fetch the next event types
+        verify(outboxEventRepository, never()).findAndLockUnprocessedEvents(
+                eq(OutboxEventStatus.UNPROCESSED), eq("TransactionFailed"), any(LocalDateTime.class), any(Pageable.class));
+        verify(outboxEventRepository, never()).findAndLockUnprocessedEvents(
+                eq(OutboxEventStatus.UNPROCESSED), eq("AccountCreated"), any(LocalDateTime.class), any(Pageable.class));
+        
+        // Should lock the 100 events
+        verify(outboxEventRepository).saveAll(fullBatch);
     }
 }
