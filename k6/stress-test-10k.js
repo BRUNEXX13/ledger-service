@@ -12,7 +12,7 @@ export const options = {
       duration: '5m',
 
       // Ajustado para ser mais leve na máquina local
-      preAllocatedVUs: 2000,
+      preAllocatedVUs: 3500,
       maxVUs: 12000, // Margem de segurança: 10k RPS * 1.2s latência
     },
   },

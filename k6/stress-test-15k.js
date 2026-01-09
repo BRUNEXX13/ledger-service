@@ -5,15 +5,15 @@ import { uuidv4 } from 'https://jslib.k6.io/k6-utils/1.4.0/index.js';
 
 export const options = {
   scenarios: {
-    stress_test_11k: {
+    stress_test_15k: {
       executor: 'constant-arrival-rate',
-      rate: 11000, // Configurado para 11.000 RPS (Limite prático local)
+      rate: 15000, // Configurado para 15.000 requisições por segundo
       timeUnit: '1s',
       duration: '5m',
 
-      // Ajustado para 8500 para cobrir o pico de 8142 VUs observado
-      preAllocatedVUs: 8500,
-      maxVUs: 20000,
+      // Aumentado proporcionalmente para suportar 15k RPS sem alocação dinâmica
+      preAllocatedVUs: 12000,
+      maxVUs: 30000, // Margem de segurança para picos de latência
     },
   },
   thresholds: {
