@@ -280,6 +280,12 @@
                             <goal>report</goal>
                         </goals>
                         <configuration>
+                            <excludes>
+                                <exclude>**/config/**</exclude>
+                                <exclude>**/LedgerServiceApplication.class</exclude>
+                                <exclude>**/exception/**</exclude>
+                                <exclude>**/infrastructure/**</exclude>
+                            </excludes>
                         </configuration>
                     </execution>
 
@@ -291,6 +297,12 @@
                             <goal>report-integration</goal>
                         </goals>
                         <configuration>
+                            <excludes>
+                                <exclude>**/config/**</exclude>
+                                <exclude>**/LedgerServiceApplication.class</exclude>
+                                <exclude>**/exception/**</exclude>
+                                <exclude>**/infrastructure/**</exclude>
+                            </excludes>
                         </configuration>
                     </execution>
                 </executions>

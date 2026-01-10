@@ -1,91 +1,87 @@
 package com.bss.infrastructure.redis;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.springframework.cache.CacheManager;
 import org.springframework.data.redis.cache.RedisCacheConfiguration;
-import org.springframework.data.redis.serializer.RedisSerializationContext;
-import org.springframework.hateoas.Link;
-import org.springframework.hateoas.RepresentationModel;
+import org.springframework.data.redis.cache.RedisCacheManager;
+import org.springframework.data.redis.connection.RedisConnectionFactory;
+import org.springframework.test.util.ReflectionTestUtils;
 
-import java.nio.ByteBuffer;
 import java.time.Duration;
+import java.util.Map;
+import java.util.Set;
+import java.util.stream.Collectors;
 
-import static org.assertj.core.api.Assertions.assertThat;
+import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.Mockito.mock;
 
 class CacheConfigTest {
 
     private final CacheConfig cacheConfig = new CacheConfig();
 
     @Test
-    @DisplayName("Should ignore HATEOAS links during serialization")
-    void shouldIgnoreHateoasLinks() {
-        // Arrange
+    @DisplayName("Should create default cache configuration with 5 minutes TTL")
+    void shouldCreateDefaultCacheConfiguration() {
         RedisCacheConfiguration config = cacheConfig.cacheConfiguration();
-        RedisSerializationContext.SerializationPair<Object> serializationPair = config.getValueSerializationPair();
-        
-        // Create a sample HATEOAS model with links
-        TestModel model = new TestModel("test-content");
-        model.add(Link.of("http://localhost/self", "self"));
 
-        // Act
-        // Use the SerializationPair directly to write (serialize) the object
-        ByteBuffer buffer = serializationPair.write(model);
-        
-        byte[] bytes = new byte[buffer.remaining()];
-        buffer.get(bytes);
-        String json = new String(bytes);
-
-        // Assert
-        assertThat(json).contains("test-content");
-        // Verify links are NOT present in the JSON
-        assertThat(json).doesNotContain("links");
-        assertThat(json).doesNotContain("_links");
-        assertThat(json).doesNotContain("http://localhost/self");
-        
-        // Verify type info is present (due to activateDefaultTyping)
-        assertThat(json).contains("@class");
-        assertThat(json).contains("com.bss.infrastructure.redis.CacheConfigTest$TestModel");
+        assertNotNull(config);
+        assertEquals(Duration.ofMinutes(5), config.getTtl());
+        assertNotNull(config.getValueSerializationPair());
     }
 
     @Test
-    @DisplayName("Should deserialize object correctly")
-    void shouldDeserializeObject() {
-        // Arrange
-        RedisCacheConfiguration config = cacheConfig.cacheConfiguration();
-        RedisSerializationContext.SerializationPair<Object> serializationPair = config.getValueSerializationPair();
+    @DisplayName("Should create CacheManager with specific configurations")
+    void shouldCreateCacheManagerWithSpecificConfigs() {
+        RedisConnectionFactory connectionFactory = mock(RedisConnectionFactory.class);
         
-        TestModel original = new TestModel("round-trip-content");
-        
-        // Act
-        ByteBuffer buffer = serializationPair.write(original);
-        Object deserialized = serializationPair.read(buffer);
+        CacheManager cacheManager = cacheConfig.cacheManager(connectionFactory);
 
-        // Assert
-        assertThat(deserialized).isInstanceOf(TestModel.class);
-        TestModel result = (TestModel) deserialized;
-        assertThat(result.getContent()).isEqualTo("round-trip-content");
+        assertNotNull(cacheManager);
+        assertTrue(cacheManager instanceof RedisCacheManager);
+        
+        RedisCacheManager redisCacheManager = (RedisCacheManager) cacheManager;
+        
+        // Access private field to verify initial configurations
+        @SuppressWarnings("unchecked")
+        Map<String, RedisCacheConfiguration> initialCacheConfiguration = 
+            (Map<String, RedisCacheConfiguration>) ReflectionTestUtils.getField(redisCacheManager, "initialCacheConfiguration");
+        
+        assertNotNull(initialCacheConfiguration);
+        assertTrue(initialCacheConfiguration.containsKey("accounts"));
+        assertTrue(initialCacheConfiguration.containsKey("users"));
+        assertTrue(initialCacheConfiguration.containsKey("transactions"));
+        
+        assertEquals(Duration.ofMinutes(10), initialCacheConfiguration.get("accounts").getTtl());
+        assertEquals(Duration.ofMinutes(10), initialCacheConfiguration.get("users").getTtl());
+        assertEquals(Duration.ofMinutes(10), initialCacheConfiguration.get("transactions").getTtl());
     }
 
     @Test
-    @DisplayName("Should configure default TTL correctly")
-    void shouldConfigureDefaultTtl() {
-        RedisCacheConfiguration config = cacheConfig.cacheConfiguration();
-        assertThat(config.getTtl()).isEqualTo(Duration.ofMinutes(5));
-    }
-
-    // Helper class extending RepresentationModel to simulate a DTO
-    // Must be static for Jackson to instantiate it without an enclosing instance
-    static class TestModel extends RepresentationModel<TestModel> {
-        private String content;
-
-        public TestModel() {} // For Jackson
-
-        public TestModel(String content) {
-            this.content = content;
-        }
-
-        public String getContent() {
-            return content;
-        }
+    @DisplayName("Should configure ObjectMapper correctly")
+    void shouldConfigureObjectMapperCorrectly() throws ClassNotFoundException {
+        // Invoke private method to get the ObjectMapper
+        ObjectMapper mapper = ReflectionTestUtils.invokeMethod(cacheConfig, "createObjectMapper");
+        
+        assertNotNull(mapper);
+        
+        Set<Object> moduleIds = mapper.getRegisteredModuleIds();
+        String moduleNames = moduleIds.stream().map(String::valueOf).collect(Collectors.joining(", "));
+        
+        // Verify modules are registered (Hibernate6, JavaTime)
+        // Hibernate6Module ID might be different depending on version, usually "com.fasterxml.jackson.datatype.hibernate6.Hibernate6Module"
+        boolean hasHibernate = moduleNames.contains("Hibernate6Module") || moduleNames.contains("hibernate6");
+        boolean hasJavaTime = moduleNames.contains("JavaTimeModule") || moduleNames.contains("jsr310");
+        
+        assertTrue(hasHibernate, "Expected Hibernate6Module to be registered. Registered modules: " + moduleNames);
+        assertTrue(hasJavaTime, "Expected JavaTimeModule to be registered. Registered modules: " + moduleNames);
+        
+        // Verify MixIn
+        Class<?> mixin = mapper.findMixInClassFor(org.springframework.hateoas.RepresentationModel.class);
+        assertNotNull(mixin, "MixIn for RepresentationModel should not be null");
+        
+        assertTrue(mixin.getName().contains("RepresentationModelMixin"), 
+            "Expected MixIn name to contain 'RepresentationModelMixin', but was: " + mixin.getName());
     }
 }

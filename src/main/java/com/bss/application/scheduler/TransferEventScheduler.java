@@ -12,13 +12,15 @@ import com.bss.domain.transaction.TransactionRepository;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import jakarta.annotation.PreDestroy;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
-import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.support.TransactionTemplate;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
@@ -27,6 +29,9 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
@@ -34,7 +39,10 @@ import java.util.stream.Collectors;
 public class TransferEventScheduler {
 
     private static final Logger log = LoggerFactory.getLogger(TransferEventScheduler.class);
-    private static final int BATCH_SIZE = 100;
+    
+    // Aumentado para drenar o backlog rapidamente
+    private static final int BATCH_SIZE = 2000; 
+    private static final int THREAD_COUNT = 8; 
     private static final int MAX_RETRIES = 5;
     private static final String IDEMPOTENCY_KEY = "idempotencyKey";
 
@@ -43,31 +51,53 @@ public class TransferEventScheduler {
     private final AccountRepository accountRepository;
     private final TransactionAuditService transactionAuditService;
     private final ObjectMapper objectMapper;
+    private final TransactionTemplate transactionTemplate;
+    private final ExecutorService executorService;
 
     public TransferEventScheduler(OutboxEventRepository outboxEventRepository,
                                   TransactionRepository transactionRepository,
                                   AccountRepository accountRepository,
                                   TransactionAuditService transactionAuditService,
-                                  ObjectMapper objectMapper) {
+                                  ObjectMapper objectMapper,
+                                  PlatformTransactionManager transactionManager) {
         this.outboxEventRepository = outboxEventRepository;
         this.transactionRepository = transactionRepository;
         this.accountRepository = accountRepository;
         this.transactionAuditService = transactionAuditService;
         this.objectMapper = objectMapper;
+        this.transactionTemplate = new TransactionTemplate(transactionManager);
+        
+        this.executorService = Executors.newFixedThreadPool(THREAD_COUNT);
     }
 
-    @Scheduled(fixedDelay = 2000)
-    @Transactional
-    public void processTransferEvents() {
+    // Delay reduzido para 10ms (Turbo Mode)
+    @Scheduled(fixedDelay = 10)
+    public void scheduleTransferProcessing() {
+        for (int i = 0; i < THREAD_COUNT; i++) {
+            executorService.submit(this::processBatchInTransaction);
+        }
+    }
+
+    private void processBatchInTransaction() {
+        try {
+            transactionTemplate.execute(status -> {
+                processNextBatch();
+                return null;
+            });
+        } catch (Exception e) {
+            log.error("Error processing batch in parallel thread", e);
+        }
+    }
+
+    private void processNextBatch() {
         LocalDateTime lockTimeout = LocalDateTime.now().minusMinutes(1);
+        
         List<OutboxEvent> events = outboxEventRepository.findAndLockUnprocessedEvents(
                 OutboxEventStatus.UNPROCESSED, "TransferRequested", lockTimeout, PageRequest.of(0, BATCH_SIZE));
 
         if (events.isEmpty()) {
             return;
         }
-
-        log.info("Found {} events to process.", events.size());
 
         LocalDateTime newLockTime = LocalDateTime.now();
         events.forEach(event -> {
@@ -77,15 +107,14 @@ public class TransferEventScheduler {
         outboxEventRepository.saveAll(events);
 
         try {
-            processBatch(events);
+            processBatchLogic(events);
         } catch (Exception e) {
-            log.error("A critical error occurred during batch processing.", e);
-            events.forEach(event -> event.setStatus(OutboxEventStatus.UNPROCESSED));
-            outboxEventRepository.saveAll(events);
+            log.error("Critical error in batch logic.", e);
+            throw e; 
         }
     }
 
-    private void processBatch(List<OutboxEvent> events) {
+    private void processBatchLogic(List<OutboxEvent> events) {
         Map<Long, Account> accountsMap = fetchAccountsForEvents(events);
         List<Transaction> transactionsToSave = new ArrayList<>();
         List<OutboxEvent> failedEvents = new ArrayList<>();
@@ -140,7 +169,11 @@ public class TransferEventScheduler {
         if (shouldSkipEvent(event)) return;
 
         UUID idempotencyKey = extractIdempotencyKey(event);
-        if (idempotencyKey == null) return;
+        if (idempotencyKey == null) {
+            log.error("Missing idempotency key for event {}. Marking as FAILED.", event.getId());
+            markEventAsFailed(event, failedEvents);
+            return;
+        }
 
         Transaction transaction = transactionMap.get(idempotencyKey);
         if (transaction == null) {
@@ -335,6 +368,18 @@ public class TransferEventScheduler {
     private <T> void saveIfNotEmpty(Collection<T> entities, Function<Collection<T>, ?> saveFunction) {
         if (!entities.isEmpty()) {
             saveFunction.apply(entities);
+        }
+    }
+    
+    @PreDestroy
+    public void shutdown() {
+        executorService.shutdown();
+        try {
+            if (!executorService.awaitTermination(5, TimeUnit.SECONDS)) {
+                executorService.shutdownNow();
+            }
+        } catch (InterruptedException e) {
+            executorService.shutdownNow();
         }
     }
 }
