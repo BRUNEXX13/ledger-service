@@ -5,15 +5,13 @@ import { uuidv4 } from 'https://jslib.k6.io/k6-utils/1.4.0/index.js';
 
 export const options = {
   scenarios: {
-    stress_test_11k: {
+    stress_test_6k: {
       executor: 'constant-arrival-rate',
-      rate: 11000, // Configurado para 11.000 RPS (Limite prático local)
+      rate: 6500, // Ajustado para o limite seguro de IOPS do disco
       timeUnit: '1s',
       duration: '5m',
-
-      // Ajustado para 8500 para cobrir o pico de 8142 VUs observado
-      preAllocatedVUs: 8500,
-      maxVUs: 20000,
+      preAllocatedVUs: 2000,
+      maxVUs: 5000,
     },
   },
   thresholds: {
