@@ -21,7 +21,7 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 
-@Service
+// @Service // Desativado para arquitetura segura (Safety First)
 public class TransferBufferService {
 
     private static final Logger log = LoggerFactory.getLogger(TransferBufferService.class);
@@ -69,13 +69,13 @@ public class TransferBufferService {
         }
     }
 
-    @PostConstruct
+    // @PostConstruct
     public void init() {
         recoverOrphanedItems();
         startConsumers();
     }
 
-    @PreDestroy
+    // @PreDestroy
     public void shutdown() {
         log.info("Shutting down transfer buffer consumers...");
         consumerExecutor.shutdownNow(); // Sends interrupt to all threads

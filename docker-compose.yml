@@ -62,7 +62,29 @@ services:
   postgres:
     image: postgres:15-alpine
     container_name: ledger-postgres
-    command: postgres -c max_connections=200 # Aumentando o limite de conexões
+    # TUNING SEGURO (Safety First)
+    # synchronous_commit=on (PADRÃO): Garante durabilidade no disco.
+    # Mantivemos otimizações de memória e vacuum para performance sem risco de perda de dados.
+    command: >
+      postgres 
+      -c max_connections=300
+      -c shared_buffers=1GB
+      -c effective_cache_size=3GB
+      -c maintenance_work_mem=256MB
+      -c checkpoint_completion_target=0.9
+      -c wal_buffers=16MB
+      -c default_statistics_target=100
+      -c random_page_cost=1.1
+      -c effective_io_concurrency=200
+      -c work_mem=16MB
+      -c min_wal_size=1GB
+      -c max_wal_size=4GB
+      -c synchronous_commit=on
+      -c autovacuum_vacuum_scale_factor=0.02
+      -c autovacuum_analyze_scale_factor=0.01
+      -c autovacuum_naptime=10s
+      -c autovacuum_vacuum_cost_limit=2000
+      -c autovacuum_vacuum_cost_delay=10ms
     environment:
       - POSTGRES_DB=ledger-service
       - POSTGRES_USER=ledger-service
