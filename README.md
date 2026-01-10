@@ -1,35 +1,29 @@
-# Ledger Service - Simplified Accounting System
+# Ledger Service - High-Performance Accounting System
 
-This project implements a robust and scalable Ledger service to manage user accounts and financial transactions. It is designed following the best practices of microservices architecture, with a focus on resilience, performance, and observability.
+This project implements a robust, scalable, and secure Ledger service to manage user accounts and financial transactions. It is designed following the best practices of microservices architecture, with a focus on **data integrity (ACID)**, **high throughput**, and **resilience**.
 
 ## 🚀 Technologies and Tools
 
 The project uses a modern and complete technology stack:
 
 ### Backend & Frameworks
-*   **Java 21:** Base language, leveraging the latest performance and syntax features.
-*   **Spring Boot 3:** Main framework for dependency injection, configuration, and execution.
+*   **Java 21:** Base language, leveraging **Virtual Threads (Project Loom)** for high-concurrency I/O.
+*   **Spring Boot 3.2:** Main framework for dependency injection, configuration, and execution.
 *   **Spring Data JPA / Hibernate:** Persistence layer and ORM.
-*   **Spring Web:** Building the RESTful API. 5 Levels of Richardson Maturity Model.
+*   **Spring Web:** Building the RESTful API.
 *   **Spring HATEOAS:** Implementation of hypermedia in the API.
 *   **Flyway:** Database migration and versioning management.
 
 ### Infrastructure & Data
-*   **PostgreSQL:** Main relational database.
-*   **Redis:** Distributed cache for high performance in reads.
-*   **Apache Kafka:** Event streaming platform for asynchronous communication and notifications.
+*   **PostgreSQL 15:** Main relational database, tuned for high write throughput (`synchronous_commit=on` for safety).
+*   **Redis:** Distributed cache for high performance in reads (Users/Accounts).
+*   **Apache Kafka:** Event streaming platform for asynchronous notifications.
 *   **Docker & Docker Compose:** Containerization and orchestration of the development environment.
 
 ### Observability & Monitoring
 *   **Grafana:** Real-time visualization of metrics and dashboards.
 *   **Prometheus:** Collection and storage of application metrics.
-*   **Datadog:** Configured integration for advanced monitoring (APM, logs, metrics).
 *   **Micrometer:** Metrics facade for application instrumentation.
-
-### Security & Code Quality
-*   **Veracode:** Static Application Security Testing (SAST) to identify vulnerabilities in the code.
-*   **SonarQube:** Continuous inspection of code quality, detecting bugs, code smells, and security vulnerabilities.
-*   **Snyk:** Monitoring of vulnerabilities in open source dependencies (SCA) and containers.
 
 ### Testing & Quality
 *   **JUnit 5:** Unit testing framework.
@@ -39,25 +33,20 @@ The project uses a modern and complete technology stack:
 
 ---
 
-## 🏗️ Architecture & Documentation
+## 🏗️ Architecture: "Safety First"
 
-The system follows a **Hexagonal Architecture (Ports and Adapters)**, ensuring that the business logic (Domain) remains isolated from infrastructure details and external frameworks.
+The system follows a **Hexagonal Architecture (Ports and Adapters)** combined with the **Transactional Outbox Pattern**.
 
-For a complete technical overview, including architecture, design patterns, and performance metrics, please see the **[Technical Architecture and Engineering Report](TECHNICAL_REPORT.md)**.
-
-### Key Architectural Features:
-*   **Isolated Domain:** Business entities and rules reside at the core of the application, without dependencies on external frameworks.
-*   **Ports:** Interfaces that define the contracts for input (use cases) and output (persistence, messaging).
-*   **Adapters:** Concrete implementations of the ports.
-    *   **Driving Adapters:** REST Controllers, Kafka Listeners.
-    *   **Driven Adapters:** JPA Repositories, Kafka Producers, Email Clients.
-*   **Event-Driven:** The system uses domain events to decouple complex processes, such as fund transfers, ensuring eventual consistency and high availability.
+### Key Architectural Decisions:
+1.  **Safety First:** Unlike "fire-and-forget" systems, this Ledger prioritizes data durability. Every transfer request is synchronously persisted to the PostgreSQL disk before confirming to the client.
+2.  **Asynchronous Processing:** While ingestion is synchronous (to disk), processing is asynchronous. This decouples the API from the heavy lifting of locking accounts and updating balances.
+3.  **Concurrency Control:** Uses `SELECT ... FOR UPDATE SKIP LOCKED` to allow multiple scheduler threads (or instances) to process events in parallel without contention.
+4.  **Virtual Threads:** Enabled to handle thousands of concurrent HTTP connections with minimal memory footprint.
 
 ### Key Components:
--   **REST API:** Main interface for interacting with the system.
--   **Asynchronous Processing (Outbox Pattern):** Transfers are saved in a `tb_outbox` table and processed asynchronously, ensuring resilience and consistency.
--   **Cache (Redis):** Optimization of frequent reads.
--   **Messaging (Kafka):** Notifications and asynchronous communication between domains.
+-   **REST API:** Accepts requests and persists them to the `tb_outbox_event` table.
+-   **TransferEventScheduler:** A background worker that reads from the Outbox, executes the business logic (debit/credit), and updates the transaction status.
+-   **Idempotency:** Guaranteed via unique constraints on `idempotency_key` in the database.
 
 ---
 
@@ -70,8 +59,9 @@ For a complete technical overview, including architecture, design patterns, and 
     -   Deactivation of accounts.
 -   **Financial Transfers:**
     -   Endpoint to request transfers between accounts.
-    -   Asynchronous and secure processing of transfers.
-    -   Email notification (simulated) for sender and receiver.
+    -   **High Throughput:** Supports **6,500+ RPS** on a single node.
+    -   **Zero Data Loss:** ACID guarantees on ingestion.
+    -   Email notification (simulated) via Kafka consumers.
 
 ---
 
@@ -114,23 +104,19 @@ The API will be available at `http://localhost:8082/api/v1`.
 
 -   **API Documentation (Swagger):** `http://localhost:8082/api/v1/swagger-ui.html`
 -   **Grafana:** `http://localhost:3000` (login: `admin`/`admin`)
-    -   The "JVM (Micrometer)" dashboard is pre-configured.
 -   **Prometheus:** `http://localhost:9090`
 
 ### 4. Importing Requests (Insomnia)
 
-To facilitate manual API testing, an Insomnia collection file is included at the root of the project.
-
--   **File:** `insomnia_collection_ledger.json`
--   **How to use:** Open Insomnia, go to `Application` -> `Preferences` -> `Data` -> `Import Data` -> `From File` and select the JSON file. All configured routes will be ready to use.
+To facilitate manual API testing, an Insomnia collection file is included at the root of the project: `insomnia_collection.yaml`.
 
 ---
 
-## ✅ Tests
+## ✅ Tests & Performance
 
 ### Unit and Integration Tests
 
-To run all unit and integration tests, use the Maven command:
+To run all unit and integration tests (100% coverage on critical paths):
 
 ```sh
 ./mvnw test
@@ -138,172 +124,55 @@ To run all unit and integration tests, use the Maven command:
 
 ### Load Testing (k6)
 
-The project includes a simple load test script using k6.
+The project includes a calibrated load test script.
 
 1.  **Install k6:** Follow the instructions at `k6.io`.
 2.  **Run the test:**
 
     ```sh
-    k6 run load-test.js
+    k6 run k6/stress-test-6k.js
     ```
 
+**Latest Benchmark Results (Local Environment):**
 
-         /\      Grafana   /‾‾/  
-    /\  /  \     |\  __   /  /   
-/  \/    \    | |/ /  /   ‾‾\
-/          \   |   (  |  (‾)  |
-/ __________ \  |_|\_\  \_____/
-
-     execution: local
-        script: load-test.js
-        output: -
-
-     scenarios: (100.00%) 1 scenario, 5000 max VUs, 5m30s max duration (incl. graceful stop):
-              * transfer_stress_test: 5000.00 iterations/s for 5m0s (maxVUs: 1000-5000, gracefulStop: 30s)
-
-
-
-█ THRESHOLDS
-
-    http_req_duration
-    ✓ 'p(95)<500' p(95)=66.82ms
-
-    http_req_failed
-    ✓ 'rate<0.01' rate=0.00%
-
-
-█ TOTAL RESULTS
-
-    checks_total.......: 1492391 4974.584246/s
-    checks_succeeded...: 100.00% 1492391 out of 1492391
-    checks_failed......: 0.00%   0 out of 1492391
-
-    ✓ status is 202
-
-    HTTP
-    http_req_duration..............: avg=14.21ms min=1.24ms med=1.76ms max=1.39s p(90)=6.03ms p(95)=66.82ms
-      { expected_response:true }...: avg=14.21ms min=1.24ms med=1.76ms max=1.39s p(90)=6.03ms p(95)=66.82ms
-    http_req_failed................: 0.00%   0 out of 1492391
-    http_reqs......................: 1492391 4974.584246/s
-
-    EXECUTION
-    dropped_iterations.............: 7610    25.366399/s
-    iteration_duration.............: avg=14.37ms min=1.35ms med=1.9ms  max=1.39s p(90)=6.28ms p(95)=67.14ms
-    iterations.....................: 1492391 4974.584246/s
-    vus............................: 10      min=7            max=1784
-    vus_max........................: 2576    min=1077         max=2576
-
-    NETWORK
-    data_received..................: 109 MB  364 kB/s
-    data_sent......................: 386 MB  1.3 MB/s
-
-
-
-
-running (5m00.0s), 0000/2576 VUs, 1492391 complete and 0 interrupted iterations
-transfer_stress_test ✓ [======================================] 0000/2576 VUs  5m0s  5000.00 iters/s
-
-
-This will simulate multiple users creating accounts and making transfers, helping to validate the performance and resilience of the system under load.
-
-
-         /\      Grafana   /‾‾/  
-    /\  /  \     |\  __   /  /   
-   /  \/    \    | |/ /  /   ‾‾\ 
-  /          \   |   (  |  (‾)  |
- / __________ \  |_|\_\  \_____/ 
-
-     execution: local
-        script: load-test.js
-        output: -
-
-     scenarios: (100.00%) 1 scenario, 5000 max VUs, 5m30s max duration (incl. graceful stop):
-              * transfer_stress_test: 5000.00 iterations/s for 5m0s (maxVUs: 1000-5000, gracefulStop: 30s)
-
-
-
-  █ THRESHOLDS 
-
-    http_req_duration
-    ✓ 'p(95)<500' p(95)=66.82ms
-
-    http_req_failed
-    ✓ 'rate<0.01' rate=0.00%
-
+```
+     scenarios: (100.00%) 1 scenario, 5000 max VUs, 5m30s max duration:
+              * stress_test_6k: 6500.00 iterations/s for 5m0s
 
   █ TOTAL RESULTS 
 
-    checks_total.......: 1492391 4974.584246/s
-    checks_succeeded...: 100.00% 1492391 out of 1492391
-    checks_failed......: 0.00%   0 out of 1492391
-
-    ✓ status is 202
+    checks_succeeded...: 100.00% 1945121 out of 1945121
+    checks_failed......: 0.00%   0 out of 1945121
 
     HTTP
-    http_req_duration..............: avg=14.21ms min=1.24ms med=1.76ms max=1.39s p(90)=6.03ms p(95)=66.82ms
-      { expected_response:true }...: avg=14.21ms min=1.24ms med=1.76ms max=1.39s p(90)=6.03ms p(95)=66.82ms
-    http_req_failed................: 0.00%   0 out of 1492391
-    http_reqs......................: 1492391 4974.584246/s
+    http_req_duration..: p(95)=129.94ms
+    http_req_failed....: 0.00%
+    http_reqs..........: 6483.36896/s
+```
 
-    EXECUTION
-    dropped_iterations.............: 7610    25.366399/s
-    iteration_duration.............: avg=14.37ms min=1.35ms med=1.9ms  max=1.39s p(90)=6.28ms p(95)=67.14ms
-    iterations.....................: 1492391 4974.584246/s
-    vus............................: 10      min=7            max=1784
-    vus_max........................: 2576    min=1077         max=2576
-
-    NETWORK
-    data_received..................: 109 MB  364 kB/s
-    data_sent......................: 386 MB  1.3 MB/s
-
-
-
-
-running (5m00.0s), 0000/2576 VUs, 1492391 complete and 0 interrupted iterations
-transfer_stress_test ✓ [======================================] 0000/2576 VUs  5m0s  5000.00 iters/s
-
+*   **Throughput:** ~6,500 Requests/sec
+*   **Latency (p95):** ~130ms
+*   **Errors:** 0%
 
 ---
 
-## 📂 Project Structure
-
-```
-.
-├── src
-│   ├── main
-│   │   ├── java/com.bss
-│   │   │   ├── application         # Use Cases, DTOs, Services (Application Layer)
-│   │   │   ├── domain              # Entities, Business Rules (Domain Layer)
-│   │   │   └── infrastructure      # Configurations, Adapters (Infrastructure Layer)
-│   │   └── resources
-│   │       ├── application.properties
-│   │       └── db/migration        # Flyway scripts
-│   └── test                      # Unit and integration tests
-├── docker-compose.yml              # Local infrastructure orchestration
-├── insomnia_collection_ledger.json # Insomnia request collection
-├── pom.xml                         # Project dependencies and build
-└── README.md                       # This file
-```
-
-## 🔄 Important Business Flows
+## 🔄 Business Flows
 
 ### 1. User Creation
-
 1.  `POST /users` is called.
-2.  `UserServiceImpl` validates the data and saves a new `User`.
-3.  Immediately, `UserServiceImpl` calls `AccountService.createAccountForUser` to create an associated account with a default initial balance.
-4.  `AccountService` triggers an `AccountCreatedEvent` to Kafka.
-5.  `AccountCreatedEventListener` consumes the event and (simulates) sending a welcome email.
+2.  `UserServiceImpl` saves a new `User`.
+3.  `AccountService` creates an associated `Account`.
+4.  An `AccountCreatedEvent` is saved to the Outbox.
+5.  `OutboxEventScheduler` publishes the event to Kafka.
 
-### 2. Money Transfer
-
+### 2. Money Transfer (High-Performance Flow)
 1.  `POST /transfers` is called.
-2.  `TransferController` returns `202 Accepted` immediately.
-3.  `TransferServiceImpl` **does not** execute the transfer. It creates an `OutboxEvent` and saves it to the `tb_outbox` table in the same transaction.
-4.  `TransferEventScheduler` (running every 2 seconds) fetches events from `tb_outbox`.
-5.  For each event, the scheduler:
-    a. Creates a `Transaction` with `PENDING` status and saves it.
-    b. Attempts to debit and credit the accounts.
-    c. Updates the `Transaction` to `SUCCESS` or `FAILED`.
-    d. Triggers a `TransactionEvent` to Kafka.
-6.  `TransactionEventListener` consumes the event and (simulates) sending notification emails to the sender and receiver.
+2.  `TransferController` validates the request.
+3.  `TransferServiceImpl` persists a `TransferRequested` event to `tb_outbox_event` (ACID transaction).
+4.  API returns `202 Accepted`.
+5.  **Async Worker (`TransferEventScheduler`):**
+    *   Fetches unprocessed events using `SKIP LOCKED`.
+    *   Locks sender and receiver accounts (ordered by ID to avoid deadlocks).
+    *   Executes debit/credit.
+    *   Updates transaction status to `SUCCESS` or `FAILED`.
+6.  **Notification:** `TransactionCompleted` event is published to Kafka for email sending.
