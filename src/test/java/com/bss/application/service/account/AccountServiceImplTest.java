@@ -4,6 +4,8 @@ import com.bss.application.controller.account.mapper.AccountMapper;
 import com.bss.application.dto.request.account.CreateAccountRequest;
 import com.bss.application.dto.request.account.UpdateAccountRequest;
 import com.bss.application.dto.response.account.AccountResponse;
+import com.bss.application.event.account.AccountCreatedEvent;
+import com.bss.application.exception.JsonSerializationException;
 import com.bss.application.exception.ResourceNotFoundException;
 import com.bss.domain.account.Account;
 import com.bss.domain.account.AccountRepository;
@@ -13,6 +15,7 @@ import com.bss.domain.outbox.OutboxEventRepository;
 import com.bss.domain.user.Role;
 import com.bss.domain.user.User;
 import com.bss.domain.user.UserRepository;
+import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -105,6 +108,30 @@ class AccountServiceImplTest {
             accountService.createAccountForUser(user, BigDecimal.TEN)
         );
         assertEquals("User already has an account.", exception.getMessage());
+    }
+
+    @Test
+    @DisplayName("createAccountForUser should throw JsonSerializationException when serialization fails")
+    void createAccountForUser_shouldThrowExceptionWhenSerializationFails() throws JsonProcessingException {
+        // Arrange
+        Account savedAccount = new Account(user, BigDecimal.TEN);
+        ReflectionTestUtils.setField(savedAccount, "id", 100L);
+        
+        when(accountRepository.findByUser_Id(user.getId())).thenReturn(Optional.empty());
+        when(accountRepository.save(any(Account.class))).thenReturn(savedAccount);
+        
+        // Force serialization error
+        doThrow(new JsonProcessingException("Serialization error") {})
+            .when(objectMapper).writeValueAsString(any(AccountCreatedEvent.class));
+
+        // Act & Assert
+        JsonSerializationException exception = assertThrows(JsonSerializationException.class, () -> 
+            accountService.createAccountForUser(user, BigDecimal.TEN)
+        );
+        
+        assertTrue(exception.getMessage().contains("Failed to serialize account created event"));
+        verify(accountRepository).save(any(Account.class)); // Account is saved
+        verify(outboxEventRepository, never()).save(any(OutboxEvent.class)); // But event is not
     }
 
     // Tests for createAccount
@@ -272,5 +299,35 @@ class AccountServiceImplTest {
         assertThrows(ResourceNotFoundException.class, () -> 
             accountService.inactivateAccount(accountId)
         );
+    }
+
+    // Tests for deleteAccount
+    @Test
+    @DisplayName("deleteAccount should delete account when found")
+    void deleteAccount_shouldDeleteAccount() {
+        // Arrange
+        Long accountId = 1L;
+        Account account = new Account(user, BigDecimal.TEN);
+        when(accountRepository.findById(accountId)).thenReturn(Optional.of(account));
+
+        // Act
+        accountService.deleteAccount(accountId);
+
+        // Assert
+        verify(accountRepository).delete(account);
+    }
+
+    @Test
+    @DisplayName("deleteAccount should throw exception when account not found")
+    void deleteAccount_shouldThrowExceptionWhenNotFound() {
+        // Arrange
+        Long accountId = 99L;
+        when(accountRepository.findById(accountId)).thenReturn(Optional.empty());
+
+        // Act & Assert
+        assertThrows(ResourceNotFoundException.class, () -> 
+            accountService.deleteAccount(accountId)
+        );
+        verify(accountRepository, never()).delete(any());
     }
 }

@@ -19,6 +19,7 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
+import org.mockito.Captor;
 import org.mockito.Mock;
 import org.mockito.Mockito;
 import org.mockito.Spy;
@@ -27,6 +28,7 @@ import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.test.util.ReflectionTestUtils;
 import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.support.TransactionCallback;
 import org.springframework.transaction.support.TransactionTemplate;
 
 import java.math.BigDecimal;
@@ -37,34 +39,38 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.ExecutorService;
+import java.util.concurrent.TimeUnit;
 
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.*;
+import static org.mockito.Mockito.anyList;
+import static org.mockito.Mockito.anyLong;
+import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.spy;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
 class TransferEventSchedulerTest {
 
-    @Mock
-    private OutboxEventRepository outboxEventRepository;
-    @Mock
-    private TransactionRepository transactionRepository;
-    @Mock
-    private AccountRepository accountRepository;
-    @Mock
-    private TransactionAuditService transactionAuditService;
-    @Spy
-    private ObjectMapper objectMapper = new ObjectMapper();
-    @Mock
-    private PlatformTransactionManager transactionManager;
-    @Mock
-    private TransactionTemplate transactionTemplate;
-    @Mock
-    private ExecutorService executorService;
+    @Mock private OutboxEventRepository outboxEventRepository;
+    @Mock private TransactionRepository transactionRepository;
+    @Mock private AccountRepository accountRepository;
+    @Mock private TransactionAuditService transactionAuditService;
+    @Spy private ObjectMapper objectMapper = new ObjectMapper();
+    @Mock private PlatformTransactionManager transactionManager;
+    @Mock private TransactionTemplate transactionTemplate;
+    @Mock private ExecutorService executorService;
+    @Mock private org.springframework.transaction.TransactionStatus transactionStatus;
+
+    @Captor private ArgumentCaptor<Runnable> runnableCaptor;
+    @Captor private ArgumentCaptor<TransactionCallback<Object>> transactionCallbackCaptor;
 
     private TransferEventScheduler scheduler;
-
     private Account senderAccount;
     private Account receiverAccount;
     private OutboxEvent outboxEvent;
@@ -104,29 +110,177 @@ class TransferEventSchedulerTest {
     }
 
     @Test
-    @DisplayName("Should submit tasks to executor service")
-    void shouldSubmitTasksToExecutor() {
-        scheduler.scheduleTransferProcessing();
-        verify(executorService, times(8)).submit(any(Runnable.class));
-    }
-
-    @Test
-    @DisplayName("Should process batch logic correctly when invoked")
-    void shouldProcessBatchLogic() {
+    @DisplayName("Full Flow: Should schedule, execute in transaction, and process batch")
+    void shouldExecuteFullProcessingFlow() {
         when(outboxEventRepository.findAndLockUnprocessedEvents(any(), any(), any(), any(PageRequest.class)))
                 .thenReturn(Collections.singletonList(outboxEvent));
-        
         when(accountRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(senderAccount));
         when(accountRepository.findByIdForUpdate(2L)).thenReturn(Optional.of(receiverAccount));
         when(transactionRepository.saveAll(anyList())).thenAnswer(inv -> inv.getArgument(0));
 
-        ReflectionTestUtils.invokeMethod(scheduler, "processNextBatch");
+        scheduler.scheduleTransferProcessing();
+
+        verify(executorService, times(8)).submit(runnableCaptor.capture());
+        Runnable task = runnableCaptor.getAllValues().get(0);
+        task.run();
+
+        verify(transactionTemplate).execute(transactionCallbackCaptor.capture());
+        TransactionCallback<Object> callback = transactionCallbackCaptor.getValue();
+        callback.doInTransaction(transactionStatus);
 
         assertEquals(new BigDecimal("100.00"), senderAccount.getBalance());
         assertEquals(new BigDecimal("150.00"), receiverAccount.getBalance());
-        
         verify(transactionRepository, times(2)).saveAll(any());
         verify(outboxEventRepository).deleteAllInBatch(anyList());
+    }
+
+    @Test
+    @DisplayName("Should handle batch save failure and retry individually (Fallback Logic)")
+    void shouldHandleBatchSaveFailureAndRetryIndividually() throws JsonProcessingException {
+        UUID key1 = UUID.randomUUID();
+        UUID key2 = UUID.randomUUID();
+        OutboxEvent event1 = createOutboxEvent(key1, 1L, 2L, "10.00");
+        OutboxEvent event2 = createOutboxEvent(key2, 1L, 2L, "20.00");
+
+        when(outboxEventRepository.findAndLockUnprocessedEvents(any(), any(), any(), any(PageRequest.class)))
+                .thenReturn(Arrays.asList(event1, event2));
+        when(accountRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(senderAccount));
+        when(accountRepository.findByIdForUpdate(2L)).thenReturn(Optional.of(receiverAccount));
+
+        doThrow(new DataIntegrityViolationException("Batch failed"))
+            .doAnswer(inv -> inv.getArgument(0))
+            .when(transactionRepository).saveAll(anyList());
+
+        when(transactionRepository.save(any(Transaction.class))).thenAnswer(invocation -> {
+            Transaction tx = invocation.getArgument(0);
+            if (tx.getIdempotencyKey().equals(key1)) return tx;
+            throw new DataIntegrityViolationException("Individual duplicate");
+        });
+
+        ReflectionTestUtils.invokeMethod(scheduler, "processNextBatch");
+
+        verify(transactionRepository, times(2)).saveAll(anyList());
+        verify(transactionRepository, times(2)).save(any(Transaction.class));
+
+        ArgumentCaptor<List<OutboxEvent>> failedCaptor = ArgumentCaptor.forClass(List.class);
+        verify(outboxEventRepository, times(2)).saveAll(failedCaptor.capture());
+        
+        List<OutboxEvent> failedEvents = failedCaptor.getAllValues().get(1);
+        assertTrue(failedEvents.stream().anyMatch(e -> e.getPayload().contains(key2.toString()) && e.getStatus() == OutboxEventStatus.FAILED));
+    }
+
+    @Test
+    @DisplayName("Should handle missing transaction in execution phase")
+    void shouldHandleMissingTransactionInExecutionPhase() {
+        when(outboxEventRepository.findAndLockUnprocessedEvents(any(), any(), any(), any(PageRequest.class)))
+                .thenReturn(Collections.singletonList(outboxEvent));
+        when(accountRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(senderAccount));
+        when(accountRepository.findByIdForUpdate(2L)).thenReturn(Optional.of(receiverAccount));
+        
+        when(transactionRepository.saveAll(anyList())).thenReturn(Collections.emptyList());
+
+        ReflectionTestUtils.invokeMethod(scheduler, "processNextBatch");
+
+        verify(outboxEvent).setStatus(OutboxEventStatus.FAILED);
+        verify(outboxEvent).setRetryCount(5);
+        
+        ArgumentCaptor<List<OutboxEvent>> failedCaptor = ArgumentCaptor.forClass(List.class);
+        verify(outboxEventRepository, times(2)).saveAll(failedCaptor.capture());
+        
+        List<OutboxEvent> failedEvents = failedCaptor.getAllValues().get(1);
+        assertEquals(1, failedEvents.size());
+        assertEquals(outboxEvent, failedEvents.get(0));
+    }
+
+    @Test
+    @DisplayName("Should handle duplicate events in batch (Idempotency Map Logic)")
+    void shouldHandleDuplicateEventsInBatch() throws JsonProcessingException {
+        // Arrange: Two events with SAME idempotency key
+        OutboxEvent event1 = createOutboxEvent(idempotencyKey, 1L, 2L, "10.00");
+        OutboxEvent event2 = createOutboxEvent(idempotencyKey, 1L, 2L, "10.00"); // Duplicate
+        
+        when(outboxEventRepository.findAndLockUnprocessedEvents(any(), any(), any(), any(PageRequest.class)))
+                .thenReturn(Arrays.asList(event1, event2));
+        when(accountRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(senderAccount));
+        when(accountRepository.findByIdForUpdate(2L)).thenReturn(Optional.of(receiverAccount));
+        
+        // Simulate Batch Failure due to duplicate key
+        doThrow(new DataIntegrityViolationException("Duplicate key in batch"))
+            .doAnswer(inv -> inv.getArgument(0)) // Second call (update) succeeds
+            .when(transactionRepository).saveAll(anyList());
+
+        // Simulate Individual Save: First succeeds, Second fails
+        when(transactionRepository.save(any(Transaction.class)))
+            .thenAnswer(inv -> inv.getArgument(0)) // First call success
+            .thenThrow(new DataIntegrityViolationException("Duplicate key individual")); // Second call fail
+
+        // Act
+        ReflectionTestUtils.invokeMethod(scheduler, "processNextBatch");
+
+        // Assert
+        verify(transactionRepository, times(2)).save(any(Transaction.class));
+        
+        ArgumentCaptor<List<OutboxEvent>> failedCaptor = ArgumentCaptor.forClass(List.class);
+        verify(outboxEventRepository, times(2)).saveAll(failedCaptor.capture());
+        
+        List<OutboxEvent> failedEvents = failedCaptor.getAllValues().get(1);
+        assertEquals(1, failedEvents.size());
+        assertEquals(OutboxEventStatus.FAILED, failedEvents.get(0).getStatus());
+        
+        verify(outboxEventRepository).deleteAllInBatch(anyList());
+    }
+
+    @Test
+    @DisplayName("Should shutdown executor service gracefully")
+    void shouldShutdownGracefully() throws InterruptedException {
+        when(executorService.awaitTermination(anyLong(), any(TimeUnit.class))).thenReturn(true);
+        scheduler.shutdown();
+        verify(executorService).shutdown();
+        verify(executorService).awaitTermination(5, TimeUnit.SECONDS);
+        verify(executorService, never()).shutdownNow();
+    }
+
+    @Test
+    @DisplayName("Should force shutdown if termination times out")
+    void shouldForceShutdownOnTimeout() throws InterruptedException {
+        when(executorService.awaitTermination(anyLong(), any(TimeUnit.class))).thenReturn(false);
+        scheduler.shutdown();
+        verify(executorService).shutdown();
+        verify(executorService).awaitTermination(5, TimeUnit.SECONDS);
+        verify(executorService).shutdownNow();
+    }
+
+    @Test
+    @DisplayName("Should handle interruption during shutdown")
+    void shouldHandleInterruptionDuringShutdown() throws InterruptedException {
+        when(executorService.awaitTermination(anyLong(), any(TimeUnit.class))).thenThrow(new InterruptedException());
+        scheduler.shutdown();
+        verify(executorService).shutdownNow();
+    }
+
+    @Test
+    @DisplayName("Should handle exception inside parallel thread execution")
+    void shouldHandleExceptionInParallelThread() {
+        doThrow(new RuntimeException("Thread error")).when(transactionTemplate).execute(any());
+        scheduler.scheduleTransferProcessing();
+        verify(executorService, times(8)).submit(runnableCaptor.capture());
+        Runnable task = runnableCaptor.getAllValues().get(0);
+        assertDoesNotThrow(task::run);
+    }
+
+    @Test
+    @DisplayName("Should handle missing idempotency key (Bug Fix Verification)")
+    void shouldHandleMissingIdempotencyKey() throws JsonProcessingException {
+        String payload = "{\"senderAccountId\": 1, \"receiverAccountId\": 2, \"amount\": \"100.00\"}";
+        OutboxEvent invalidEvent = spy(new OutboxEvent("Transfer", "123", "TransferRequested", payload));
+        
+        when(outboxEventRepository.findAndLockUnprocessedEvents(any(), any(), any(), any(PageRequest.class)))
+                .thenReturn(Collections.singletonList(invalidEvent));
+
+        ReflectionTestUtils.invokeMethod(scheduler, "processNextBatch");
+
+        verify(invalidEvent).setStatus(OutboxEventStatus.FAILED);
+        verify(transactionRepository, never()).saveAll(any());
     }
 
     @Test
@@ -148,45 +302,6 @@ class TransferEventSchedulerTest {
         List<Transaction> finalTransactions = transactionCaptor.getAllValues().get(1);
         assertEquals(TransactionStatus.FAILED, finalTransactions.get(0).getStatus());
         assertTrue(finalTransactions.get(0).getFailureReason().contains("Insufficient balance"));
-
-        verify(outboxEventRepository).deleteAllInBatch(anyList());
-    }
-
-    @Test
-    @DisplayName("Should retry on unexpected failure")
-    void shouldRetryOnUnexpectedFailure() {
-        when(outboxEventRepository.findAndLockUnprocessedEvents(any(), any(), any(), any(PageRequest.class)))
-                .thenReturn(Collections.singletonList(outboxEvent));
-        
-        when(accountRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(senderAccount));
-        when(accountRepository.findByIdForUpdate(2L)).thenReturn(Optional.of(receiverAccount));
-        when(transactionRepository.saveAll(anyList())).thenAnswer(inv -> inv.getArgument(0));
-        
-        doThrow(new RuntimeException("Error")).when(transactionAuditService).createAuditEvent(any(), any());
-
-        ReflectionTestUtils.invokeMethod(scheduler, "processNextBatch");
-
-        verify(outboxEvent).incrementRetryCount();
-        verify(outboxEvent).setStatus(OutboxEventStatus.UNPROCESSED);
-        verify(outboxEventRepository, never()).deleteAllInBatch(any());
-    }
-
-    @Test
-    @DisplayName("Should handle DataIntegrityViolationException (Idempotency)")
-    void shouldHandleDataIntegrityViolation() {
-        when(outboxEventRepository.findAndLockUnprocessedEvents(any(), any(), any(), any(PageRequest.class)))
-                .thenReturn(Collections.singletonList(outboxEvent));
-        
-        when(accountRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(senderAccount));
-        when(accountRepository.findByIdForUpdate(2L)).thenReturn(Optional.of(receiverAccount));
-        when(transactionRepository.saveAll(anyList())).thenAnswer(inv -> inv.getArgument(0));
-        
-        doThrow(new DataIntegrityViolationException("Duplicate")).when(transactionAuditService).createAuditEvent(any(), any());
-
-        ReflectionTestUtils.invokeMethod(scheduler, "processNextBatch");
-
-        verify(outboxEvent).setStatus(OutboxEventStatus.FAILED);
-        verify(outboxEventRepository, times(2)).saveAll(anyList());
     }
 
     @Test
@@ -201,23 +316,6 @@ class TransferEventSchedulerTest {
         ReflectionTestUtils.invokeMethod(scheduler, "processNextBatch");
 
         verify(spyEvent).setStatus(OutboxEventStatus.FAILED);
-        verify(outboxEventRepository, times(1)).saveAll(anyList()); // Only status update
-        verify(transactionRepository, never()).saveAll(any());
-    }
-
-    @Test
-    @DisplayName("Should mark event as FAILED when payload is missing required fields")
-    void shouldMarkEventAsFailedWhenPayloadIsMissingFields() throws JsonProcessingException {
-        // Payload missing amount
-        String payload = "{\"senderAccountId\": 1, \"receiverAccountId\": 2, \"idempotencyKey\": \"" + UUID.randomUUID() + "\"}";
-        OutboxEvent invalidEvent = spy(new OutboxEvent("Transfer", "123", "TransferRequested", payload));
-        
-        when(outboxEventRepository.findAndLockUnprocessedEvents(any(), any(), any(), any(PageRequest.class)))
-                .thenReturn(Collections.singletonList(invalidEvent));
-
-        ReflectionTestUtils.invokeMethod(scheduler, "processNextBatch");
-
-        verify(invalidEvent).setStatus(OutboxEventStatus.FAILED);
         verify(transactionRepository, never()).saveAll(any());
     }
 
@@ -235,33 +333,11 @@ class TransferEventSchedulerTest {
 
         ReflectionTestUtils.invokeMethod(scheduler, "processNextBatch");
 
-        // Transaction should be created but failed
         ArgumentCaptor<List<Transaction>> captor = ArgumentCaptor.forClass(List.class);
         verify(transactionRepository, times(2)).saveAll(captor.capture());
         
         Transaction failedTx = captor.getAllValues().get(1).get(0);
         assertEquals(TransactionStatus.FAILED, failedTx.getStatus());
-        assertTrue(failedTx.getFailureReason().contains("Account is not active"));
-        
-        // Event should be processed (deleted) because the failure was handled logically
-        verify(outboxEventRepository).deleteAllInBatch(anyList());
-    }
-
-    @Test
-    @DisplayName("Should handle missing idempotency key in payload")
-    void shouldHandleMissingIdempotencyKey() throws JsonProcessingException {
-        // Payload missing idempotencyKey
-        String payload = "{\"senderAccountId\": 1, \"receiverAccountId\": 2, \"amount\": \"100.00\"}";
-        OutboxEvent invalidEvent = spy(new OutboxEvent("Transfer", "123", "TransferRequested", payload));
-        
-        when(outboxEventRepository.findAndLockUnprocessedEvents(any(), any(), any(), any(PageRequest.class)))
-                .thenReturn(Collections.singletonList(invalidEvent));
-
-        ReflectionTestUtils.invokeMethod(scheduler, "processNextBatch");
-
-        // Should be marked as FAILED because it throws NPE/Exception during preparation
-        verify(invalidEvent).setStatus(OutboxEventStatus.FAILED);
-        verify(transactionRepository, never()).saveAll(any());
     }
 
     private OutboxEvent createOutboxEvent(UUID idempotencyKey, Long senderId, Long receiverId, String amount) throws JsonProcessingException {

@@ -2,6 +2,7 @@ package com.bss.application.service.kafka.producer;
 
 import com.bss.application.event.account.AccountCreatedEvent;
 import com.bss.application.event.transactions.TransactionEvent;
+import com.bss.application.event.transactions.TransferRequestedEvent;
 import org.apache.kafka.clients.producer.RecordMetadata;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -152,6 +153,67 @@ class KafkaProducerServiceTest {
 
         // Act
         kafkaProducerService.sendAccountCreatedEvent(event);
+        
+        // Simulate failure
+        future.completeExceptionally(new RuntimeException("Kafka error"));
+
+        // Assert
+        assertDoesNotThrow(() -> {
+            try {
+                future.join();
+            } catch (Exception e) {
+                // Expected exception from join()
+            }
+        });
+    }
+
+    // --- Tests for sendTransferRequestedEvent ---
+
+    @Test
+    @DisplayName("sendTransferRequestedEvent should call kafkaTemplate with correct topic and event")
+    void sendTransferRequestedEvent_shouldCallKafkaTemplateCorrectly() {
+        // Arrange
+        TransferRequestedEvent event = new TransferRequestedEvent(1L, 2L, BigDecimal.TEN, UUID.randomUUID());
+        when(kafkaTemplate.send(eq("transfer-requests"), any(TransferRequestedEvent.class))).thenReturn(future);
+
+        // Act
+        kafkaProducerService.sendTransferRequestedEvent(event);
+
+        // Assert
+        verify(kafkaTemplate).send("transfer-requests", event);
+    }
+
+    @Test
+    @DisplayName("sendTransferRequestedEvent should handle success callback")
+    void sendTransferRequestedEvent_shouldHandleSuccessCallback() {
+        // Arrange
+        TransferRequestedEvent event = new TransferRequestedEvent(1L, 2L, BigDecimal.TEN, UUID.randomUUID());
+        when(kafkaTemplate.send(eq("transfer-requests"), any(TransferRequestedEvent.class))).thenReturn(future);
+        
+        SendResult<String, Object> sendResult = mock(SendResult.class);
+        RecordMetadata metadata = mock(RecordMetadata.class);
+        when(sendResult.getRecordMetadata()).thenReturn(metadata);
+        when(metadata.offset()).thenReturn(1L);
+
+        // Act
+        kafkaProducerService.sendTransferRequestedEvent(event);
+        
+        // Simulate success
+        future.complete(sendResult);
+
+        // Assert
+        assertDoesNotThrow(() -> future.join());
+    }
+
+    @Test
+    @DisplayName("sendTransferRequestedEvent should handle failure callback")
+    void sendTransferRequestedEvent_shouldHandleFailureCallback() {
+        // Arrange
+        TransferRequestedEvent event = new TransferRequestedEvent(1L, 2L, BigDecimal.TEN, UUID.randomUUID());
+        when(kafkaTemplate.send(eq("transfer-requests"), any(TransferRequestedEvent.class))).thenReturn(future);
+
+        // Act
+        kafkaProducerService.sendTransferRequestedEvent(event);
         
         // Simulate failure
         future.completeExceptionally(new RuntimeException("Kafka error"));
