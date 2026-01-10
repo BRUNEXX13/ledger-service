@@ -2,14 +2,14 @@ package com.bss.application.dto.response.transaction;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.springframework.hateoas.Link;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.*;
 
 class TransactionResponseTest {
 
@@ -66,8 +66,62 @@ class TransactionResponseTest {
     }
 
     @Test
-    @DisplayName("Should have correct equals and hashCode implementations")
-    void shouldHaveCorrectEqualsAndHashCode() {
+    @DisplayName("Should verify equals contract")
+    void testEqualsContract() {
+        UUID idempotencyKey = UUID.randomUUID();
+        LocalDateTime createdAt = LocalDateTime.now();
+        
+        TransactionResponse response1 = new TransactionResponse(1L, 10L, 20L, BigDecimal.TEN, "SUCCESS", null, idempotencyKey);
+        response1.setCreatedAt(createdAt);
+
+        TransactionResponse response2 = new TransactionResponse(1L, 10L, 20L, BigDecimal.TEN, "SUCCESS", null, idempotencyKey);
+        response2.setCreatedAt(createdAt);
+        
+        // 1. Reflexive (this == o)
+        assertTrue(response1.equals(response1));
+        
+        // 2. Symmetric
+        assertTrue(response1.equals(response2));
+        assertTrue(response2.equals(response1));
+        
+        // 3. Null check
+        assertFalse(response1.equals(null));
+        
+        // 4. Different class check
+        assertFalse(response1.equals(new Object()));
+        
+        // 5. Consistent
+        assertTrue(response1.equals(response2));
+    }
+
+    @Test
+    @DisplayName("Should verify equals with super class (RepresentationModel)")
+    void testEqualsWithSuperClass() {
+        UUID idempotencyKey = UUID.randomUUID();
+        LocalDateTime createdAt = LocalDateTime.now();
+        
+        TransactionResponse response1 = new TransactionResponse(1L, 10L, 20L, BigDecimal.TEN, "SUCCESS", null, idempotencyKey);
+        response1.setCreatedAt(createdAt);
+
+        TransactionResponse response2 = new TransactionResponse(1L, 10L, 20L, BigDecimal.TEN, "SUCCESS", null, idempotencyKey);
+        response2.setCreatedAt(createdAt);
+        
+        // Add links to response1 but not response2
+        response1.add(Link.of("/self"));
+        
+        // Should be not equal because super.equals checks links
+        assertNotEquals(response1, response2);
+        
+        // Add same link to response2
+        response2.add(Link.of("/self"));
+        
+        // Should be equal now
+        assertEquals(response1, response2);
+    }
+
+    @Test
+    @DisplayName("Should verify hashCode contract")
+    void testHashCode() {
         UUID idempotencyKey = UUID.randomUUID();
         LocalDateTime createdAt = LocalDateTime.now();
         
@@ -77,12 +131,11 @@ class TransactionResponseTest {
         TransactionResponse response2 = new TransactionResponse(1L, 10L, 20L, BigDecimal.TEN, "SUCCESS", null, idempotencyKey);
         response2.setCreatedAt(createdAt);
 
-        TransactionResponse response3 = new TransactionResponse(2L, 10L, 20L, BigDecimal.TEN, "SUCCESS", null, idempotencyKey);
-        response3.setCreatedAt(createdAt);
-
-        assertThat(response1).isEqualTo(response2);
-        assertThat(response1).hasSameHashCodeAs(response2);
-        assertThat(response1).isNotEqualTo(response3);
+        assertEquals(response1.hashCode(), response2.hashCode());
+        
+        // Change a field
+        response2.setId(2L);
+        assertNotEquals(response1.hashCode(), response2.hashCode());
     }
 
     @Test
@@ -94,19 +147,16 @@ class TransactionResponseTest {
         TransactionResponse base = new TransactionResponse(1L, 10L, 20L, BigDecimal.TEN, "SUCCESS", null, idempotencyKey);
         base.setCreatedAt(createdAt);
 
-        assertThat(base).isNotEqualTo(new TransactionResponse(2L, 10L, 20L, BigDecimal.TEN, "SUCCESS", null, idempotencyKey));
-        assertThat(base).isNotEqualTo(new TransactionResponse(1L, 30L, 20L, BigDecimal.TEN, "SUCCESS", null, idempotencyKey));
-        assertThat(base).isNotEqualTo(new TransactionResponse(1L, 10L, 40L, BigDecimal.TEN, "SUCCESS", null, idempotencyKey));
-        assertThat(base).isNotEqualTo(new TransactionResponse(1L, 10L, 20L, BigDecimal.ONE, "SUCCESS", null, idempotencyKey));
-        assertThat(base).isNotEqualTo(new TransactionResponse(1L, 10L, 20L, BigDecimal.TEN, "FAILED", null, idempotencyKey));
-        assertThat(base).isNotEqualTo(new TransactionResponse(1L, 10L, 20L, BigDecimal.TEN, "SUCCESS", "Error", idempotencyKey));
-        assertThat(base).isNotEqualTo(new TransactionResponse(1L, 10L, 20L, BigDecimal.TEN, "SUCCESS", null, UUID.randomUUID()));
+        assertNotEquals(base, new TransactionResponse(2L, 10L, 20L, BigDecimal.TEN, "SUCCESS", null, idempotencyKey));
+        assertNotEquals(base, new TransactionResponse(1L, 30L, 20L, BigDecimal.TEN, "SUCCESS", null, idempotencyKey));
+        assertNotEquals(base, new TransactionResponse(1L, 10L, 40L, BigDecimal.TEN, "SUCCESS", null, idempotencyKey));
+        assertNotEquals(base, new TransactionResponse(1L, 10L, 20L, BigDecimal.ONE, "SUCCESS", null, idempotencyKey));
+        assertNotEquals(base, new TransactionResponse(1L, 10L, 20L, BigDecimal.TEN, "FAILED", null, idempotencyKey));
+        assertNotEquals(base, new TransactionResponse(1L, 10L, 20L, BigDecimal.TEN, "SUCCESS", "Error", idempotencyKey));
+        assertNotEquals(base, new TransactionResponse(1L, 10L, 20L, BigDecimal.TEN, "SUCCESS", null, UUID.randomUUID()));
         
         TransactionResponse differentTime = new TransactionResponse(1L, 10L, 20L, BigDecimal.TEN, "SUCCESS", null, idempotencyKey);
         differentTime.setCreatedAt(createdAt.plusSeconds(1));
-        assertThat(base).isNotEqualTo(differentTime);
-        
-        assertThat(base).isNotEqualTo(null);
-        assertThat(base).isNotEqualTo(new Object());
+        assertNotEquals(base, differentTime);
     }
 }

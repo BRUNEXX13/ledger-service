@@ -153,4 +153,11 @@ class AccountTest {
         Account acc = new Account(user, BigDecimal.TEN);
         assertEquals(acc, acc);
     }
+
+    @Test
+    @DisplayName("Should get version")
+    void shouldGetVersion() {
+        ReflectionTestUtils.setField(account, "version", 1L);
+        assertEquals(1L, account.getVersion());
+    }
 }

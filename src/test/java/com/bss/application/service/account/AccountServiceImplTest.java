@@ -21,6 +21,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.Spy;
@@ -157,6 +158,32 @@ class AccountServiceImplTest {
         verify(accountRepository).save(any(Account.class));
         verify(outboxEventRepository).save(any(OutboxEvent.class)); // Verify Outbox
         verify(accountMapper).toAccountResponse(savedAccount);
+    }
+
+    @Test
+    @DisplayName("createAccount should use zero balance when initialBalance is null")
+    void createAccount_shouldUseZeroBalanceWhenNull() {
+        // Arrange
+        CreateAccountRequest request = new CreateAccountRequest(user.getId(), null); // Null balance
+        Account savedAccount = new Account(user, BigDecimal.ZERO);
+        ReflectionTestUtils.setField(savedAccount, "id", 1L);
+        AccountResponse expectedResponse = new AccountResponse(1L, user.getId(), BigDecimal.ZERO, AccountStatus.ACTIVE, LocalDateTime.now(), LocalDateTime.now());
+
+        when(userRepository.findById(user.getId())).thenReturn(Optional.of(user));
+        when(accountRepository.findByUser_Id(user.getId())).thenReturn(Optional.empty());
+        
+        // Capture the account passed to save to verify balance
+        ArgumentCaptor<Account> accountCaptor = ArgumentCaptor.forClass(Account.class);
+        when(accountRepository.save(accountCaptor.capture())).thenReturn(savedAccount);
+        
+        when(accountMapper.toAccountResponse(savedAccount)).thenReturn(expectedResponse);
+
+        // Act
+        accountService.createAccount(request);
+
+        // Assert
+        Account capturedAccount = accountCaptor.getValue();
+        assertEquals(BigDecimal.ZERO, capturedAccount.getBalance());
     }
 
     @Test

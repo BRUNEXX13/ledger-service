@@ -40,7 +40,8 @@ public class TransferEventScheduler {
 
     private static final Logger log = LoggerFactory.getLogger(TransferEventScheduler.class);
     
-    private static final int BATCH_SIZE = 200; 
+    // Aumentado para drenar o backlog rapidamente
+    private static final int BATCH_SIZE = 2000; 
     private static final int THREAD_COUNT = 8; 
     private static final int MAX_RETRIES = 5;
     private static final String IDEMPOTENCY_KEY = "idempotencyKey";
@@ -69,7 +70,8 @@ public class TransferEventScheduler {
         this.executorService = Executors.newFixedThreadPool(THREAD_COUNT);
     }
 
-    @Scheduled(fixedDelay = 200)
+    // Delay reduzido para 10ms (Turbo Mode)
+    @Scheduled(fixedDelay = 10)
     public void scheduleTransferProcessing() {
         for (int i = 0; i < THREAD_COUNT; i++) {
             executorService.submit(this::processBatchInTransaction);
@@ -168,7 +170,6 @@ public class TransferEventScheduler {
 
         UUID idempotencyKey = extractIdempotencyKey(event);
         if (idempotencyKey == null) {
-            // CORREÇÃO: Se a chave de idempotência não puder ser extraída, falha o evento.
             log.error("Missing idempotency key for event {}. Marking as FAILED.", event.getId());
             markEventAsFailed(event, failedEvents);
             return;

@@ -12,6 +12,7 @@ import com.bss.domain.transaction.TransactionStatus;
 import com.bss.domain.user.Role;
 import com.bss.domain.user.User;
 import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -25,6 +26,7 @@ import org.mockito.Mockito;
 import org.mockito.Spy;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.dao.QueryTimeoutException;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.test.util.ReflectionTestUtils;
 import org.springframework.transaction.PlatformTransactionManager;
@@ -43,11 +45,15 @@ import java.util.concurrent.TimeUnit;
 
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.anyList;
 import static org.mockito.Mockito.anyLong;
+import static org.mockito.Mockito.anyString;
+import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.times;
@@ -340,6 +346,175 @@ class TransferEventSchedulerTest {
         assertEquals(TransactionStatus.FAILED, failedTx.getStatus());
     }
 
+    // --- Tests moved from Coverage Test ---
+
+    @Test
+    @DisplayName("Should handle generic processing error (Runtime Exception)")
+    void shouldHandleGenericProcessingError() {
+        when(outboxEventRepository.findAndLockUnprocessedEvents(any(), any(), any(), any(PageRequest.class)))
+                .thenReturn(Collections.singletonList(outboxEvent));
+        
+        Account sender = mock(Account.class);
+        when(sender.getId()).thenReturn(1L);
+        Account receiver = mock(Account.class);
+        when(receiver.getId()).thenReturn(2L);
+        
+        when(accountRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(sender));
+        when(accountRepository.findByIdForUpdate(2L)).thenReturn(Optional.of(receiver));
+        
+        when(transactionRepository.saveAll(anyList())).thenAnswer(inv -> inv.getArgument(0));
+        
+        doThrow(new RuntimeException("Generic Error")).when(sender).withdraw(any());
+
+        ReflectionTestUtils.invokeMethod(scheduler, "processNextBatch");
+
+        assertEquals(1, outboxEvent.getRetryCount());
+        assertEquals(OutboxEventStatus.UNPROCESSED, outboxEvent.getStatus());
+    }
+
+    @Test
+    @DisplayName("Should handle DataIntegrityViolationException as cause (Nested Exception)")
+    void shouldHandleDataIntegrityViolationAsCause() {
+        when(outboxEventRepository.findAndLockUnprocessedEvents(any(), any(), any(), any(PageRequest.class)))
+                .thenReturn(Collections.singletonList(outboxEvent));
+        
+        Account sender = mock(Account.class);
+        when(sender.getId()).thenReturn(1L);
+        Account receiver = mock(Account.class);
+        when(receiver.getId()).thenReturn(2L);
+        
+        when(accountRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(sender));
+        when(accountRepository.findByIdForUpdate(2L)).thenReturn(Optional.of(receiver));
+        
+        when(transactionRepository.saveAll(anyList())).thenAnswer(inv -> inv.getArgument(0));
+        
+        RuntimeException nestedException = new RuntimeException("Wrapper", new DataIntegrityViolationException("Duplicate"));
+        doThrow(nestedException).when(sender).withdraw(any());
+
+        ReflectionTestUtils.invokeMethod(scheduler, "processNextBatch");
+
+        assertEquals(OutboxEventStatus.FAILED, outboxEvent.getStatus());
+    }
+
+    @Test
+    @DisplayName("Should skip event if status is FAILED")
+    void shouldSkipEventIfStatusIsFailed() {
+        outboxEvent.setStatus(OutboxEventStatus.FAILED);
+        
+        Account sender = mock(Account.class);
+        when(sender.getId()).thenReturn(1L);
+        Account receiver = mock(Account.class);
+        when(receiver.getId()).thenReturn(2L);
+        when(accountRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(sender));
+        when(accountRepository.findByIdForUpdate(2L)).thenReturn(Optional.of(receiver));
+
+        // Invoke processBatchLogic directly to bypass status reset in processNextBatch
+        ReflectionTestUtils.invokeMethod(scheduler, "processBatchLogic", Collections.singletonList(outboxEvent));
+
+        verify(transactionRepository, never()).saveAll(any());
+        verify(sender, never()).withdraw(any());
+    }
+
+    @Test
+    @DisplayName("Should handle missing account in createTransactionFromEvent")
+    void shouldHandleMissingAccountInCreateTransaction() throws JsonProcessingException {
+        when(outboxEventRepository.findAndLockUnprocessedEvents(any(), any(), any(), any(PageRequest.class)))
+                .thenReturn(Collections.singletonList(outboxEvent));
+        
+        when(accountRepository.findByIdForUpdate(1L)).thenReturn(Optional.empty());
+        when(accountRepository.findByIdForUpdate(2L)).thenReturn(Optional.empty());
+
+        ReflectionTestUtils.invokeMethod(scheduler, "processNextBatch");
+
+        assertEquals(OutboxEventStatus.FAILED, outboxEvent.getStatus());
+        verify(transactionRepository, never()).saveAll(any());
+    }
+
+    @Test
+    @DisplayName("Should handle JsonProcessingException in extractIdempotencyKey")
+    void shouldHandleJsonProcessingExceptionInExtractIdempotencyKey() throws JsonProcessingException {
+        OutboxEvent malformedEvent = new OutboxEvent("Transfer", "1", "TransferRequested", "{invalid-json");
+        ReflectionTestUtils.setField(malformedEvent, "id", UUID.randomUUID());
+        
+        when(outboxEventRepository.findAndLockUnprocessedEvents(any(), any(), any(), any(PageRequest.class)))
+                .thenReturn(Collections.singletonList(malformedEvent));
+
+        ReflectionTestUtils.invokeMethod(scheduler, "processNextBatch");
+
+        assertEquals(OutboxEventStatus.FAILED, malformedEvent.getStatus());
+    }
+
+    @Test
+    @DisplayName("Should handle IllegalArgumentException in extractIdempotencyKey (Invalid UUID)")
+    void shouldHandleIllegalArgumentExceptionInExtractIdempotencyKey() throws JsonProcessingException {
+        String payload = "{\"senderAccountId\": 1, \"receiverAccountId\": 2, \"amount\": 100, \"idempotencyKey\": \"not-a-uuid\"}";
+        OutboxEvent invalidUuidEvent = new OutboxEvent("Transfer", "1", "TransferRequested", payload);
+        ReflectionTestUtils.setField(invalidUuidEvent, "id", UUID.randomUUID());
+        
+        when(outboxEventRepository.findAndLockUnprocessedEvents(any(), any(), any(), any(PageRequest.class)))
+                .thenReturn(Collections.singletonList(invalidUuidEvent));
+        
+        Account sender = mock(Account.class);
+        when(sender.getId()).thenReturn(1L);
+        Account receiver = mock(Account.class);
+        when(receiver.getId()).thenReturn(2L);
+        
+        when(accountRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(sender));
+        when(accountRepository.findByIdForUpdate(2L)).thenReturn(Optional.of(receiver));
+
+        ReflectionTestUtils.invokeMethod(scheduler, "processNextBatch");
+
+        assertEquals(OutboxEventStatus.FAILED, invalidUuidEvent.getStatus());
+    }
+    
+    @Test
+    @DisplayName("Should cover idempotency key null check in processEvent")
+    void shouldCoverIdempotencyKeyNullCheckInProcessEvent() throws JsonProcessingException {
+        // Create mocks for this specific test to avoid NotAMockException
+        Account mockSender = mock(Account.class);
+        when(mockSender.getId()).thenReturn(1L);
+        Account mockReceiver = mock(Account.class);
+        when(mockReceiver.getId()).thenReturn(2L);
+        
+        JsonNode validNode = new ObjectMapper().readTree(outboxEvent.getPayload());
+        JsonNode invalidNode = new ObjectMapper().readTree("{\"senderAccountId\": 1, \"receiverAccountId\": 2, \"amount\": 100}"); // No key
+        
+        // Stub readTree to return validNode first (for preparation), then invalidNode (for execution)
+        doReturn(validNode).doReturn(invalidNode).when(objectMapper).readTree(anyString());
+        
+        when(outboxEventRepository.findAndLockUnprocessedEvents(any(), any(), any(), any(PageRequest.class)))
+                .thenReturn(Collections.singletonList(outboxEvent));
+        
+        when(accountRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(mockSender));
+        when(accountRepository.findByIdForUpdate(2L)).thenReturn(Optional.of(mockReceiver));
+        
+        when(transactionRepository.saveAll(anyList())).thenAnswer(inv -> inv.getArgument(0));
+
+        // Act
+        ReflectionTestUtils.invokeMethod(scheduler, "processNextBatch");
+
+        // Assert
+        verify(outboxEvent).setStatus(OutboxEventStatus.FAILED);
+        // Verify on the MOCK, not the real object
+        verify(mockSender, never()).withdraw(any());
+    }
+    
+    @Test
+    @DisplayName("Should log and rethrow critical error in batch logic")
+    void shouldLogAndRethrowCriticalErrorInBatch() {
+        // Arrange
+        when(outboxEventRepository.findAndLockUnprocessedEvents(any(), any(), any(), any(PageRequest.class)))
+                .thenReturn(Collections.singletonList(outboxEvent));
+        
+        // Force a critical error (e.g. DB timeout) during account fetch
+        when(accountRepository.findByIdForUpdate(any())).thenThrow(new QueryTimeoutException("DB Timeout"));
+
+        // Act & Assert
+        assertThrows(QueryTimeoutException.class, () -> 
+            ReflectionTestUtils.invokeMethod(scheduler, "processNextBatch")
+        );
+    }
+
     private OutboxEvent createOutboxEvent(UUID idempotencyKey, Long senderId, Long receiverId, String amount) throws JsonProcessingException {
         Map<String, Object> payloadMap = Map.of(
             "senderAccountId", senderId,
@@ -348,6 +523,8 @@ class TransferEventSchedulerTest {
             "idempotencyKey", idempotencyKey.toString()
         );
         String payload = objectMapper.writeValueAsString(payloadMap);
-        return spy(new OutboxEvent("Transfer", idempotencyKey.toString(), "TransferRequested", payload));
+        OutboxEvent event = new OutboxEvent("Transfer", idempotencyKey.toString(), "TransferRequested", payload);
+        ReflectionTestUtils.setField(event, "id", UUID.randomUUID());
+        return spy(event);
     }
 }

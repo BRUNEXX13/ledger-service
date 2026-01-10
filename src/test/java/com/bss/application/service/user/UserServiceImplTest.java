@@ -28,6 +28,7 @@ import java.time.LocalDateTime;
 import java.util.Collections;
 import java.util.Optional;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
@@ -232,6 +233,24 @@ class UserServiceImplTest {
         when(userRepository.findByIdForUpdate(99L)).thenReturn(Optional.empty());
 
         assertThrows(RuntimeException.class, () -> userService.patchUser(99L, patchRequest, 1L));
+    }
+
+    @Test
+    @DisplayName("validateAdminRole should throw RuntimeException when executor not found")
+    void validateAdminRole_shouldThrowExceptionWhenExecutorNotFound() {
+        // Arrange
+        UpdateUserRequest updateRequest = new UpdateUserRequest("John Doe", "john.doe@example.com", Role.ROLE_MANAGER);
+        Long executorId = 999L;
+        
+        when(userRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(user));
+        when(userRepository.findById(executorId)).thenReturn(Optional.empty());
+
+        // Act & Assert
+        RuntimeException exception = assertThrows(RuntimeException.class, () -> 
+            userService.updateUser(1L, updateRequest, executorId)
+        );
+        
+        assertEquals("Executor user not found with id: " + executorId, exception.getMessage());
     }
 
     // Tests for deleteUser

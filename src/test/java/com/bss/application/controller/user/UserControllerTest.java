@@ -20,6 +20,8 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.web.PagedResourcesAssembler;
+import org.springframework.hateoas.EntityModel;
+import org.springframework.hateoas.PagedModel;
 import org.springframework.http.MediaType;
 import org.springframework.test.context.ContextConfiguration;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
@@ -27,6 +29,7 @@ import org.springframework.test.web.servlet.MockMvc;
 
 import java.time.LocalDateTime;
 import java.util.Collections;
+import java.util.List;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
@@ -87,11 +90,22 @@ class UserControllerTest {
     @Test
     @DisplayName("GET /users - Should return 200 OK with a page of users")
     void shouldGetAllUsers() throws Exception {
-        Page<UserResponse> page = new PageImpl<>(Collections.emptyList());
+        UserResponse user = new UserResponse(1L, "John Doe", "12345678900", "john.doe@example.com", UserStatus.ACTIVE, Role.ROLE_EMPLOYEE, LocalDateTime.now(), LocalDateTime.now());
+        Page<UserResponse> page = new PageImpl<>(List.of(user));
+        
+        // Mock the assembler to return a simple PagedModel
+        PagedModel<EntityModel<UserResponse>> pagedModel = PagedModel.of(
+            List.of(EntityModel.of(user)), 
+            new PagedModel.PageMetadata(1, 0, 1)
+        );
+
         when(userService.findAllUsers(any(Pageable.class))).thenReturn(page);
+        when(pagedResourcesAssembler.toModel(any(Page.class))).thenReturn(pagedModel);
 
         mockMvc.perform(get("/users"))
-                .andExpect(status().isOk());
+                .andExpect(status().isOk())
+                // Corrected JSON path to match @Relation(collectionRelation = "users")
+                .andExpect(jsonPath("$._embedded.users[0].name").value("John Doe"));
     }
 
     @Test
