@@ -8,9 +8,7 @@ import org.junit.jupiter.api.Test;
 import java.math.BigDecimal;
 import java.util.UUID;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.*;
 
 class TransferMapperTest {
 
@@ -20,12 +18,12 @@ class TransferMapperTest {
     @DisplayName("Should map TransferRequest to Transfer domain object")
     void shouldMapRequestToDomain() {
         // Arrange
-        UUID idempotencyKey = UUID.randomUUID();
         TransferRequest request = new TransferRequest();
         request.setSenderAccountId(1L);
         request.setReceiverAccountId(2L);
-        request.setAmount(new BigDecimal("99.99"));
-        request.setIdempotencyKey(idempotencyKey);
+        request.setAmount(new BigDecimal("100.00"));
+        UUID key = UUID.randomUUID();
+        request.setIdempotencyKey(key);
 
         // Act
         Transfer transfer = mapper.toDomain(request);
@@ -34,13 +32,13 @@ class TransferMapperTest {
         assertNotNull(transfer);
         assertEquals(1L, transfer.getSenderAccountId());
         assertEquals(2L, transfer.getReceiverAccountId());
-        assertEquals(0, new BigDecimal("99.99").compareTo(transfer.getAmount()));
-        assertEquals(idempotencyKey, transfer.getIdempotencyKey());
+        assertEquals(new BigDecimal("100.00"), transfer.getAmount());
+        assertEquals(key, transfer.getIdempotencyKey());
     }
 
     @Test
-    @DisplayName("Should return null when mapping a null TransferRequest")
-    void shouldReturnNullForNullRequest() {
+    @DisplayName("Should return null when request is null")
+    void shouldReturnNullWhenRequestIsNull() {
         assertNull(mapper.toDomain(null));
     }
 }

@@ -20,7 +20,6 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.PlatformTransactionManager;
-import org.springframework.transaction.TransactionStatus;
 import org.springframework.transaction.support.TransactionTemplate;
 
 import java.math.BigDecimal;
@@ -41,10 +40,8 @@ public class TransferEventScheduler {
 
     private static final Logger log = LoggerFactory.getLogger(TransferEventScheduler.class);
     
-    // Ajustado
-    // para arquitetura segura: Lotes menores para reduzir contenção de lock
     private static final int BATCH_SIZE = 200; 
-    private static final int THREAD_COUNT = 8; // Mantemos o paralelismo para vazão
+    private static final int THREAD_COUNT = 8; 
     private static final int MAX_RETRIES = 5;
     private static final String IDEMPOTENCY_KEY = "idempotencyKey";
 
@@ -72,7 +69,6 @@ public class TransferEventScheduler {
         this.executorService = Executors.newFixedThreadPool(THREAD_COUNT);
     }
 
-    // Delay aumentado para 200ms para dar respiro ao banco
     @Scheduled(fixedDelay = 200)
     public void scheduleTransferProcessing() {
         for (int i = 0; i < THREAD_COUNT; i++) {
@@ -132,8 +128,6 @@ public class TransferEventScheduler {
         persistFinalState(accountsMap, transactionsToSave, processedEvents, failedEvents);
     }
 
-    // --- Métodos auxiliares ---
-
     private List<Transaction> saveTransactionsOrRetry(List<Transaction> transactions, List<OutboxEvent> events, List<OutboxEvent> failedEvents) {
         try {
             return transactionRepository.saveAll(transactions);
@@ -173,7 +167,12 @@ public class TransferEventScheduler {
         if (shouldSkipEvent(event)) return;
 
         UUID idempotencyKey = extractIdempotencyKey(event);
-        if (idempotencyKey == null) return;
+        if (idempotencyKey == null) {
+            // CORREÇÃO: Se a chave de idempotência não puder ser extraída, falha o evento.
+            log.error("Missing idempotency key for event {}. Marking as FAILED.", event.getId());
+            markEventAsFailed(event, failedEvents);
+            return;
+        }
 
         Transaction transaction = transactionMap.get(idempotencyKey);
         if (transaction == null) {

@@ -262,4 +262,39 @@ class OutboxEventSchedulerTest {
         // Should lock the 100 events
         verify(outboxEventRepository).saveAll(fullBatch);
     }
+
+    @Test
+    @DisplayName("Should fetch multiple types until batch is full")
+    void shouldFetchMultipleTypesUntilBatchIsFull() {
+        // Arrange
+        List<OutboxEvent> batch1 = Collections.nCopies(50, new OutboxEvent("Test", "1", "TransactionCompleted", "{}"));
+        List<OutboxEvent> batch2 = Collections.nCopies(50, new OutboxEvent("Test", "2", "TransactionFailed", "{}"));
+        
+        when(outboxEventRepository.findAndLockUnprocessedEvents(
+                eq(OutboxEventStatus.UNPROCESSED), eq("TransactionCompleted"), any(LocalDateTime.class), any(Pageable.class)))
+                .thenReturn(batch1);
+        
+        when(outboxEventRepository.findAndLockUnprocessedEvents(
+                eq(OutboxEventStatus.UNPROCESSED), eq("TransactionFailed"), any(LocalDateTime.class), any(Pageable.class)))
+                .thenReturn(batch2);
+
+        // Act
+        scheduler.processNotificationEvents();
+
+        // Assert
+        // Should fetch both types
+        verify(outboxEventRepository).findAndLockUnprocessedEvents(
+                eq(OutboxEventStatus.UNPROCESSED), eq("TransactionCompleted"), any(LocalDateTime.class), any(Pageable.class));
+        verify(outboxEventRepository).findAndLockUnprocessedEvents(
+                eq(OutboxEventStatus.UNPROCESSED), eq("TransactionFailed"), any(LocalDateTime.class), any(Pageable.class));
+        
+        // Should NOT fetch the third type (AccountCreated) because 50 + 50 = 100 (Full)
+        verify(outboxEventRepository, never()).findAndLockUnprocessedEvents(
+                eq(OutboxEventStatus.UNPROCESSED), eq("AccountCreated"), any(LocalDateTime.class), any(Pageable.class));
+        
+        // Should lock all 100 events
+        ArgumentCaptor<List<OutboxEvent>> captor = ArgumentCaptor.forClass(List.class);
+        verify(outboxEventRepository).saveAll(captor.capture());
+        assertEquals(100, captor.getValue().size());
+    }
 }

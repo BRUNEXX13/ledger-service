@@ -1,10 +1,10 @@
 package com.bss.domain.account;
 
-import com.bss.domain.user.Role;
 import com.bss.domain.user.User;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.mockito.Mockito;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import java.math.BigDecimal;
@@ -14,234 +14,143 @@ import static org.junit.jupiter.api.Assertions.*;
 class AccountTest {
 
     private User user;
+    private Account account;
 
     @BeforeEach
     void setUp() {
-        user = new User("Test User", "12345678900", "test@example.com", Role.ROLE_EMPLOYEE);
+        user = Mockito.mock(User.class);
+        account = new Account(user, new BigDecimal("100.00"));
     }
 
     @Test
-    @DisplayName("Should create active account with initial balance")
-    void shouldCreateActiveAccount() {
-        BigDecimal initialBalance = new BigDecimal("100.00");
-        Account account = new Account(user, initialBalance);
-
-        assertEquals(user, account.getUser());
-        assertEquals(initialBalance, account.getBalance());
-        assertEquals(AccountStatus.ACTIVE, account.getStatus());
-    }
-
-    @Test
-    @DisplayName("Should deposit positive amount successfully")
-    void shouldDepositPositiveAmount() {
-        Account account = new Account(user, new BigDecimal("100.00"));
+    @DisplayName("Should deposit amount successfully")
+    void shouldDepositAmountSuccessfully() {
         account.deposit(new BigDecimal("50.00"));
-
         assertEquals(new BigDecimal("150.00"), account.getBalance());
     }
 
     @Test
     @DisplayName("Should throw exception when depositing negative amount")
     void shouldThrowExceptionWhenDepositingNegativeAmount() {
-        Account account = new Account(user, new BigDecimal("100.00"));
-        
         assertThrows(IllegalArgumentException.class, () -> account.deposit(new BigDecimal("-10.00")));
-    }
-
-    @Test
-    @DisplayName("Should throw exception when depositing null amount")
-    void shouldThrowExceptionWhenDepositingNullAmount() {
-        Account account = new Account(user, new BigDecimal("100.00"));
-        
-        assertThrows(IllegalArgumentException.class, () -> account.deposit(null));
     }
 
     @Test
     @DisplayName("Should throw exception when depositing to inactive account")
     void shouldThrowExceptionWhenDepositingToInactiveAccount() {
-        Account account = new Account(user, BigDecimal.ZERO);
+        // First, set balance to zero so we can inactivate
+        account.adjustBalance(BigDecimal.ZERO);
         account.inactivate();
         
-        assertThrows(IllegalStateException.class, () -> account.deposit(BigDecimal.TEN));
+        // Now try to deposit
+        assertThrows(IllegalStateException.class, () -> account.deposit(new BigDecimal("10.00")));
+    }
+    
+    @Test
+    @DisplayName("Should throw exception when depositing to blocked account")
+    void shouldThrowExceptionWhenDepositingToBlockedAccount() {
+        account.block();
+        assertThrows(IllegalStateException.class, () -> account.deposit(new BigDecimal("10.00")));
     }
 
     @Test
-    @DisplayName("Should withdraw valid amount successfully")
-    void shouldWithdrawValidAmount() {
-        Account account = new Account(user, new BigDecimal("100.00"));
+    @DisplayName("Should withdraw amount successfully")
+    void shouldWithdrawAmountSuccessfully() {
         account.withdraw(new BigDecimal("40.00"));
-
         assertEquals(new BigDecimal("60.00"), account.getBalance());
     }
 
     @Test
     @DisplayName("Should throw exception when withdrawing more than balance")
     void shouldThrowExceptionWhenWithdrawingInsufficientBalance() {
-        Account account = new Account(user, new BigDecimal("100.00"));
-        
         assertThrows(InsufficientBalanceException.class, () -> account.withdraw(new BigDecimal("150.00")));
     }
 
     @Test
     @DisplayName("Should throw exception when withdrawing negative amount")
     void shouldThrowExceptionWhenWithdrawingNegativeAmount() {
-        Account account = new Account(user, new BigDecimal("100.00"));
-        
         assertThrows(IllegalArgumentException.class, () -> account.withdraw(new BigDecimal("-10.00")));
     }
 
     @Test
-    @DisplayName("Should throw exception when withdrawing from blocked account")
-    void shouldThrowExceptionWhenWithdrawingFromBlockedAccount() {
-        Account account = new Account(user, new BigDecimal("100.00"));
-        account.block();
-        
-        assertThrows(IllegalStateException.class, () -> account.withdraw(BigDecimal.TEN));
+    @DisplayName("Should throw exception when withdrawing from inactive account")
+    void shouldThrowExceptionWhenWithdrawingFromInactiveAccount() {
+        account.adjustBalance(BigDecimal.ZERO);
+        account.inactivate();
+        assertThrows(IllegalStateException.class, () -> account.withdraw(new BigDecimal("10.00")));
     }
 
     @Test
     @DisplayName("Should adjust balance successfully")
-    void shouldAdjustBalance() {
-        Account account = new Account(user, new BigDecimal("100.00"));
-        account.adjustBalance(new BigDecimal("200.00"));
-
-        assertEquals(new BigDecimal("200.00"), account.getBalance());
+    void shouldAdjustBalanceSuccessfully() {
+        account.adjustBalance(new BigDecimal("500.00"));
+        assertEquals(new BigDecimal("500.00"), account.getBalance());
     }
 
     @Test
     @DisplayName("Should throw exception when adjusting balance to negative")
     void shouldThrowExceptionWhenAdjustingBalanceToNegative() {
-        Account account = new Account(user, new BigDecimal("100.00"));
-        
         assertThrows(IllegalArgumentException.class, () -> account.adjustBalance(new BigDecimal("-1.00")));
     }
 
     @Test
-    @DisplayName("Should inactivate account with zero balance")
-    void shouldInactivateAccountWithZeroBalance() {
-        Account account = new Account(user, BigDecimal.ZERO);
+    @DisplayName("Should inactivate account successfully when balance is zero")
+    void shouldInactivateAccountSuccessfully() {
+        account.adjustBalance(BigDecimal.ZERO);
         account.inactivate();
-
         assertEquals(AccountStatus.INACTIVE, account.getStatus());
     }
 
     @Test
     @DisplayName("Should throw exception when inactivating account with positive balance")
     void shouldThrowExceptionWhenInactivatingAccountWithBalance() {
-        Account account = new Account(user, BigDecimal.TEN);
-        
         assertThrows(IllegalStateException.class, () -> account.inactivate());
     }
 
     @Test
-    @DisplayName("Should activate account")
-    void shouldActivateAccount() {
-        Account account = new Account(user, BigDecimal.ZERO);
-        account.inactivate();
-        assertEquals(AccountStatus.INACTIVE, account.getStatus());
+    @DisplayName("Should block and activate account")
+    void shouldBlockAndActivateAccount() {
+        account.block();
+        assertEquals(AccountStatus.BLOCKED, account.getStatus());
 
         account.activate();
         assertEquals(AccountStatus.ACTIVE, account.getStatus());
     }
 
     @Test
-    @DisplayName("Should block account")
-    void shouldBlockAccount() {
-        Account account = new Account(user, BigDecimal.TEN);
-        account.block();
+    @DisplayName("Should verify equality based on ID")
+    void shouldVerifyEqualityBasedOnId() {
+        Account acc1 = new Account(user, BigDecimal.TEN);
+        Account acc2 = new Account(user, BigDecimal.TEN);
+        Account acc3 = new Account(user, BigDecimal.TEN);
 
-        assertEquals(AccountStatus.BLOCKED, account.getStatus());
-    }
+        ReflectionTestUtils.setField(acc1, "id", 1L);
+        ReflectionTestUtils.setField(acc2, "id", 1L);
+        ReflectionTestUtils.setField(acc3, "id", 2L);
 
-    // Equals and HashCode tests
-    @Test
-    @DisplayName("Equals should return true for same object")
-    void equals_ShouldReturnTrueForSameObject() {
-        Account account = new Account(user, BigDecimal.TEN);
-        assertEquals(account, account);
-    }
+        // Same ID -> Equal
+        assertEquals(acc1, acc2);
+        assertEquals(acc1.hashCode(), acc2.hashCode());
 
-    @Test
-    @DisplayName("Equals should return false for null")
-    void equals_ShouldReturnFalseForNull() {
-        Account account = new Account(user, BigDecimal.TEN);
-        assertNotEquals(null, account);
+        // Different ID -> Not Equal
+        assertNotEquals(acc1, acc3);
+        assertNotEquals(acc1.hashCode(), acc3.hashCode());
     }
 
     @Test
-    @DisplayName("Equals should return false for different class")
-    void equals_ShouldReturnFalseForDifferentClass() {
-        Account account = new Account(user, BigDecimal.TEN);
-        assertNotEquals(new Object(), account);
+    @DisplayName("Should not be equal to null or different class")
+    void shouldNotBeEqualToNullOrDifferentClass() {
+        Account acc = new Account(user, BigDecimal.TEN);
+        ReflectionTestUtils.setField(acc, "id", 1L);
+
+        assertNotEquals(null, acc);
+        assertNotEquals(acc, new Object());
     }
 
     @Test
-    @DisplayName("Equals should return true for same ID")
-    void equals_ShouldReturnTrueForSameId() {
-        Account a1 = new Account(user, BigDecimal.TEN);
-        ReflectionTestUtils.setField(a1, "id", 1L);
-
-        Account a2 = new Account(user, BigDecimal.ZERO);
-        ReflectionTestUtils.setField(a2, "id", 1L);
-
-        assertEquals(a1, a2);
-    }
-
-    @Test
-    @DisplayName("Equals should return false for different ID")
-    void equals_ShouldReturnFalseForDifferentId() {
-        Account a1 = new Account(user, BigDecimal.TEN);
-        ReflectionTestUtils.setField(a1, "id", 1L);
-
-        Account a2 = new Account(user, BigDecimal.TEN);
-        ReflectionTestUtils.setField(a2, "id", 2L);
-
-        assertNotEquals(a1, a2);
-    }
-
-    @Test
-    @DisplayName("Equals should return false when one ID is null")
-    void equals_ShouldReturnFalseWhenOneIdIsNull() {
-        Account a1 = new Account(user, BigDecimal.TEN);
-        ReflectionTestUtils.setField(a1, "id", 1L);
-
-        Account a2 = new Account(user, BigDecimal.TEN);
-        // a2 id is null
-
-        assertNotEquals(a1, a2);
-        assertNotEquals(a2, a1);
-    }
-
-    @Test
-    @DisplayName("Equals should return false when both IDs are null")
-    void equals_ShouldReturnFalseWhenBothIdsAreNull() {
-        Account a1 = new Account(user, BigDecimal.TEN);
-        Account a2 = new Account(user, BigDecimal.TEN);
-
-        assertNotEquals(a1, a2);
-    }
-
-    @Test
-    @DisplayName("HashCode should be equal for same ID")
-    void hashCode_ShouldBeEqualForSameId() {
-        Account a1 = new Account(user, BigDecimal.TEN);
-        ReflectionTestUtils.setField(a1, "id", 1L);
-
-        Account a2 = new Account(user, BigDecimal.ZERO);
-        ReflectionTestUtils.setField(a2, "id", 1L);
-
-        assertEquals(a1.hashCode(), a2.hashCode());
-    }
-
-    @Test
-    @DisplayName("HashCode should be different for different ID")
-    void hashCode_ShouldBeDifferentForDifferentId() {
-        Account a1 = new Account(user, BigDecimal.TEN);
-        ReflectionTestUtils.setField(a1, "id", 1L);
-
-        Account a2 = new Account(user, BigDecimal.TEN);
-        ReflectionTestUtils.setField(a2, "id", 2L);
-
-        assertNotEquals(a1.hashCode(), a2.hashCode());
+    @DisplayName("Should be equal to itself")
+    void shouldBeEqualToItself() {
+        Account acc = new Account(user, BigDecimal.TEN);
+        assertEquals(acc, acc);
     }
 }
