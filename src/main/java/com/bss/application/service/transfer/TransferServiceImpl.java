@@ -1,6 +1,7 @@
 package com.bss.application.service.transfer;
 
 import com.bss.application.event.transactions.TransferRequestedEvent;
+import com.bss.application.exception.JsonSerializationException;
 import com.bss.domain.outbox.OutboxEvent;
 import com.bss.domain.outbox.OutboxEventRepository;
 import com.bss.domain.transaction.Transaction;
@@ -49,7 +50,7 @@ public class TransferServiceImpl implements TransferService {
             outboxEventRepository.save(outboxEvent);
             
         } catch (JsonProcessingException e) {
-            throw new RuntimeException("Error serializing transfer event", e);
+            throw new JsonSerializationException("Error serializing transfer event", e);
         }
 
         // Retorna null pois o processamento é assíncrono (202 Accepted)

@@ -106,12 +106,7 @@ public class TransferEventScheduler {
         });
         outboxEventRepository.saveAll(events);
 
-        try {
-            processBatchLogic(events);
-        } catch (Exception e) {
-            log.error("Critical error in batch logic.", e);
-            throw e; 
-        }
+        processBatchLogic(events);
     }
 
     private void processBatchLogic(List<OutboxEvent> events) {
@@ -380,6 +375,7 @@ public class TransferEventScheduler {
             }
         } catch (InterruptedException e) {
             executorService.shutdownNow();
+            Thread.currentThread().interrupt(); // Restore interrupted status
         }
     }
 }
