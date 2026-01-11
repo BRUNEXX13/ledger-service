@@ -1,6 +1,7 @@
 package com.bss.application.service.transfer;
 
 import com.bss.application.event.transactions.TransferRequestedEvent;
+import com.bss.application.exception.JsonSerializationException;
 import com.bss.domain.outbox.OutboxEvent;
 import com.bss.domain.outbox.OutboxEventRepository;
 import com.bss.domain.transfer.Transfer;
@@ -85,14 +86,14 @@ class TransferServiceImplTest {
     }
 
     @Test
-    @DisplayName("Should throw RuntimeException when JSON serialization fails")
-    void transfer_shouldThrowRuntimeException_whenSerializationFails() throws JsonProcessingException {
+    @DisplayName("Should throw JsonSerializationException when JSON serialization fails")
+    void transfer_shouldThrowJsonSerializationException_whenSerializationFails() throws JsonProcessingException {
         // Arrange
         when(objectMapper.writeValueAsString(any(TransferRequestedEvent.class)))
                 .thenThrow(new JsonProcessingException("Serialization error") {});
 
         // Act & Assert
-        RuntimeException exception = assertThrows(RuntimeException.class, () -> {
+        JsonSerializationException exception = assertThrows(JsonSerializationException.class, () -> {
             transferService.transfer(validTransfer);
         });
 
