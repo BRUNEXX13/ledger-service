@@ -120,8 +120,11 @@ class TransferEventSchedulerTest {
     void shouldExecuteFullProcessingFlow() {
         when(outboxEventRepository.findAndLockUnprocessedEvents(any(), any(), any(), any(PageRequest.class)))
                 .thenReturn(Collections.singletonList(outboxEvent));
-        when(accountRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(senderAccount));
-        when(accountRepository.findByIdForUpdate(2L)).thenReturn(Optional.of(receiverAccount));
+        
+        // Updated to use findByIdsForUpdate
+        when(accountRepository.findByIdsForUpdate(anyList()))
+                .thenReturn(Arrays.asList(senderAccount, receiverAccount));
+        
         when(transactionRepository.saveAll(anyList())).thenAnswer(inv -> inv.getArgument(0));
 
         scheduler.scheduleTransferProcessing();
@@ -150,8 +153,10 @@ class TransferEventSchedulerTest {
 
         when(outboxEventRepository.findAndLockUnprocessedEvents(any(), any(), any(), any(PageRequest.class)))
                 .thenReturn(Arrays.asList(event1, event2));
-        when(accountRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(senderAccount));
-        when(accountRepository.findByIdForUpdate(2L)).thenReturn(Optional.of(receiverAccount));
+        
+        // Updated to use findByIdsForUpdate
+        when(accountRepository.findByIdsForUpdate(anyList()))
+                .thenReturn(Arrays.asList(senderAccount, receiverAccount));
 
         doThrow(new DataIntegrityViolationException("Batch failed"))
             .doAnswer(inv -> inv.getArgument(0))
@@ -180,8 +185,10 @@ class TransferEventSchedulerTest {
     void shouldHandleMissingTransactionInExecutionPhase() {
         when(outboxEventRepository.findAndLockUnprocessedEvents(any(), any(), any(), any(PageRequest.class)))
                 .thenReturn(Collections.singletonList(outboxEvent));
-        when(accountRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(senderAccount));
-        when(accountRepository.findByIdForUpdate(2L)).thenReturn(Optional.of(receiverAccount));
+        
+        // Updated to use findByIdsForUpdate
+        when(accountRepository.findByIdsForUpdate(anyList()))
+                .thenReturn(Arrays.asList(senderAccount, receiverAccount));
         
         when(transactionRepository.saveAll(anyList())).thenReturn(Collections.emptyList());
 
@@ -207,8 +214,10 @@ class TransferEventSchedulerTest {
         
         when(outboxEventRepository.findAndLockUnprocessedEvents(any(), any(), any(), any(PageRequest.class)))
                 .thenReturn(Arrays.asList(event1, event2));
-        when(accountRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(senderAccount));
-        when(accountRepository.findByIdForUpdate(2L)).thenReturn(Optional.of(receiverAccount));
+        
+        // Updated to use findByIdsForUpdate
+        when(accountRepository.findByIdsForUpdate(anyList()))
+                .thenReturn(Arrays.asList(senderAccount, receiverAccount));
         
         // Simulate Batch Failure due to duplicate key
         doThrow(new DataIntegrityViolationException("Duplicate key in batch"))
@@ -276,7 +285,7 @@ class TransferEventSchedulerTest {
 
     @Test
     @DisplayName("Should handle missing idempotency key (Bug Fix Verification)")
-    void shouldHandleMissingIdempotencyKey() throws JsonProcessingException {
+    void shouldHandleMissingIdempotencyKey() {
         String payload = "{\"senderAccountId\": 1, \"receiverAccountId\": 2, \"amount\": \"100.00\"}";
         OutboxEvent invalidEvent = spy(new OutboxEvent("Transfer", "123", "TransferRequested", payload));
         
@@ -296,8 +305,10 @@ class TransferEventSchedulerTest {
         when(outboxEventRepository.findAndLockUnprocessedEvents(any(), any(), any(), any(PageRequest.class)))
                 .thenReturn(Collections.singletonList(outboxEvent));
         
-        when(accountRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(senderAccount));
-        when(accountRepository.findByIdForUpdate(2L)).thenReturn(Optional.of(receiverAccount));
+        // Updated to use findByIdsForUpdate
+        when(accountRepository.findByIdsForUpdate(anyList()))
+                .thenReturn(Arrays.asList(senderAccount, receiverAccount));
+        
         when(transactionRepository.saveAll(anyList())).thenAnswer(inv -> inv.getArgument(0));
 
         ReflectionTestUtils.invokeMethod(scheduler, "processNextBatch");
@@ -333,8 +344,10 @@ class TransferEventSchedulerTest {
         when(outboxEventRepository.findAndLockUnprocessedEvents(any(), any(), any(), any(PageRequest.class)))
                 .thenReturn(Collections.singletonList(outboxEvent));
         
-        when(accountRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(senderAccount));
-        when(accountRepository.findByIdForUpdate(2L)).thenReturn(Optional.of(receiverAccount));
+        // Updated to use findByIdsForUpdate
+        when(accountRepository.findByIdsForUpdate(anyList()))
+                .thenReturn(Arrays.asList(senderAccount, receiverAccount));
+        
         when(transactionRepository.saveAll(anyList())).thenAnswer(inv -> inv.getArgument(0));
 
         ReflectionTestUtils.invokeMethod(scheduler, "processNextBatch");
@@ -345,8 +358,6 @@ class TransferEventSchedulerTest {
         Transaction failedTx = captor.getAllValues().get(1).get(0);
         assertEquals(TransactionStatus.FAILED, failedTx.getStatus());
     }
-
-    // --- Tests moved from Coverage Test ---
 
     @Test
     @DisplayName("Should handle generic processing error (Runtime Exception)")
@@ -359,8 +370,9 @@ class TransferEventSchedulerTest {
         Account receiver = mock(Account.class);
         when(receiver.getId()).thenReturn(2L);
         
-        when(accountRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(sender));
-        when(accountRepository.findByIdForUpdate(2L)).thenReturn(Optional.of(receiver));
+        // Updated to use findByIdsForUpdate
+        when(accountRepository.findByIdsForUpdate(anyList()))
+                .thenReturn(Arrays.asList(sender, receiver));
         
         when(transactionRepository.saveAll(anyList())).thenAnswer(inv -> inv.getArgument(0));
         
@@ -383,8 +395,9 @@ class TransferEventSchedulerTest {
         Account receiver = mock(Account.class);
         when(receiver.getId()).thenReturn(2L);
         
-        when(accountRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(sender));
-        when(accountRepository.findByIdForUpdate(2L)).thenReturn(Optional.of(receiver));
+        // Updated to use findByIdsForUpdate
+        when(accountRepository.findByIdsForUpdate(anyList()))
+                .thenReturn(Arrays.asList(sender, receiver));
         
         when(transactionRepository.saveAll(anyList())).thenAnswer(inv -> inv.getArgument(0));
         
@@ -405,8 +418,11 @@ class TransferEventSchedulerTest {
         when(sender.getId()).thenReturn(1L);
         Account receiver = mock(Account.class);
         when(receiver.getId()).thenReturn(2L);
-        when(accountRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(sender));
-        when(accountRepository.findByIdForUpdate(2L)).thenReturn(Optional.of(receiver));
+        
+        // Updated to use findByIdsForUpdate
+        // Even if accounts are fetched, the processing logic should skip
+        when(accountRepository.findByIdsForUpdate(anyList()))
+                .thenReturn(Arrays.asList(sender, receiver));
 
         // Invoke processBatchLogic directly to bypass status reset in processNextBatch
         ReflectionTestUtils.invokeMethod(scheduler, "processBatchLogic", Collections.singletonList(outboxEvent));
@@ -417,12 +433,13 @@ class TransferEventSchedulerTest {
 
     @Test
     @DisplayName("Should handle missing account in createTransactionFromEvent")
-    void shouldHandleMissingAccountInCreateTransaction() throws JsonProcessingException {
+    void shouldHandleMissingAccountInCreateTransaction() {
         when(outboxEventRepository.findAndLockUnprocessedEvents(any(), any(), any(), any(PageRequest.class)))
                 .thenReturn(Collections.singletonList(outboxEvent));
         
-        when(accountRepository.findByIdForUpdate(1L)).thenReturn(Optional.empty());
-        when(accountRepository.findByIdForUpdate(2L)).thenReturn(Optional.empty());
+        // Return empty list to simulate missing accounts
+        when(accountRepository.findByIdsForUpdate(anyList()))
+                .thenReturn(Collections.emptyList());
 
         ReflectionTestUtils.invokeMethod(scheduler, "processNextBatch");
 
@@ -432,7 +449,7 @@ class TransferEventSchedulerTest {
 
     @Test
     @DisplayName("Should handle JsonProcessingException in extractIdempotencyKey")
-    void shouldHandleJsonProcessingExceptionInExtractIdempotencyKey() throws JsonProcessingException {
+    void shouldHandleJsonProcessingExceptionInExtractIdempotencyKey() {
         OutboxEvent malformedEvent = new OutboxEvent("Transfer", "1", "TransferRequested", "{invalid-json");
         ReflectionTestUtils.setField(malformedEvent, "id", UUID.randomUUID());
         
@@ -446,7 +463,7 @@ class TransferEventSchedulerTest {
 
     @Test
     @DisplayName("Should handle IllegalArgumentException in extractIdempotencyKey (Invalid UUID)")
-    void shouldHandleIllegalArgumentExceptionInExtractIdempotencyKey() throws JsonProcessingException {
+    void shouldHandleIllegalArgumentExceptionInExtractIdempotencyKey() {
         String payload = "{\"senderAccountId\": 1, \"receiverAccountId\": 2, \"amount\": 100, \"idempotencyKey\": \"not-a-uuid\"}";
         OutboxEvent invalidUuidEvent = new OutboxEvent("Transfer", "1", "TransferRequested", payload);
         ReflectionTestUtils.setField(invalidUuidEvent, "id", UUID.randomUUID());
@@ -459,8 +476,9 @@ class TransferEventSchedulerTest {
         Account receiver = mock(Account.class);
         when(receiver.getId()).thenReturn(2L);
         
-        when(accountRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(sender));
-        when(accountRepository.findByIdForUpdate(2L)).thenReturn(Optional.of(receiver));
+        // Updated to use findByIdsForUpdate
+        when(accountRepository.findByIdsForUpdate(anyList()))
+                .thenReturn(Arrays.asList(sender, receiver));
 
         ReflectionTestUtils.invokeMethod(scheduler, "processNextBatch");
 
@@ -485,8 +503,9 @@ class TransferEventSchedulerTest {
         when(outboxEventRepository.findAndLockUnprocessedEvents(any(), any(), any(), any(PageRequest.class)))
                 .thenReturn(Collections.singletonList(outboxEvent));
         
-        when(accountRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(mockSender));
-        when(accountRepository.findByIdForUpdate(2L)).thenReturn(Optional.of(mockReceiver));
+        // Updated to use findByIdsForUpdate
+        when(accountRepository.findByIdsForUpdate(anyList()))
+                .thenReturn(Arrays.asList(mockSender, mockReceiver));
         
         when(transactionRepository.saveAll(anyList())).thenAnswer(inv -> inv.getArgument(0));
 
@@ -507,7 +526,8 @@ class TransferEventSchedulerTest {
                 .thenReturn(Collections.singletonList(outboxEvent));
         
         // Force a critical error (e.g. DB timeout) during account fetch
-        when(accountRepository.findByIdForUpdate(any())).thenThrow(new QueryTimeoutException("DB Timeout"));
+        // Updated to use findByIdsForUpdate
+        when(accountRepository.findByIdsForUpdate(anyList())).thenThrow(new QueryTimeoutException("DB Timeout"));
 
         // Act & Assert
         assertThrows(QueryTimeoutException.class, () -> 

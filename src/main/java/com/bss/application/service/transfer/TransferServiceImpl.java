@@ -8,11 +8,16 @@ import com.bss.domain.transaction.Transaction;
 import com.bss.domain.transfer.Transfer;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 @Service
 public class TransferServiceImpl implements TransferService {
+
+    private static final Logger log = LoggerFactory.getLogger(TransferServiceImpl.class);
 
     private final OutboxEventRepository outboxEventRepository;
     private final ObjectMapper objectMapper;
@@ -51,6 +56,11 @@ public class TransferServiceImpl implements TransferService {
             
         } catch (JsonProcessingException e) {
             throw new JsonSerializationException("Error serializing transfer event", e);
+        } catch (DataIntegrityViolationException e) {
+            // Idempotência: Se o evento já existe, apenas logamos e retornamos sucesso.
+            // Isso evita processamento duplicado e erros 500 para o cliente em retries.
+            log.warn("Duplicate transfer request received. IdempotencyKey: {}", transfer.getIdempotencyKey());
+            return null;
         }
 
         // Retorna null pois o processamento é assíncrono (202 Accepted)

@@ -18,6 +18,11 @@ public interface AccountRepository extends JpaRepository<Account, Long> {
     @Query("SELECT a FROM Account a WHERE a.id = :id")
     Optional<Account> findByIdForUpdate(@Param("id") Long id);
 
+    // OTIMIZAÇÃO: Lock em batch ordenado para evitar Deadlocks e N+1 queries
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("SELECT a FROM Account a WHERE a.id IN :ids ORDER BY a.id")
+    List<Account> findByIdsForUpdate(@Param("ids") List<Long> ids);
+
     Optional<Account> findByUser_Id(Long userId);
 
     @Query("SELECT a FROM Account a WHERE a.id IN :ids")

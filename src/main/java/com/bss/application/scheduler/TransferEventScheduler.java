@@ -246,11 +246,17 @@ public class TransferEventScheduler {
     }
 
     private Map<Long, Account> fetchAndLockAccounts(List<Long> accountIds) {
+        // Ordenação é crucial para evitar Deadlocks
         List<Long> sortedIds = accountIds.stream().distinct().sorted().toList();
 
-        return sortedIds.stream()
-                .map(id -> accountRepository.findByIdForUpdate(id).orElse(null))
-                .filter(java.util.Objects::nonNull)
+        if (sortedIds.isEmpty()) {
+            return Map.of();
+        }
+
+        // OTIMIZAÇÃO: Busca em batch com lock
+        List<Account> lockedAccounts = accountRepository.findByIdsForUpdate(sortedIds);
+        
+        return lockedAccounts.stream()
                 .collect(Collectors.toMap(Account::getId, Function.identity()));
     }
 
